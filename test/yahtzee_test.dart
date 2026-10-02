@@ -68,4 +68,65 @@ void main() {
     expect(g.canRoll, isFalse);
     expect(g.winners(), isNotEmpty);
   });
+
+  aiTests();
+}
+
+void aiTests() {
+  test('AI keeps a Kniffel and scores it', () {
+    final ai = KniffelAi(random: Random(1));
+    final sheet = KniffelScoreSheet();
+    expect(ai.chooseHolds([6, 6, 6, 6, 6], sheet, 2), everyElement(isTrue));
+    expect(ai.bestCategory([6, 6, 6, 6, 6], sheet).$1, KniffelCategory.kniffel);
+  });
+
+  test('AI picks sensible categories', () {
+    final ai = KniffelAi(random: Random(2));
+    final sheet = KniffelScoreSheet();
+    expect(
+      ai.bestCategory([1, 2, 3, 4, 5], sheet).$1,
+      KniffelCategory.largeStraight,
+    );
+    expect(
+      ai.bestCategory([3, 3, 5, 5, 5], sheet).$1,
+      KniffelCategory.fullHouse,
+    );
+    expect(
+      ai.bestCategory([6, 6, 6, 6, 2], sheet).$1,
+      anyOf(KniffelCategory.sixes, KniffelCategory.fourOfAKind),
+    );
+    // Holding: keeps the pairs/triples, not the odd die.
+    final holds = ai.chooseHolds([5, 5, 5, 1, 2], sheet, 2);
+    expect(holds.sublist(0, 3), everyElement(isTrue));
+  });
+
+  test('AI plays full games and scores reasonably', () {
+    final rnd = Random(3);
+    var total = 0;
+    const games = 5;
+    for (var g = 0; g < games; g++) {
+      final ai = KniffelAi(random: rnd, samples: 30);
+      final game = KniffelGame(1, random: rnd);
+      while (!game.isOver) {
+        game.roll();
+        while (game.canRoll) {
+          final holds = ai.chooseHolds(
+            game.dice,
+            game.sheets[0],
+            game.rollsLeft,
+          );
+          if (holds.every((h) => h)) break;
+          game.held = holds;
+          game.roll();
+        }
+        expect(
+          game.score(ai.bestCategory(game.dice, game.sheets[0]).$1),
+          isTrue,
+        );
+      }
+      total += game.sheets[0].total;
+    }
+    // Random play averages ~100, a decent strategy well above 170.
+    expect(total / games, greaterThan(170));
+  });
 }

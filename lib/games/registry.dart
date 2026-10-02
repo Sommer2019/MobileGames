@@ -139,6 +139,7 @@ final List<GameInfo> games = [
     color: const Color(0xFF2E7D32),
     offlineModes: const [
       OfflineMode('Allein spielen', Icons.person, PlaySetup.local(players: 1)),
+      OfflineMode('Gegen Computer', Icons.smart_toy, PlaySetup.ai()),
       OfflineMode(
         '2 Spieler, 1 Gerät',
         Icons.people,

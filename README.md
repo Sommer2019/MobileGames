@@ -9,7 +9,7 @@ Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit zwölf Spielen:
 | ⭕ Mühle (+ Computer) | 2 | 🐍 Snake • 🃏 Solitär (Klondike) |
 | 🚢 Schiffe versenken (+ Computer, Pass & Play) | 2 | 🎯 Darts allein (501/301/Rund um die Uhr) |
 | 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (8 zum Schluss / Reihenfolge 1–15) |
-| 🎲 Kniffel (Handy schütteln zum Würfeln) | 1–4 | |
+| 🎲 Kniffel (+ Computer, Handy schütteln zum Würfeln) | 1–4 | |
 | 🎯 Darts | 2–4 | |
 | 🎱 Billard 8-Ball | 2 | |
 

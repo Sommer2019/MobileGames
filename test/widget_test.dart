@@ -111,6 +111,28 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('kniffel against the computer', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const YahtzeeScreen(setup: PlaySetup.ai())));
+    expect(find.textContaining('Du bist dran'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('rollButton')));
+    await tester.pump();
+    final cell = find.byKey(const ValueKey('score-0-chance'));
+    await tester.ensureVisible(cell);
+    await tester.tap(cell);
+    await tester.pump();
+    expect(find.textContaining('Computer ist dran'), findsOneWidget);
+    // Let the computer finish its turn.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+    expect(find.textContaining('Du bist dran – noch 3 Würfe'), findsOneWidget);
+    // The computer has written exactly one entry.
+    expect(find.text('Computer'), findsOneWidget);
+  });
+
   testWidgets('kniffel solo: roll and score', (tester) async {
     await tester.pumpWidget(
       app(const YahtzeeScreen(setup: PlaySetup.local(players: 1))),

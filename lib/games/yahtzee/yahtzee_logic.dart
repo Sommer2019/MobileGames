@@ -148,3 +148,94 @@ class KniffelGame {
     ];
   }
 }
+
+/// Computer player for Kniffel.
+///
+/// Holding: for each of the 32 ways to keep dice it simulates rerolls and
+/// picks the one with the best expected value. Scoring: picks the category
+/// that beats its typical value the most (with a nudge towards the upper
+/// bonus).
+class KniffelAi {
+  KniffelAi({Random? random, this.samples = 80}) : _random = random ?? Random();
+
+  final Random _random;
+  final int samples;
+
+  /// Typical points per category; scoring "above par" is good.
+  static const _par = {
+    KniffelCategory.ones: 2.0,
+    KniffelCategory.twos: 5.0,
+    KniffelCategory.threes: 8.0,
+    KniffelCategory.fours: 11.0,
+    KniffelCategory.fives: 14.0,
+    KniffelCategory.sixes: 17.0,
+    KniffelCategory.threeOfAKind: 15.0,
+    KniffelCategory.fourOfAKind: 6.0,
+    KniffelCategory.fullHouse: 9.0,
+    KniffelCategory.smallStraight: 14.0,
+    KniffelCategory.largeStraight: 10.0,
+    KniffelCategory.kniffel: 7.0,
+    KniffelCategory.chance: 22.0,
+  };
+
+  double _value(KniffelCategory c, List<int> dice, KniffelScoreSheet sheet) {
+    final raw = scoreFor(c, dice).toDouble();
+    var v = raw - _par[c]!;
+    if (c.isUpper) {
+      final face = c.index + 1;
+      // Three or more of a kind keeps the bonus (63 = 3 of each) in reach.
+      if (raw >= face * 3) v += 4;
+      if (sheet.bonus == 0 && sheet.upperSum + raw >= 63) v += 20;
+    }
+    return v;
+  }
+
+  /// Best open category for [dice] and its value.
+  (KniffelCategory, double) bestCategory(
+    List<int> dice,
+    KniffelScoreSheet sheet,
+  ) {
+    KniffelCategory? best;
+    var bestV = -double.infinity;
+    for (final c in KniffelCategory.values) {
+      if (sheet.isFilled(c)) continue;
+      final v = _value(c, dice, sheet);
+      if (v > bestV) {
+        bestV = v;
+        best = c;
+      }
+    }
+    return (best!, bestV);
+  }
+
+  /// Which dice to keep (true = hold) before the next roll.
+  List<bool> chooseHolds(
+    List<int> dice,
+    KniffelScoreSheet sheet,
+    int rollsLeft,
+  ) {
+    var bestMask = 0;
+    var bestScore = -double.infinity;
+    for (var mask = 0; mask < 32; mask++) {
+      var total = 0.0;
+      final n = mask == 31 ? 1 : samples;
+      for (var s = 0; s < n; s++) {
+        var d = _reroll(dice, mask);
+        // With two rolls left, assume we keep the same dice once more.
+        if (rollsLeft > 1) d = _reroll(d, mask);
+        total += bestCategory(d, sheet).$2;
+      }
+      final avg = total / n;
+      if (avg > bestScore) {
+        bestScore = avg;
+        bestMask = mask;
+      }
+    }
+    return [for (var i = 0; i < 5; i++) (bestMask >> i) & 1 == 1];
+  }
+
+  List<int> _reroll(List<int> dice, int mask) => [
+    for (var i = 0; i < 5; i++)
+      (mask >> i) & 1 == 1 ? dice[i] : _random.nextInt(6) + 1,
+  ];
+}

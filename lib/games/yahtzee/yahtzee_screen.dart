@@ -23,8 +23,15 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
 
   int get players => widget.setup.players;
 
-  /// Online: index of this device's player. The starting player alternates.
-  int get me => (widget.setup.mySeat - round % players + players) % players;
+  bool get vsAi => widget.setup.kind == PlayKind.ai;
+  final KniffelAi _ai = KniffelAi();
+  bool _aiRunning = false;
+
+  /// Index of this device's player (online, or against the computer).
+  /// The starting player alternates every round.
+  int get me => vsAi
+      ? round % 2
+      : (widget.setup.mySeat - round % players + players) % players;
 
   @override
   void initState() {
@@ -37,6 +44,39 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
         _roll();
       }
     });
+    _maybeAi();
+  }
+
+  /// Plays the computer's turn step by step so it can be followed.
+  Future<void> _maybeAi() async {
+    if (!vsAi || _aiRunning || game.isOver || game.currentPlayer == me) return;
+    _aiRunning = true;
+    Future<void> pause(int ms) =>
+        Future<void>.delayed(Duration(milliseconds: ms));
+    await pause(600);
+    while (mounted && !game.isOver && game.currentPlayer != me) {
+      final heldBefore = List<bool>.from(game.held);
+      final first = !game.hasRolled;
+      setState(() {
+        game.roll();
+        _spin(heldBefore, first);
+      });
+      await pause(900);
+      if (!mounted) break;
+      final sheet = game.sheets[game.currentPlayer];
+      if (game.canRoll) {
+        final holds = _ai.chooseHolds(game.dice, sheet, game.rollsLeft);
+        if (!holds.every((h) => h)) {
+          setState(() => game.held = holds);
+          await pause(700);
+          continue;
+        }
+      }
+      final (cat, _) = _ai.bestCategory(game.dice, sheet);
+      setState(() => game.score(cat));
+      await pause(500);
+    }
+    _aiRunning = false;
   }
 
   StreamSubscription<Object?>? _shake;
@@ -57,13 +97,15 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     super.dispose();
   }
 
-  bool get myTurn => !widget.setup.online || game.currentPlayer == me;
+  bool get myTurn =>
+      (!widget.setup.online && !vsAi) || game.currentPlayer == me;
 
   String playerName(int i) {
     final room = widget.setup.room;
     if (room != null) {
       return i == me ? 'Du' : room.names[(i + round) % players];
     }
+    if (vsAi) return i == me ? 'Du' : 'Computer';
     if (players == 1) return 'Du';
     return 'Spieler ${i + 1}';
   }
@@ -109,14 +151,17 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     if (!myTurn || !game.canScore(c)) return;
     setState(() => game.score(c));
     widget.setup.send({'t': 'score', 'cat': c.name});
+    _maybeAi();
   }
 
   void _rematch() {
+    if (_aiRunning) return;
     setState(() {
       round++;
       game = KniffelGame(players);
     });
     widget.setup.send({'t': 'rematch'});
+    _maybeAi();
   }
 
   String _status() {
