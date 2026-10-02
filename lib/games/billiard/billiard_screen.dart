@@ -33,6 +33,9 @@ class _BilliardScreenState extends State<BilliardScreen>
   int? _targetBefore;
 
   int get score => game.score + rules.penalties;
+
+  /// A game is running: shots were played and it isn't decided yet.
+  bool get _inGame => game.shots > 0 && !game.won && !rules.lost;
   String get _bestKey => 'billiard.best.${mode.name}';
 
   @override
@@ -209,25 +212,29 @@ class _BilliardScreenState extends State<BilliardScreen>
                         ),
                       ],
                     ),
+                    // During a game only the mode being played is shown.
                     for (final m in SoloMode.values)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: ChoiceChip(
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          label: Text(
-                            m.label,
-                            style: const TextStyle(fontSize: 12),
+                      if (!_inGame || m == mode)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: ChoiceChip(
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            label: Text(
+                              m.label,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            selected: mode == m,
+                            onSelected: _inGame
+                                ? null
+                                : (_) {
+                                    mode = m;
+                                    _restart();
+                                    _loadBest();
+                                  },
                           ),
-                          selected: mode == m,
-                          onSelected: (_) {
-                            mode = m;
-                            _restart();
-                            _loadBest();
-                          },
                         ),
-                      ),
                     const SizedBox(height: 4),
                     _stat('Stöße', '${game.shots}'),
                     _stat('Fouls', '${game.fouls + rules.penalties}'),
