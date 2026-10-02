@@ -138,6 +138,42 @@ void main() {
     await tester.pump(const Duration(seconds: 30));
   });
 
+  testWidgets('battleship: place the fleet by hand', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const BattleshipScreen(setup: PlaySetup.ai())));
+    await tester.tap(find.text('Leeren'));
+    await tester.pump();
+    bool readyEnabled() =>
+        tester
+            .widget<ButtonStyleButton>(find.byKey(const ValueKey('fleetReady')))
+            .onPressed !=
+        null;
+    expect(readyEnabled(), isFalse);
+    // Rows 0, 2, 4, 6, 8: 5, 4, 3, 3, 2 horizontally from x = 0.
+    for (final y in [0, 2, 4, 6, 8]) {
+      await tester.tap(find.byKey(ValueKey('place0-$y')));
+      await tester.pump();
+    }
+    expect(find.text('Flotte vollständig'), findsOneWidget);
+    expect(readyEnabled(), isTrue);
+    // Picking a ship up again makes the fleet incomplete.
+    await tester.tap(find.byKey(const ValueKey('place0-8')));
+    await tester.pump();
+    expect(readyEnabled(), isFalse);
+    // Place it vertically instead.
+    await tester.tap(find.byKey(const ValueKey('rotateShip')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('place9-0')));
+    await tester.pump();
+    expect(readyEnabled(), isTrue);
+    await tester.tap(find.byKey(const ValueKey('fleetReady')));
+    await tester.pump();
+    expect(find.text('Dein Schuss!'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 30));
+  });
+
   testWidgets('battleship pass and play hides boards between turns', (
     tester,
   ) async {

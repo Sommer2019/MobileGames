@@ -35,15 +35,42 @@ class Notifications {
           if (p != null) onTap?.call(p);
         },
       );
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.requestNotificationsPermission();
       _ready = true;
+      await requestPermission();
     } catch (e) {
       debugPrint('Notifications unavailable: $e');
     }
+  }
+
+  /// Asks for permission (Android 13+, iOS). Returns whether notifications
+  /// can be shown.
+  Future<bool> requestPermission() async {
+    if (!_ready) return false;
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android != null) {
+        await android.requestNotificationsPermission();
+        return await android.areNotificationsEnabled() ?? false;
+      }
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (ios != null) {
+        return await ios.requestPermissions(
+              alert: true,
+              badge: true,
+              sound: true,
+            ) ??
+            false;
+      }
+    } catch (e) {
+      debugPrint('Permission request failed: $e');
+    }
+    return false;
   }
 
   Future<void> show(String title, String body, {String? payload}) async {

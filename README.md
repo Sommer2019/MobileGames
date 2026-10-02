@@ -49,7 +49,10 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
 * **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-04). Diese
   speichern die Relays, damit sie auch ankommen, wenn der Freund gerade offline ist.
 * **Benachrichtigungen:** Läuft die App im Hintergrund, kommen Einladungen und Nachrichten als
-  System-Benachrichtigung. Ist die App ganz geschlossen, geht das ohne eigenen Push-Server nicht.
+  System-Benachrichtigung. Auf Android hält ein kleiner Vordergrund-Dienst die Verbindung offen
+  (abschaltbar unter *Konto & Freunde → Benachrichtigungen*, dort auch ein Test-Knopf).
+  Ist die App ganz geschlossen – oder auf iOS länger im Hintergrund – geht das ohne eigenen
+  Push-Server nicht; Nachrichten werden dann beim nächsten Öffnen nachgeladen.
 * **Spielen:** Danach verbinden sich die Geräte direkt per **WebRTC (Peer-to-Peer)**.
   Wenn beide Netze keine Direktverbindung zulassen (strenges NAT, kein TURN-Server),
   laufen die Spielzüge automatisch verschlüsselt über die Relays weiter. Das Symbol oben

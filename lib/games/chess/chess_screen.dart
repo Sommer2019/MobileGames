@@ -1,12 +1,24 @@
 import 'dart:async';
 
+import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'chess_logic.dart';
 
-const _glyphs = {'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟'};
+/// Vector chess piece for a letter (uppercase = white).
+Widget chessPiece(String letter, double size) {
+  final white = letter == letter.toUpperCase();
+  return switch (letter.toUpperCase()) {
+    'K' => white ? WhiteKing(size: size) : BlackKing(size: size),
+    'Q' => white ? WhiteQueen(size: size) : BlackQueen(size: size),
+    'R' => white ? WhiteRook(size: size) : BlackRook(size: size),
+    'B' => white ? WhiteBishop(size: size) : BlackBishop(size: size),
+    'N' => white ? WhiteKnight(size: size) : BlackKnight(size: size),
+    _ => white ? WhitePawn(size: size) : BlackPawn(size: size),
+  };
+}
 
 class ChessScreen extends StatefulWidget {
   const ChessScreen({super.key, required this.setup});
@@ -121,9 +133,15 @@ class _ChessScreenState extends State<ChessScreen> {
         ])
           SimpleDialogOption(
             onPressed: () => Navigator.pop(c, p),
-            child: Text(
-              '${_glyphs[p.toUpperCase()]}  $name',
-              style: const TextStyle(fontSize: 20),
+            child: Row(
+              children: [
+                chessPiece(
+                  game.turn == ChessSide.black ? p : p.toUpperCase(),
+                  40,
+                ),
+                const SizedBox(width: 12),
+                Text(name, style: const TextStyle(fontSize: 20)),
+              ],
             ),
           ),
       ],
@@ -254,6 +272,7 @@ class _ChessScreenState extends State<ChessScreen> {
         for (var row = 0; row < 8; row++)
           Expanded(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var col = 0; col < 8; col++)
                   Expanded(child: _square(row, col, last)),
@@ -294,25 +313,7 @@ class _ChessScreenState extends State<ChessScreen> {
           builder: (context, c) => Stack(
             alignment: Alignment.center,
             children: [
-              if (piece != null)
-                Text(
-                  _glyphs[piece.toUpperCase()]!,
-                  style: TextStyle(
-                    fontSize: c.maxHeight * 0.78,
-                    height: 1.0,
-                    color: piece == piece.toUpperCase()
-                        ? Colors.white
-                        : Colors.black,
-                    shadows: [
-                      Shadow(
-                        color: piece == piece.toUpperCase()
-                            ? Colors.black
-                            : Colors.white54,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
+              if (piece != null) chessPiece(piece, c.maxHeight * 0.92),
               if (isTarget)
                 Container(
                   width: c.maxWidth * (piece == null ? 0.3 : 0.9),

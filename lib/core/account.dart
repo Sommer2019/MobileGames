@@ -138,6 +138,9 @@ class Presence extends ChangeNotifier {
     _resubscribe();
   }
 
+  /// Publishes our online status now.
+  void announce() => _announce();
+
   void _announce() {
     client.publish(
       NostrEvent.create(

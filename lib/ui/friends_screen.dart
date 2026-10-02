@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/services.dart';
 import 'chat_view.dart';
+import 'notification_settings.dart';
 
 /// Account (name, friend code) and friend list. In [pickMode] tapping a
 /// friend returns their public key.
@@ -257,6 +258,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   ),
                 ),
+              if (!widget.pickMode) const NotificationSettingsCard(),
               if (services.friendRequests.pending.isNotEmpty &&
                   !widget.pickMode) ...[
                 const SizedBox(height: 8),

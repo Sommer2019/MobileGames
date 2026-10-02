@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core/background.dart';
 import 'core/chat.dart';
 import 'core/net/matchmaker.dart';
+import 'core/nostr/relay_pool.dart';
 import 'core/notifications.dart';
 import 'core/services.dart';
 import 'games/registry.dart';
@@ -31,11 +33,31 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   StreamSubscription<IncomingChat>? _chats;
   StreamSubscription<String>? _requests;
   StreamSubscription<String>? _accepts;
+  AppLifecycleListener? _lifecycle;
+  DateTime? _pausedAt;
 
   @override
   void initState() {
     super.initState();
     if (Services.isReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Notifications.I.init();
+        await BackgroundService.I.init();
+      });
+      _lifecycle = AppLifecycleListener(
+        onHide: () => _pausedAt = DateTime.now(),
+        onResume: () {
+          final away = _pausedAt == null
+              ? Duration.zero
+              : DateTime.now().difference(_pausedAt!);
+          final client = Services.I.client;
+          if (client is RelayPool) {
+            // After a longer break sockets are often silently dead.
+            client.reconnectNow(force: away > const Duration(minutes: 1));
+          }
+          Services.I.presence.announce();
+        },
+      );
       _invites = Services.I.matchmaker.invites.listen(_onInvite);
       _chats = Services.I.chat.incoming.listen(_onChat);
       _requests = Services.I.friendRequests.incoming.listen(_onFriendRequest);
@@ -57,6 +79,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     _chats?.cancel();
     _requests?.cancel();
     _accepts?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
   }
 

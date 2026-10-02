@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
+import 'fleet_editor.dart';
 
 /// Two players on one device ("pass and play"). Between turns a cover
 /// screen hides the boards until the next player is ready.
@@ -89,25 +90,19 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
   Widget _placingView() => Column(
     children: [
       TurnBanner(text: '${_name(current)}: Flotte aufstellen', highlight: true),
-      Expanded(child: _grid((x, y) => _ownCell(fleets[current], x, y))),
+      Expanded(
+        child: FleetEditor(
+          key: ValueKey('editor$current'),
+          fleet: fleets[current],
+          onChanged: (f) => setState(() => fleets[current] = f),
+        ),
+      ),
       Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          alignment: WrapAlignment.center,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () =>
-                  setState(() => fleets[current] = FleetBoard.random()),
-              icon: const Icon(Icons.shuffle),
-              label: const Text('Neu mischen'),
-            ),
-            FilledButton.icon(
-              onPressed: _donePlacing,
-              icon: const Icon(Icons.check),
-              label: const Text('Fertig'),
-            ),
-          ],
+        padding: const EdgeInsets.all(12),
+        child: FilledButton.icon(
+          onPressed: fleetComplete(fleets[current]) ? _donePlacing : null,
+          icon: const Icon(Icons.check),
+          label: const Text('Fertig'),
         ),
       ),
     ],
@@ -203,12 +198,18 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
 
   Widget _targetCell(TargetBoard t, int x, int y) {
     final s = t.cells[y][x];
+    // After the game: show where the opponent's ships were.
+    final hidden =
+        winner != null &&
+        s == TargetCell.unknown &&
+        fleets[1 - current].shipAt(x, y) != null;
     return GestureDetector(
       key: ValueKey('lbs$x-$y'),
       onTap: () => _shoot(x, y),
       child: Container(
         margin: const EdgeInsets.all(0.5),
         color: switch (s) {
+          TargetCell.unknown when hidden => const Color(0xFF78909C),
           TargetCell.unknown => const Color(0xFF1976D2),
           TargetCell.miss => const Color(0xFF1565C0),
           TargetCell.hit => const Color(0xFFFF7043),

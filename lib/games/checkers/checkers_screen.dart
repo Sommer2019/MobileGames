@@ -199,6 +199,7 @@ class _CheckersScreenState extends State<CheckersScreen> {
                       for (var row = 0; row < 8; row++)
                         Expanded(
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (var col = 0; col < 8; col++)
                                 Expanded(

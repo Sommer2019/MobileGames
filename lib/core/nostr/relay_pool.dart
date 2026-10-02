@@ -85,6 +85,13 @@ class RelayPool implements NostrClient {
     }
   }
 
+  /// Re-establishes lost connections right away.
+  void reconnectNow({bool force = false}) {
+    for (final r in _relays) {
+      r.poke(force: force);
+    }
+  }
+
   void dispose() {
     for (final r in _relays) {
       r.dispose();
@@ -112,18 +119,44 @@ class _Relay {
   final List<String> _queue = [];
   void Function(String subId, Map<String, dynamic> event)? onEvent;
 
+  Timer? _retry;
+  bool _connecting = false;
+
+  /// Reconnects immediately if the connection is down (e.g. after the app
+  /// returns from the background).
+  void poke({bool force = false}) {
+    if (_connecting || _disposed) return;
+    if (isOpen && !force) return;
+    if (isOpen) {
+      // The socket may be silently dead after a long background phase.
+      final old = _channel;
+      _channel = null;
+      isOpen = false;
+      old?.sink.close();
+    }
+    _retry?.cancel();
+    _attempt = 0;
+    connect();
+  }
+
   Future<void> connect() async {
-    if (_disposed) return;
+    if (_disposed || _connecting) return;
+    _connecting = true;
     try {
       final ch = WebSocketChannel.connect(Uri.parse(url));
       _channel = ch;
       await ch.ready.timeout(const Duration(seconds: 10));
       isOpen = true;
       _attempt = 0;
+      // Only the current channel may trigger a reconnect.
       ch.stream.listen(
         _onMessage,
-        onDone: _onClosed,
-        onError: (_) => _onClosed(),
+        onDone: () {
+          if (_channel == ch) _onClosed();
+        },
+        onError: (_) {
+          if (_channel == ch) _onClosed();
+        },
       );
       for (final e in _subscriptions.entries) {
         _raw(jsonEncode(['REQ', e.key, e.value]));
@@ -133,6 +166,8 @@ class _Relay {
       pending.forEach(_raw);
     } catch (_) {
       _onClosed();
+    } finally {
+      _connecting = false;
     }
   }
 
@@ -142,7 +177,8 @@ class _Relay {
     if (_disposed) return;
     _attempt++;
     final delay = Duration(seconds: min(60, 2 << min(_attempt, 5)));
-    Timer(delay, connect);
+    _retry?.cancel();
+    _retry = Timer(delay, connect);
   }
 
   void _onMessage(dynamic data) {

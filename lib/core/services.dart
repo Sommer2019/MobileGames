@@ -3,7 +3,6 @@ import 'dart:async';
 import 'account.dart';
 import 'chat.dart';
 import 'friend_requests.dart';
-import 'notifications.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
 import 'net/messenger.dart';
@@ -37,7 +36,6 @@ class Services {
     _instance = s;
     await s.friendRequests.start();
     await s.chat.start();
-    unawaited(Notifications.I.init());
     return s;
   }
 

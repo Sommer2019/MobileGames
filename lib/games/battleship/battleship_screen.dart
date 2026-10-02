@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
+import 'fleet_editor.dart';
 
 enum _Phase { placing, waitingForOpponent, playing, over }
 
@@ -57,6 +58,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
     opponentReady = false;
     iWon = null;
     lastEvent = null;
+    revealed = {};
     if (widget.setup.kind == PlayKind.ai) {
       aiFleet = FleetBoard.random();
       ai = BattleshipAi();
@@ -91,8 +93,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
         setState(() {
           lastEvent = _describe(o, mine: false);
           if (o.fleetDestroyed) {
-            phase = _Phase.over;
-            iWon = false;
+            _gameOver(false);
           } else if (o.result == ShotResult.miss) {
             myTurn = true;
           }
@@ -104,11 +105,18 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
           awaitingResult = false;
           lastEvent = _describe(o, mine: true);
           if (o.fleetDestroyed) {
-            phase = _Phase.over;
-            iWon = true;
+            _gameOver(true);
           } else if (o.result == ShotResult.miss) {
             myTurn = false;
           }
+        });
+      case 'reveal':
+        setState(() {
+          revealed = {
+            for (final ship in m['ships'] as List)
+              for (final c in ship as List)
+                ((c as List)[0] as int, c[1] as int),
+          };
         });
       case 'rematch':
         setState(() {
@@ -116,6 +124,26 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
           _newRound();
         });
     }
+  }
+
+  /// Cells of the opponent's ships, shown when the game is over.
+  Set<(int, int)> revealed = {};
+
+  void _gameOver(bool won) {
+    phase = _Phase.over;
+    iWon = won;
+    if (widget.setup.kind == PlayKind.ai) {
+      revealed = {for (final sh in aiFleet!.ships) ...sh.cells};
+    }
+    widget.setup.send({
+      't': 'reveal',
+      'ships': [
+        for (final sh in fleet.ships)
+          [
+            for (final (x, y) in sh.cells) [x, y],
+          ],
+      ],
+    });
   }
 
   String _describe(ShotOutcome o, {required bool mine}) {
@@ -143,8 +171,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
         enemy.apply(x, y, o);
         lastEvent = _describe(o, mine: true);
         if (o.fleetDestroyed) {
-          phase = _Phase.over;
-          iWon = true;
+          _gameOver(true);
         } else if (o.result == ShotResult.miss) {
           myTurn = false;
         }
@@ -166,8 +193,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
       setState(() {
         lastEvent = _describe(o, mine: false);
         if (o.fleetDestroyed) {
-          phase = _Phase.over;
-          iWon = false;
+          _gameOver(false);
         } else if (o.result == ShotResult.miss) {
           myTurn = true;
         }
@@ -218,25 +244,19 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
           if (lastEvent != null)
             Text(lastEvent!, style: Theme.of(context).textTheme.bodyLarge),
           if (phase == _Phase.placing) ...[
-            Expanded(child: _grid(own: true, interactive: false)),
+            Expanded(
+              child: FleetEditor(
+                fleet: fleet,
+                onChanged: (f) => setState(() => fleet = f),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        setState(() => fleet = FleetBoard.random()),
-                    icon: const Icon(Icons.shuffle),
-                    label: const Text('Neu mischen'),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton.icon(
-                    onPressed: _ready,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Bereit'),
-                  ),
-                ],
+              padding: const EdgeInsets.all(12),
+              child: FilledButton.icon(
+                key: const ValueKey('fleetReady'),
+                onPressed: fleetComplete(fleet) ? _ready : null,
+                icon: const Icon(Icons.check),
+                label: const Text('Bereit'),
               ),
             ),
           ] else ...[
@@ -321,7 +341,12 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
 
   Widget _enemyCell(int x, int y, bool interactive) {
     final s = enemy.cells[y][x];
+    final hidden = s == TargetCell.unknown && revealed.contains((x, y));
     final (color, icon) = switch (s) {
+      TargetCell.unknown when hidden => (
+        const Color(0xFF78909C),
+        Icons.visibility,
+      ),
       TargetCell.unknown => (const Color(0xFF1976D2), null),
       TargetCell.miss => (const Color(0xFF1565C0), Icons.circle),
       TargetCell.hit => (const Color(0xFFFF7043), Icons.close),
@@ -337,7 +362,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
             ? null
             : Icon(
                 icon,
-                size: s == TargetCell.miss ? 6 : null,
+                size: s == TargetCell.miss ? 6 : (hidden ? 12 : null),
                 color: Colors.white70,
               ),
       ),
