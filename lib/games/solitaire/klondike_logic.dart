@@ -43,6 +43,11 @@ class PileRef {
 }
 
 /// Klondike solitaire (draw 1 or draw 3, unlimited passes through the stock).
+///
+/// Scoring follows the classic Windows rules: waste → tableau +5,
+/// to a foundation +10, turning a tableau card +5, foundation → tableau −15,
+/// recycling the waste −100 (draw 1) or −20 (draw 3). Never below 0.
+/// A win adds a time bonus ([timeBonus]).
 class KlondikeGame {
   KlondikeGame({this.drawCount = 1, Random? random}) {
     final deck = [
@@ -65,6 +70,12 @@ class KlondikeGame {
   final List<List<PlayingCard>> tableau = List.generate(7, (_) => []);
   final List<_Snapshot> _history = [];
   int moves = 0;
+  int score = 0;
+
+  void _addScore(int points) => score = max(0, score + points);
+
+  /// Bonus for winning after [seconds] (as in Windows Solitaire).
+  static int timeBonus(int seconds) => seconds < 30 ? 23333 : 700000 ~/ seconds;
 
   bool get won => foundations.every((f) => f.length == 13);
   bool get canUndo => _history.isNotEmpty;
@@ -130,7 +141,17 @@ class KlondikeGame {
     final run = src.sublist(index);
     src.removeRange(index, src.length);
     pile(to).addAll(run);
-    if (from.kind == PileKind.tableau && src.isNotEmpty) src.last.faceUp = true;
+    if (to.kind == PileKind.foundation) {
+      _addScore(10);
+    } else if (from.kind == PileKind.waste) {
+      _addScore(5);
+    } else if (from.kind == PileKind.foundation) {
+      _addScore(-15);
+    }
+    if (from.kind == PileKind.tableau && src.isNotEmpty && !src.last.faceUp) {
+      src.last.faceUp = true;
+      _addScore(5);
+    }
     moves++;
     return true;
   }
@@ -142,6 +163,7 @@ class KlondikeGame {
     if (stock.isEmpty) {
       stock.addAll(waste.reversed.map((c) => c..faceUp = false));
       waste.clear();
+      _addScore(drawCount == 1 ? -100 : -20);
     } else {
       for (var i = 0; i < drawCount && stock.isNotEmpty; i++) {
         waste.add(stock.removeLast()..faceUp = true);
@@ -235,11 +257,12 @@ class _Snapshot {
       tableau = [
         for (final p in g.tableau) [for (final c in p) c.copy()],
       ],
-      moves = g.moves;
+      moves = g.moves,
+      score = g.score;
 
   final List<PlayingCard> stock, waste;
   final List<List<PlayingCard>> foundations, tableau;
-  final int moves;
+  final int moves, score;
 
   void restore(KlondikeGame g) {
     g.stock
@@ -259,5 +282,6 @@ class _Snapshot {
         ..addAll(tableau[i]);
     }
     g.moves = moves;
+    g.score = score;
   }
 }

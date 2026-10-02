@@ -28,6 +28,8 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   bool _autoRunning = false;
   bool _wonShown = false;
   int wins = 0;
+  int best = 0;
+  int bonus = 0;
 
   @override
   void initState() {
@@ -36,7 +38,11 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
       if (mounted) setState(() {});
     });
     SharedPreferences.getInstance().then((p) {
-      if (mounted) setState(() => wins = p.getInt('klondike.wins') ?? 0);
+      if (!mounted) return;
+      setState(() {
+        wins = p.getInt('klondike.wins') ?? 0;
+        best = p.getInt('klondike.best') ?? 0;
+      });
     });
   }
 
@@ -50,6 +56,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     setState(() {
       game = KlondikeGame(drawCount: drawCount);
       _wonShown = false;
+      bonus = 0;
       _clock
         ..reset()
         ..start();
@@ -65,15 +72,23 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   }
 
   Future<void> _celebrate() async {
+    bonus = KlondikeGame.timeBonus(_clock.elapsed.inSeconds);
+    final total = game.score + bonus;
+    final record = total > best;
+    if (record) best = total;
     final p = await SharedPreferences.getInstance();
     wins++;
     await p.setInt('klondike.wins', wins);
+    await p.setInt('klondike.best', best);
     if (!mounted) return;
+    setState(() {});
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Gewonnen! 🎉'),
         content: Text(
+          'Punkte: ${game.score} + $bonus Zeitbonus = $total'
+          '${record ? ' – neuer Rekord!' : ''}\n'
           '${game.moves} Züge in ${_time()}.\nGewonnene Spiele: $wins',
         ),
         actions: [
@@ -167,8 +182,9 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Text(
-                        'Züge: ${game.moves}   •   Zeit: ${_time()}   •   '
-                        'Ziehen: $drawCount',
+                        'Punkte: ${game.score + bonus}   •   '
+                        'Züge: ${game.moves}   •   Zeit: ${_time()}'
+                        '${best > 0 ? '   •   Rekord: $best' : ''}',
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ),

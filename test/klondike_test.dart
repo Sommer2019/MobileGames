@@ -138,4 +138,38 @@ void main() {
       }
     }
   });
+
+  test('scoring: waste/foundation/turn/recycle, undo restores, never < 0', () {
+    final g = empty();
+    g.tableau[0].addAll([
+      PlayingCard(2, 5), // hidden
+      PlayingCard(0, 8, faceUp: true),
+    ]);
+    g.waste.add(PlayingCard(1, 7, faceUp: true));
+    expect(g.move(waste, 0, t(0)), isTrue);
+    expect(g.score, 5);
+    g.waste.add(PlayingCard(3, 1, faceUp: true));
+    expect(g.move(waste, 0, f(0)), isTrue);
+    expect(g.score, 15);
+    // Moving 8♠ 7♥ to an empty pile is not allowed (no king), so move
+    // the ace back down and check the penalty.
+    g.tableau[1].add(PlayingCard(1, 2, faceUp: true));
+    expect(g.move(f(0), 0, t(1)), isTrue);
+    expect(g.score, 0);
+    expect(g.undo(), isTrue);
+    expect(g.score, 15);
+    // Turning over a hidden card.
+    g.tableau[2].add(PlayingCard(1, 13, faceUp: true));
+    g.tableau[0].removeRange(1, 3);
+    g.tableau[0].add(PlayingCard(3, 12, faceUp: true));
+    expect(g.move(t(0), 1, t(2)), isTrue);
+    expect(g.tableau[0].last.faceUp, isTrue);
+    expect(g.score, 20);
+    // Recycling the waste costs points, but never below zero.
+    g.waste.add(PlayingCard(0, 4, faceUp: true));
+    expect(g.draw(), isTrue);
+    expect(g.score, 0);
+    expect(KlondikeGame.timeBonus(10), 23333);
+    expect(KlondikeGame.timeBonus(700), 1000);
+  });
 }
