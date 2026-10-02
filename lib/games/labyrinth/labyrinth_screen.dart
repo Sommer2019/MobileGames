@@ -8,11 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/konami.dart';
 import '../../core/leaderboard.dart';
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
-import 'konami.dart';
 import 'labyrinth_logic.dart';
 
 class LabyrinthLevelsScreen extends StatefulWidget {
@@ -25,25 +26,32 @@ class LabyrinthLevelsScreen extends StatefulWidget {
 class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
   Map<int, double> best = {};
 
-  /// Secret cheat (Konami code): all levels unlocked.
-  bool cheat = false;
+  /// Easy mode (after the Konami code): all levels unlocked.
+  bool get easy => Secrets.on(Secret.labyrinthEasy);
 
   @override
   void initState() {
     super.initState();
+    Secrets.I.addListener(_changed);
     _load();
   }
 
-  Future<void> _setCheat(bool on) async {
-    setState(() => cheat = on);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('labyrinth.cheat', on);
+  @override
+  void dispose() {
+    Secrets.I.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() => setState(() {});
+
+  Future<void> _konami() async {
+    await Secrets.I.unlock();
+    await Secrets.I.set(Secret.labyrinthEasy, !easy);
   }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      cheat = prefs.getBool('labyrinth.cheat') ?? false;
       best = {
         for (var i = 0; i < labyrinthLevels.length; i++)
           if (prefs.getDouble('labyrinth.best.$i') != null)
@@ -59,7 +67,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
         title: const Text('Kugellabyrinth'),
         actions: const [LeaderboardButton(game: 'labyrinth')],
       ),
-      body: KonamiDetector(onUnlocked: () => _setCheat(!cheat), child: _list()),
+      body: KonamiDetector(onUnlocked: _konami, child: _list()),
     );
   }
 
@@ -67,15 +75,15 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        if (cheat)
+        if (Secrets.I.unlocked)
           Card(
             color: Colors.amber.shade100,
             child: SwitchListTile(
               key: const ValueKey('cheatSwitch'),
-              title: const Text('🎮 Cheat aktiv'),
+              title: const Text('🎮 Easy Mode'),
               subtitle: const Text('Alle Level freigeschaltet.'),
-              value: cheat,
-              onChanged: _setCheat,
+              value: easy,
+              onChanged: (v) => Secrets.I.set(Secret.labyrinthEasy, v),
             ),
           ),
         const Padding(
@@ -95,7 +103,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
                     ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
                     : 'Noch nicht geschafft',
               ),
-              enabled: cheat || i == 0 || best.containsKey(i - 1),
+              enabled: easy || i == 0 || best.containsKey(i - 1),
               trailing: Icon(
                 best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
               ),

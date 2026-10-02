@@ -80,7 +80,9 @@ class ChessGame {
   }
 
   /// A simple computer opponent: two ply material search with randomness.
-  (String, String, String?)? aiMove([Random? random]) {
+  /// [strong] (secret "grandmaster") uses a positional evaluation and plays
+  /// almost without randomness.
+  (String, String, String?)? aiMove([Random? random, bool strong = false]) {
     final r = random ?? Random();
     final moves = _c.moves({'verbose': true}).cast<Map>();
     if (moves.isEmpty) return null;
@@ -109,12 +111,16 @@ class ChessGame {
             'to': reply['to'],
             'promotion': reply['promotion'] ?? 'q',
           });
-          final s = c2.in_checkmate ? -1e6 : _material(c2, me);
+          final s = c2.in_checkmate
+              ? -1e6
+              : (strong ? _position(c2, me) : _material(c2, me));
           if (s < worst) worst = s;
         }
-        score = worst == 1e9 ? _material(copy, me) : worst;
+        score = worst == 1e9
+            ? (strong ? _position(copy, me) : _material(copy, me))
+            : worst;
       }
-      score += r.nextDouble() * 0.3;
+      score += r.nextDouble() * (strong ? 0.02 : 0.3);
       if (score > best + 1e-9) {
         best = score;
         bestMoves
@@ -136,6 +142,40 @@ class ChessGame {
     'q': 9.0,
     'k': 0.0,
   };
+
+  /// Material plus position: development, advanced pawns, centre control,
+  /// a sheltered king.
+  double _position(ch.Chess c, ch.Color me) {
+    var score = 0.0;
+    for (var f = 0; f < 8; f++) {
+      for (var rk = 0; rk < 8; rk++) {
+        final p = c.get(square(f, rk));
+        if (p == null) continue;
+        final white = p.color == ch.Color.WHITE;
+        // Rank from the owner's point of view, 0 = home rank.
+        final own = white ? rk : 7 - rk;
+        final centre = 3.5 - max((f - 3.5).abs(), (rk - 3.5).abs());
+        var v = _values[p.type.name]!;
+        switch (p.type.name) {
+          case 'p':
+            v += own * 0.05 + (f >= 3 && f <= 4 ? 0.1 : 0);
+          case 'n':
+          case 'b':
+            v += centre * 0.08 + (own == 0 ? -0.25 : 0);
+          case 'q':
+            v += centre * 0.03;
+          case 'k':
+            // Stay home and tucked to the side until the endgame.
+            v += (own == 0 ? 0.2 : -0.1 * own) + (f <= 2 || f >= 6 ? 0.2 : 0);
+          default:
+            v += centre * 0.02;
+        }
+        score += p.color == me ? v : -v;
+      }
+    }
+    if (c.in_check) score += c.turn == me ? -0.3 : 0.3;
+    return score;
+  }
 
   double _material(ch.Chess c, ch.Color me) {
     var score = 0.0;

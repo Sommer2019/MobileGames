@@ -4,7 +4,8 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_games/games/labyrinth/konami.dart';
+import 'package:mobile_games/core/konami.dart';
+import 'package:mobile_games/core/secrets.dart';
 import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -102,8 +103,10 @@ void main() {
     await battery.close();
   });
 
-  testWidgets('cheat unlocks all levels in the list', (tester) async {
+  testWidgets('easy mode unlocks all levels in the list', (tester) async {
     SharedPreferences.setMockInitialValues({'labyrinth.cheat': true});
+    Secrets.I.reset();
+    await Secrets.I.load();
     await tester.pumpWidget(const MaterialApp(home: LabyrinthLevelsScreen()));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('cheatSwitch')), findsOneWidget);

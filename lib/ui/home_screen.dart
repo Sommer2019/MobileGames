@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/konami.dart';
+import '../core/secrets.dart';
 import '../core/services.dart';
 import '../core/sound.dart';
 import '../games/registry.dart';
@@ -7,6 +9,7 @@ import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
+import 'secrets_sheet.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -21,6 +24,17 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mobile Games'),
         actions: [
+          ListenableBuilder(
+            listenable: Secrets.I,
+            builder: (context, _) => Secrets.I.unlocked
+                ? IconButton(
+                    key: const ValueKey('secretsButton'),
+                    tooltip: 'Geheimnisse',
+                    icon: const Text('🎮', style: TextStyle(fontSize: 20)),
+                    onPressed: () => showSecretsSheet(context),
+                  )
+                : const SizedBox.shrink(),
+          ),
           ValueListenableBuilder<bool>(
             valueListenable: Sound.enabled,
             builder: (context, on, _) => IconButton(
@@ -66,56 +80,62 @@ class HomeScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                color: const Color(0xFFFFF3C4),
-                child: ListTile(
-                  key: const ValueKey('tournamentCard'),
-                  leading: const Icon(
-                    Icons.emoji_events,
-                    size: 40,
-                    color: Color(0xFFF9A825),
-                  ),
-                  title: const Text(
-                    'Turnier mit Freunden',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+      body: KonamiDetector(
+        onUnlocked: () async {
+          await Secrets.I.unlock();
+          if (context.mounted) await showSecretsSheet(context);
+        },
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  color: const Color(0xFFFFF3C4),
+                  child: ListTile(
+                    key: const ValueKey('tournamentCard'),
+                    leading: const Icon(
+                      Icons.emoji_events,
+                      size: 40,
+                      color: Color(0xFFF9A825),
                     ),
-                  ),
-                  subtitle: const Text(
-                    'Mehrere Spiele, mehrere Runden, eine Tabelle',
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.black54,
-                  ),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const TournamentSetupScreen(),
+                    title: const Text(
+                      'Turnier mit Freunden',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Mehrere Spiele, mehrere Runden, eine Tabelle',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.black54,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TournamentSetupScreen(),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          _header(
-            context,
-            'Mehrspieler',
-            'Online gegen Freunde oder zufällige Gegner – oder offline',
-          ),
-          _grid(context, multi),
-          _header(context, 'Einzelspieler', null),
-          _grid(context, single),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            _header(
+              context,
+              'Mehrspieler',
+              'Online gegen Freunde oder zufällige Gegner – oder offline',
+            ),
+            _grid(context, multi),
+            _header(context, 'Einzelspieler', null),
+            _grid(context, single),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
   }

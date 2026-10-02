@@ -203,11 +203,13 @@ class CheckersGame {
   }
 
   /// Simple computer player: prefers big captures and avoids giving the
-  /// opponent captures (one move lookahead).
-  CheckersMove? aiMove([Random? random]) {
+  /// opponent captures (one move lookahead). [strong] (secret
+  /// "grandmaster") searches four moves deep instead.
+  CheckersMove? aiMove([Random? random, bool strong = false]) {
     final r = random ?? Random();
     final moves = legalMoves();
     if (moves.isEmpty) return null;
+    if (strong) return _searchMove(moves, r);
     double best = -1e9;
     final bestMoves = <CheckersMove>[];
     for (final m in moves) {
@@ -232,5 +234,59 @@ class CheckersGame {
       }
     }
     return bestMoves.first;
+  }
+
+  CheckersMove _searchMove(List<CheckersMove> moves, Random r) {
+    final me = turn;
+    CheckersMove? best;
+    var bestScore = -double.infinity;
+    for (final m in moves) {
+      final g = copy().._apply(m);
+      final s = g._alphaBeta(3, -1e9, 1e9, me) + r.nextDouble() * 0.01;
+      if (s > bestScore) {
+        bestScore = s;
+        best = m;
+      }
+    }
+    return best!;
+  }
+
+  double _alphaBeta(int depth, double alpha, double beta, Side me) {
+    if (winner != null) return winner == me ? 1000.0 + depth : -1000.0 - depth;
+    if (draw) return 0;
+    if (depth == 0) return _evaluate(me);
+    final moves = legalMoves();
+    if (moves.isEmpty) return turn == me ? -1000.0 : 1000.0;
+    if (turn == me) {
+      var v = -double.infinity;
+      for (final m in moves) {
+        v = max(v, (copy().._apply(m))._alphaBeta(depth - 1, alpha, beta, me));
+        alpha = max(alpha, v);
+        if (alpha >= beta) break;
+      }
+      return v;
+    }
+    var v = double.infinity;
+    for (final m in moves) {
+      v = min(v, (copy().._apply(m))._alphaBeta(depth - 1, alpha, beta, me));
+      beta = min(beta, v);
+      if (alpha >= beta) break;
+    }
+    return v;
+  }
+
+  /// Material (kings count more) plus a little for advanced men.
+  double _evaluate(Side me) {
+    var score = 0.0;
+    for (var row = 0; row < 8; row++) {
+      for (var col = 0; col < 8; col++) {
+        final p = board[row][col];
+        if (p == null) continue;
+        var v = p.king ? 1.7 : 1.0;
+        if (!p.king) v += (p.side == Side.white ? 7 - row : row) * 0.04;
+        score += p.side == me ? v : -v;
+      }
+    }
+    return score;
   }
 }
