@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'account.dart';
 import 'chat.dart';
+import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
@@ -22,7 +23,16 @@ class Services {
     matchmaker = Matchmaker(messenger, nameProvider: () => account.name);
     presence = Presence(client, account)..start();
     chat = ChatService(client, account.keys);
-    friendRequests = FriendRequests(account, chat);
+    friendCodes = FriendCodes(client, account.keys);
+    friendRequests = FriendRequests(account, chat, codes: friendCodes);
+    friendCodes.publish(account.name);
+    var lastName = account.name;
+    account.addListener(() {
+      if (account.name != lastName) {
+        lastName = account.name;
+        friendCodes.publish(account.name);
+      }
+    });
   }
 
   static Services? _instance;
@@ -47,6 +57,7 @@ class Services {
   late final Presence presence;
   late final ChatService chat;
   late final FriendRequests friendRequests;
+  late final FriendCodes friendCodes;
 
   GameSession createSession(MatchInfo match) =>
       GameSession(match, messenger, p2p: p2pFactory());

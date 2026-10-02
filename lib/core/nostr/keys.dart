@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart';
 import 'package:pointycastle/export.dart';
 
 /// secp256k1 key helpers (BIP-340 / Nostr compatible).
@@ -163,4 +164,48 @@ String? parseFriendCode(String code) {
   } on FormatException {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Short friend codes: 10 characters of Crockford base32 (50 bits) taken from
+// sha256(public key). They are resolved through a signed Nostr event; the
+// public key in that event must hash to the code, so it cannot be faked.
+
+const _crockford = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+String shortCodeFor(String publicKey) {
+  final digest = sha256.convert(hex.decode(publicKey)).bytes;
+  var bits = 0, value = 0;
+  final out = StringBuffer();
+  for (final byte in digest) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5 && out.length < 10) {
+      bits -= 5;
+      out.write(_crockford[(value >> bits) & 31]);
+    }
+    value &= (1 << bits) - 1;
+    if (out.length >= 10) break;
+  }
+  return out.toString();
+}
+
+/// "K7Q2M9XW4P" -> "K7Q2M-9XW4P"
+String formatShortCode(String code) =>
+    code.length == 10 ? '${code.substring(0, 5)}-${code.substring(5)}' : code;
+
+/// Normalises user input to a 10 character short code, or null.
+String? parseShortCode(String input) {
+  final cleaned = input
+      .trim()
+      .toUpperCase()
+      .replaceAll(RegExp(r'[\s-]'), '')
+      .replaceAll('O', '0')
+      .replaceAll(RegExp('[IL]'), '1')
+      .replaceAll('U', 'V');
+  if (cleaned.length != 10) return null;
+  for (final ch in cleaned.split('')) {
+    if (!_crockford.contains(ch)) return null;
+  }
+  return cleaned;
 }

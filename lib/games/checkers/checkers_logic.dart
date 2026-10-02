@@ -2,8 +2,8 @@ import 'dart:math';
 
 /// Dame (German draughts) on an 8×8 board.
 ///
-/// Rules: men move one square diagonally forward and capture forward and
-/// backward; capturing is mandatory and multi-captures must be completed;
+/// Rules: men move and capture one square diagonally forward (backward
+/// captures only with [menCaptureBackwards]); capturing is mandatory and multi-captures must be completed;
 /// kings are "flying" (move and capture over any distance). A man that
 /// ends its move on the far row becomes a king. Whoever cannot move loses.
 enum Side { white, black }
@@ -35,7 +35,7 @@ class CheckersMove {
 }
 
 class CheckersGame {
-  CheckersGame() {
+  CheckersGame({this.menCaptureBackwards = false}) {
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
         if ((r + c).isOdd) {
@@ -45,6 +45,9 @@ class CheckersGame {
       }
     }
   }
+
+  /// International style: men may also capture backwards.
+  final bool menCaptureBackwards;
 
   /// board[row][col]; row 0 is black's home row (top).
   final List<List<Piece?>> board = List.generate(
@@ -107,6 +110,9 @@ class CheckersGame {
     final start = path.first;
     bool empty(int rr, int cc) => board[rr][cc] == null || (rr, cc) == start;
     for (final (dr, dc) in const [(1, 1), (1, -1), (-1, 1), (-1, -1)]) {
+      if (!p.king && !menCaptureBackwards && dr != _forward(p.side)) {
+        continue;
+      }
       var nr = r + dr, nc = c + dc;
       if (p.king) {
         while (inside(nr, nc) && empty(nr, nc)) {
@@ -182,7 +188,7 @@ class CheckersGame {
   }
 
   CheckersGame copy() {
-    final g = CheckersGame();
+    final g = CheckersGame(menCaptureBackwards: menCaptureBackwards);
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
         g.board[r][c] = board[r][c];

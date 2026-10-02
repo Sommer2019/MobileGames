@@ -12,6 +12,7 @@ import 'package:mobile_games/games/mahjong/mahjong_screen.dart';
 import 'package:mobile_games/games/battleship/battleship_local_screen.dart';
 import 'package:mobile_games/games/battleship/battleship_screen.dart';
 import 'package:mobile_games/games/snake/snake_screen.dart';
+import 'package:mobile_games/games/solitaire/klondike_screen.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/home_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
@@ -43,6 +44,7 @@ void main() {
       'Kugellabyrinth',
       'Mahjong',
       'Snake',
+      'Solitär',
     ];
     for (final t in titles) {
       expect(find.text(t), findsWidgets);
@@ -194,6 +196,21 @@ void main() {
     await tester.tap(find.text('Ich bin bereit'));
     await tester.pump();
     expect(find.text('Spieler 1 schießt'), findsOneWidget);
+  });
+
+  testWidgets('solitaire: drawing from the stock', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2000);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const KlondikeScreen()));
+    expect(find.textContaining('Züge: 0'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('stock')));
+    await tester.pump();
+    expect(find.textContaining('Züge: 1'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
+    expect(find.textContaining('Züge: 0'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('snake starts and runs', (tester) async {

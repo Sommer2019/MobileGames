@@ -1,14 +1,14 @@
 # Mobile Games
 
-Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit elf Spielen:
+Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit zwölf Spielen:
 
 | Mehrspieler (online P2P und an einem Gerät) | Spieler | Einzelspieler |
 | --- | --- | --- |
-| ♟️ Schach (+ Computer) | 2 | 🟤 Kugellabyrinth (Bewegungssensor, 17 Level) |
+| ♟️ Schach (+ Computer) | 2 | 🟤 Kugellabyrinth (Bewegungssensor, 26 Level, auch ohne Rand) |
 | ⚪ Dame (+ Computer) | 2 | 🀄 Mahjong (immer lösbar) |
-| ⭕ Mühle (+ Computer) | 2 | 🐍 Snake |
+| ⭕ Mühle (+ Computer) | 2 | 🐍 Snake • 🃏 Solitär (Klondike) |
 | 🚢 Schiffe versenken (+ Computer, Pass & Play) | 2 | 🎯 Darts allein (501/301/Rund um die Uhr) |
-| 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (Tisch abräumen) |
+| 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (8 zum Schluss / Reihenfolge 1–15) |
 | 🎲 Kniffel (Handy schütteln zum Würfeln) | 1–4 | |
 | 🎯 Darts | 2–4 | |
 | 🎱 Billard 8-Ball | 2 | |
@@ -33,7 +33,8 @@ Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
 Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
 
 * **Konto:** Beim ersten Start wird auf dem Gerät ein Schlüsselpaar (secp256k1) erzeugt.
-  Der öffentliche Schlüssel ist dein **Freundescode** (`npub1…`). Kein Login, keine E-Mail.
+  Daraus ergibt sich ein kurzer **Freundescode** wie `K7Q2M-9XW4P` (Hash des Schlüssels, über
+  einen signierten Nostr-Eintrag auflösbar, nicht fälschbar) und ein **QR-Code**. Kein Login.
 * **Freundesliste:** Freundescode kopieren und teilen, beim Freund unter
   *Konto & Freunde → Freund* einfügen. Ob Freunde online sind, sieht man am grünen Punkt.
 * **Gegner finden:** Für die Vermittlung (Matchmaking, Einladungen, Online-Status) werden
@@ -57,6 +58,22 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
   Wenn beide Netze keine Direktverbindung zulassen (strenges NAT, kein TURN-Server),
   laufen die Spielzüge automatisch verschlüsselt über die Relays weiter. Das Symbol oben
   rechts zeigt `P2P` oder `Relay`.
+
+## iOS-App signieren
+
+Die `.ipa` aus dem Release ist unsigniert. Möglichkeiten:
+
+1. **AltStore / SideStore** (kostenlos, eigene Apple-ID): AltServer auf Mac/PC installieren,
+   iPhone per Kabel verbinden, AltStore aufs iPhone bringen, dann in AltStore die `.ipa` öffnen.
+   Gilt 7 Tage, AltStore erneuert es automatisch (max. 3 Apps).
+2. **Sideloadly** (Windows/Mac, kostenlos): `.ipa` hineinziehen, Apple-ID eingeben, installieren.
+   Auf dem Gerät unter *Einstellungen → Allgemein → VPN & Geräteverwaltung* dem Entwickler
+   vertrauen. Ebenfalls 7 Tage gültig.
+3. **Apple Developer Program** (99 €/Jahr): ein Jahr gültig, TestFlight für Freunde möglich.
+   Die Pipeline kann dann mit Zertifikat + Provisioning-Profil als Secrets automatisch signieren.
+
+Ab iOS 16 muss außerdem der **Entwicklermodus** aktiviert sein
+(*Einstellungen → Datenschutz & Sicherheit → Entwicklermodus*).
 
 ## Entwicklung
 

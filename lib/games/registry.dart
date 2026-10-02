@@ -13,6 +13,7 @@ import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
+import 'solitaire/klondike_screen.dart';
 import 'tournament/tournament_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
@@ -196,6 +197,14 @@ final List<GameInfo> games = [
     icon: Icons.gesture,
     color: const Color(0xFF558B2F),
     singleplayerBuilder: () => const SnakeScreen(),
+  ),
+  GameInfo(
+    id: 'klondike',
+    title: 'Solitär',
+    description: 'Klondike – Karten nach Farbe und Wert sortieren',
+    icon: Icons.style,
+    color: const Color(0xFF2E7D32),
+    singleplayerBuilder: () => const KlondikeScreen(),
   ),
   GameInfo(
     id: 'mahjong',

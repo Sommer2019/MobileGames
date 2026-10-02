@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/services.dart';
 import 'chat_view.dart';
+import 'friend_code_widgets.dart';
 import 'notification_settings.dart';
 
 /// Account (name, friend code) and friend list. In [pickMode] tapping a
@@ -72,6 +73,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     final code = TextEditingController();
     final name = TextEditingController();
     String? error;
+    var busy = false;
     await showDialog<void>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -82,9 +84,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
             children: [
               TextField(
                 controller: code,
+                textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  labelText: 'Freundescode (npub1…)',
+                  labelText: 'Freundescode (z. B. K7Q2M-9XW4P)',
                   errorText: error,
+                  errorMaxLines: 3,
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.paste),
                     onPressed: () async {
@@ -98,6 +102,24 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 controller: name,
                 decoration: const InputDecoration(labelText: 'Name (optional)'),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const ValueKey('scanQr'),
+                onPressed: () async {
+                  final scanned = await Navigator.push<String>(
+                    c,
+                    MaterialPageRoute(builder: (_) => const QrScanScreen()),
+                  );
+                  if (scanned != null) code.text = scanned;
+                },
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('QR-Code scannen'),
+              ),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
             ],
           ),
           actions: [
@@ -106,17 +128,28 @@ class _FriendsScreenState extends State<FriendsScreen> {
               child: const Text('Abbrechen'),
             ),
             FilledButton(
-              onPressed: () async {
-                final err = await services.friendRequests.addByCode(
-                  code.text,
-                  name: name.text.trim().isEmpty ? null : name.text.trim(),
-                );
-                if (err == null) {
-                  if (c.mounted) Navigator.pop(c);
-                } else {
-                  setDialog(() => error = err);
-                }
-              },
+              onPressed: busy
+                  ? null
+                  : () async {
+                      setDialog(() {
+                        busy = true;
+                        error = null;
+                      });
+                      final err = await services.friendRequests.addByCode(
+                        code.text,
+                        name: name.text.trim().isEmpty
+                            ? null
+                            : name.text.trim(),
+                      );
+                      if (err == null) {
+                        if (c.mounted) Navigator.pop(c);
+                      } else if (c.mounted) {
+                        setDialog(() {
+                          busy = false;
+                          error = err;
+                        });
+                      }
+                    },
               child: const Text('Hinzufügen'),
             ),
           ],
@@ -222,36 +255,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             onPressed: _editName,
                           ),
                         ),
-                        const Text('Dein Freundescode'),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          account.friendCode,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(text: account.friendCode),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Freundescode kopiert'),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.copy),
-                          label: const Text('Kopieren'),
-                        ),
+                        MyFriendCode(account: account),
                         const SizedBox(height: 8),
                         Text(
                           'Dein Konto ist ein Schlüsselpaar, das nur auf diesem '
                           'Gerät gespeichert ist – kein Server, keine E-Mail, kein '
-                          'Passwort. Teile den Code, damit Freunde dich hinzufügen '
-                          'können (am besten fügt ihr euch gegenseitig hinzu).',
+                          'Passwort. Teile den Code oder zeig den QR-Code – dein '
+                          'Freund bekommt eine Anfrage, und nach dem Annehmen seid '
+                          'ihr gegenseitig befreundet.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],

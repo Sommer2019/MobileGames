@@ -22,7 +22,7 @@ void main() {
       expect(g.legalMoves().length, 7);
     });
 
-    test('capturing is mandatory and men capture backwards', () {
+    test('capturing is mandatory; men capture backwards only if enabled', () {
       final g = emptyBoard();
       g.board[4][3] = const Piece(Side.white);
       g.board[3][4] = const Piece(Side.black); // forward capture possible
@@ -35,7 +35,16 @@ void main() {
       b.board[3][4] = const Piece(Side.white);
       b.board[4][5] = const Piece(Side.black); // behind the white man
       b.board[0][1] = const Piece(Side.black);
-      expect(b.legalMoves().single.to, (5, 6));
+      expect(b.legalMoves().any((m) => m.isCapture), isFalse);
+
+      final intl = CheckersGame(menCaptureBackwards: true);
+      for (final row in intl.board) {
+        row.fillRange(0, 8, null);
+      }
+      intl.board[3][4] = const Piece(Side.white);
+      intl.board[4][5] = const Piece(Side.black);
+      intl.board[0][1] = const Piece(Side.black);
+      expect(intl.legalMoves().single.to, (5, 6));
     });
 
     test('multi capture is one move and removes all victims', () {

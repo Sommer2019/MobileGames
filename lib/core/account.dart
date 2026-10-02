@@ -57,7 +57,16 @@ class Account extends ChangeNotifier {
   }
 
   String get name => _name;
+
+  /// Full code (npub), used in QR codes.
   String get friendCode => pubKeyToNpub(keys.publicKey);
+
+  /// Short code to type in, e.g. "K7Q2M-9XW4P".
+  String get shortCode => formatShortCode(shortCodeFor(keys.publicKey));
+
+  /// Content of the QR code.
+  String get qrPayload =>
+      'mobilegames://friend/$friendCode?name=${Uri.encodeComponent(name)}';
 
   Future<void> setName(String value) async {
     final v = value.trim();

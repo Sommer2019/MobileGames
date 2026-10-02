@@ -9,7 +9,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Für direkte Peer-to-Peer-Verbindungen zu Mitspielern im selben Netzwerk.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Die App nutzt keine Kamera. (Von der WebRTC-Bibliothek gefordert.)</string>
+	<string>Die Kamera wird nur zum Scannen von Freundes-QR-Codes verwendet.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Die App nutzt kein Mikrofon. (Von der WebRTC-Bibliothek gefordert.)</string>
 	<key>CFBundleDisplayName</key>

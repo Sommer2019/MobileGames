@@ -33,8 +33,12 @@ class FakeRelayBus {
     return true;
   }
 
+  /// Events relays keep (everything except ephemeral kinds).
+  final List<NostrEvent> stored = [];
+
   void _publish(NostrEvent e) {
     published.add(e);
+    if (e.kind < 20000 || e.kind >= 30000) stored.add(e);
     if (dropEvery > 0 && published.length % dropEvery == 0) return;
     for (final (filter, controller) in List.of(_subs)) {
       if (matches(filter, e)) scheduleMicrotask(() => controller.add(e));
@@ -64,6 +68,10 @@ class FakeClient implements NostrClient {
     );
     entry = (filter, c);
     bus._subs.add(entry);
+    // Like a real relay: first the stored events, then live ones.
+    for (final e in List.of(bus.stored)) {
+      if (FakeRelayBus.matches(filter, e)) scheduleMicrotask(() => c.add(e));
+    }
     return c.stream;
   }
 }

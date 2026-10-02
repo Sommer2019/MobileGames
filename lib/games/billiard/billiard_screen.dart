@@ -36,6 +36,14 @@ class _BilliardScreenState extends State<BilliardScreen>
   Offset? _aimPoint; // in table units
   int? best;
   bool _wonShown = false;
+  SoloMode mode = SoloMode.eightLast;
+  late SoloRules rules = SoloRules(mode);
+  bool _shotRunning = false;
+  int _othersBefore = 0;
+  int? _targetBefore;
+
+  int get score => game.score + rules.penalties;
+  String get _bestKey => 'billiard.best.${mode.name}';
 
   @override
   void initState() {
@@ -45,8 +53,12 @@ class _BilliardScreenState extends State<BilliardScreen>
       DeviceOrientation.landscapeRight,
     ]);
     _ticker = createTicker(_tick)..start();
+    _loadBest();
+  }
+
+  void _loadBest() {
     SharedPreferences.getInstance().then((p) {
-      if (mounted) setState(() => best = p.getInt('billiard.best'));
+      if (mounted) setState(() => best = p.getInt(_bestKey));
     });
   }
 
@@ -68,18 +80,59 @@ class _BilliardScreenState extends State<BilliardScreen>
     if (game.balls.where((b) => b.pocketed).length > pocketedBefore) {
       HapticFeedback.lightImpact();
     }
-    if (!game.moving && game.won && !_wonShown) {
-      _wonShown = true;
-      _finish();
+    if (!game.moving && _shotRunning) {
+      _shotRunning = false;
+      setState(() {
+        rules.evaluate(
+          pocketed: List<int>.from(game.pocketedThisShot),
+          firstHit: game.firstHit,
+          scratched: game.scratched,
+          othersBefore: _othersBefore,
+          targetBefore: _targetBefore,
+        );
+      });
+      if (rules.lost) {
+        _lost();
+      } else if (game.won && !_wonShown) {
+        _wonShown = true;
+        _finish();
+      }
     }
+  }
+
+  void _shoot(double angle, double power) {
+    if (rules.lost) return;
+    _othersBefore = SoloRules.othersLeft(game);
+    _targetBefore = rules.target(game);
+    if (game.shoot(angle, power)) _shotRunning = true;
+  }
+
+  Future<void> _lost() async {
+    HapticFeedback.heavyImpact();
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Verloren 🎱'),
+        content: Text(rules.lastEvent),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(c);
+              _restart();
+            },
+            child: const Text('Neues Spiel'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
-    final prev = prefs.getInt('billiard.best');
-    if (prev == null || game.score < prev) {
-      await prefs.setInt('billiard.best', game.score);
-      best = game.score;
+    final prev = prefs.getInt(_bestKey);
+    if (prev == null || score < prev) {
+      await prefs.setInt(_bestKey, score);
+      best = score;
     }
     if (!mounted) return;
     await showDialog<void>(
@@ -87,8 +140,8 @@ class _BilliardScreenState extends State<BilliardScreen>
       builder: (c) => AlertDialog(
         title: const Text('Tisch abgeräumt! 🎱'),
         content: Text(
-          '${game.shots} Stöße, ${game.fouls} Fouls → ${game.score} Punkte\n'
-          '(weniger ist besser, Bestwert: ${best ?? game.score})',
+          '${game.shots} Stöße, ${game.fouls + rules.penalties} Fouls → '
+          '$score Punkte\n(weniger ist besser, Bestwert: ${best ?? score})',
         ),
         actions: [
           FilledButton(
@@ -105,7 +158,9 @@ class _BilliardScreenState extends State<BilliardScreen>
 
   void _restart() => setState(() {
     game.rack();
+    rules = SoloRules(mode);
     _wonShown = false;
+    _shotRunning = false;
     _aimPoint = null;
   });
 
@@ -157,10 +212,16 @@ class _BilliardScreenState extends State<BilliardScreen>
                         onPanEnd: (_) {
                           final s = _shot;
                           setState(() => _aimPoint = null);
-                          if (s != null && s.$2 > 0.02) game.shoot(s.$1, s.$2);
+                          if (s != null && s.$2 > 0.02) _shoot(s.$1, s.$2);
                         },
                         child: CustomPaint(
-                          painter: TablePainter(game, scale, rail, _shot),
+                          painter: TablePainter(
+                            game,
+                            scale,
+                            rail,
+                            _shot,
+                            highlight: rules.target(game),
+                          ),
                         ),
                       ),
                     ),
@@ -170,7 +231,7 @@ class _BilliardScreenState extends State<BilliardScreen>
             ),
             SizedBox(
               width: 150,
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -194,11 +255,37 @@ class _BilliardScreenState extends State<BilliardScreen>
                       ],
                     ),
                     const SizedBox(height: 8),
+                    for (final m in SoloMode.values)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: ChoiceChip(
+                          label: Text(
+                            m.label,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: mode == m,
+                          onSelected: (_) {
+                            mode = m;
+                            _restart();
+                            _loadBest();
+                          },
+                        ),
+                      ),
                     _stat('Stöße', '${game.shots}'),
-                    _stat('Fouls', '${game.fouls}'),
+                    _stat('Fouls', '${game.fouls + rules.penalties}'),
+                    if (rules.target(game) != null)
+                      _stat('Ziel', '${rules.target(game)}'),
+                    if (rules.lastEvent.isNotEmpty)
+                      Text(
+                        rules.lastEvent,
+                        style: const TextStyle(
+                          color: Colors.amberAccent,
+                          fontSize: 12,
+                        ),
+                      ),
                     _stat('Übrig', '${game.remaining}'),
                     if (best != null) _stat('Bestwert', '$best'),
-                    const Spacer(),
+                    const SizedBox(height: 12),
                     if (_shot != null)
                       LinearProgressIndicator(
                         value: _shot!.$2,
@@ -248,8 +335,11 @@ class _BilliardScreenState extends State<BilliardScreen>
 }
 
 class TablePainter extends CustomPainter {
-  TablePainter(this.game, this.scale, this.rail, this.shot);
+  TablePainter(this.game, this.scale, this.rail, this.shot, {this.highlight});
   final BilliardGame game;
+
+  /// Ball to mark (the one that has to be hit first).
+  final int? highlight;
   final double scale;
   final double rail;
   final (double, double)? shot;
@@ -315,6 +405,16 @@ class TablePainter extends CustomPainter {
     for (final b in game.balls) {
       if (b.pocketed) continue;
       final c = p(b.x, b.y);
+      if (b.number == highlight) {
+        canvas.drawCircle(
+          c,
+          BilliardGame.radius * scale * 1.6,
+          Paint()
+            ..color = Colors.yellowAccent
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5,
+        );
+      }
       canvas.drawCircle(
         c + const Offset(1.5, 2),
         r,

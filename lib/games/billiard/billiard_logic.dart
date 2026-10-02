@@ -303,3 +303,83 @@ class EightBallRules {
     }
   }
 }
+
+enum SoloMode { eightLast, rotation }
+
+extension SoloModeLabel on SoloMode {
+  String get label => switch (this) {
+    SoloMode.eightLast => '8 zum Schluss',
+    SoloMode.rotation => 'Reihenfolge 1–15',
+  };
+}
+
+/// Rules for playing alone.
+///
+/// * [SoloMode.eightLast]: like 8-ball, the black 8 must be the last ball.
+///   Pocketing it earlier (or together with a scratch) loses the game.
+/// * [SoloMode.rotation]: the cue ball must always touch the lowest
+///   numbered ball on the table first.
+///
+/// Fouls (scratch, no ball touched, wrong ball first) cost a penalty point.
+class SoloRules {
+  SoloRules(this.mode);
+
+  final SoloMode mode;
+  bool lost = false;
+  int penalties = 0;
+  String lastEvent = '';
+
+  /// Ball that has to be hit first (rotation), otherwise null.
+  int? target(BilliardGame g) {
+    if (mode != SoloMode.rotation) return null;
+    final left = g.balls
+        .where((b) => b.number != 0 && !b.pocketed)
+        .map((b) => b.number);
+    return left.isEmpty ? null : left.reduce(min);
+  }
+
+  /// Object balls other than the 8 still on the table.
+  static int othersLeft(BilliardGame g) => g.balls
+      .where((b) => b.number != 0 && b.number != 8 && !b.pocketed)
+      .length;
+
+  /// Evaluates a finished shot. [othersBefore] and [targetBefore] are taken
+  /// right before the shot.
+  void evaluate({
+    required List<int> pocketed,
+    required int? firstHit,
+    required bool scratched,
+    required int othersBefore,
+    required int? targetBefore,
+  }) {
+    if (lost) return;
+    final events = <String>[];
+    if (mode == SoloMode.eightLast && pocketed.contains(8)) {
+      if (othersBefore > 0 || scratched) {
+        lost = true;
+        lastEvent = othersBefore > 0
+            ? 'Die 8 zu früh versenkt – verloren!'
+            : 'Die 8 mit Foul versenkt – verloren!';
+        return;
+      }
+    }
+    if (scratched) events.add('Foul: weiße Kugel versenkt');
+    if (firstHit == null) {
+      penalties++;
+      events.add('Foul: keine Kugel getroffen');
+    } else if (mode == SoloMode.rotation &&
+        targetBefore != null &&
+        firstHit != targetBefore) {
+      penalties++;
+      events.add('Foul: zuerst die $targetBefore treffen');
+    } else if (mode == SoloMode.eightLast &&
+        firstHit == 8 &&
+        othersBefore > 0) {
+      penalties++;
+      events.add('Foul: die 8 erst zum Schluss anspielen');
+    }
+    lastEvent = events.isEmpty
+        ? (pocketed.isEmpty ? '' : 'Versenkt: ${pocketed.join(', ')}')
+        : events.join(' • ');
+  }
+}

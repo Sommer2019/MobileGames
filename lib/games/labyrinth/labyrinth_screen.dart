@@ -292,6 +292,16 @@ class _BoardPainter extends CustomPainter {
           end: Alignment.bottomRight,
         ).createShader(board),
     );
+    if (!game.level.frame) {
+      // Open edge: a dark shadow shows where the board ends.
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(board, const Radius.circular(6)),
+        Paint()
+          ..color = const Color(0xAA3E2723)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4,
+      );
+    }
     // Wood grain.
     final grain = Paint()
       ..color = const Color(0x18000000)

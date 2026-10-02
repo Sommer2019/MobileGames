@@ -18,8 +18,11 @@ class LabyrinthLevel {
     required this.goal,
     required this.walls,
     required this.holes,
+    this.frame = true,
   });
 
+  /// Without a frame the ball can roll off the board.
+  final bool frame;
   final String name;
   final (double, double) start;
   final Hole goal;
@@ -146,6 +149,67 @@ final List<LabyrinthLevel> labyrinthLevels = [
       holeShare: _mazeSpecs[i].$4,
       seed: 1000 + i * 37,
     ),
+  ..._edgeLevels,
+  for (var i = 0; i < _holeFieldSpecs.length; i++)
+    generateMazeLevel(
+      name: _holeFieldSpecs[i].$1,
+      cols: _holeFieldSpecs[i].$2,
+      rows: _holeFieldSpecs[i].$3,
+      holeShare: 1.0,
+      seed: 5000 + i * 53,
+      mazeWalls: false,
+      frame: _holeFieldSpecs[i].$4,
+    ),
+];
+
+/// Hole fields: no walls at all, only a winding path between holes.
+/// (name, columns, rows, with frame)
+const _holeFieldSpecs = [
+  ('Lochfeld', 4, 6, true),
+  ('Pfad der Löcher', 5, 7, true),
+  ('Freier Fall', 4, 7, false),
+  ('Drahtseil', 5, 8, false),
+  ('Abgrund', 6, 9, false),
+  ('Meister ohne Netz', 7, 11, false),
+];
+
+/// Levels without a solid border: the ball can roll off the board.
+final List<LabyrinthLevel> _edgeLevels = [
+  LabyrinthLevel(
+    name: 'Ohne Rand',
+    start: (0.5, 0.12),
+    goal: const Hole(0.5, 1.45),
+    frame: false,
+    walls: [_h(0.2, 0.8, 0.45), _h(0.2, 0.8, 0.95)],
+    holes: const [Hole(0.5, 0.7, radius: 0.05), Hole(0.5, 1.2, radius: 0.05)],
+  ),
+  LabyrinthLevel(
+    name: 'Lochrand',
+    start: (0.2, 0.15),
+    goal: const Hole(0.8, 1.45),
+    frame: false,
+    walls: [_h(0.1, 0.65, 0.5), _h(0.35, 0.9, 1.0)],
+    holes: [
+      // A ring of holes instead of a wooden border.
+      for (var i = 0; i < 10; i++) Hole(0.05 + i * 0.1, 0.04, radius: 0.04),
+      for (var i = 0; i < 10; i++) Hole(0.05 + i * 0.1, 1.56, radius: 0.04),
+      for (var i = 1; i < 16; i++) Hole(0.04, i * 0.1, radius: 0.04),
+      for (var i = 1; i < 16; i++) Hole(0.96, i * 0.1, radius: 0.04),
+      const Hole(0.8, 0.75, radius: 0.04),
+      const Hole(0.2, 1.25, radius: 0.04),
+    ].where((h) => !(h.y > 1.5 && (h.x - 0.8).abs() < 0.1)).toList(),
+  ),
+  LabyrinthLevel(
+    name: 'Slalom',
+    start: (0.5, 0.08),
+    goal: const Hole(0.5, 1.52),
+    frame: false,
+    walls: const [],
+    holes: [
+      for (var i = 0; i < 7; i++)
+        Hole(i.isEven ? 0.32 : 0.68, 0.25 + i * 0.18, radius: 0.12),
+    ],
+  ),
 ];
 
 /// (name, columns, rows, share of side cells with a hole)
@@ -173,6 +237,8 @@ LabyrinthLevel generateMazeLevel({
   required int rows,
   required double holeShare,
   required int seed,
+  bool mazeWalls = true,
+  bool frame = true,
 }) {
   final r = Random(seed);
   const inner = _t; // frame thickness
@@ -216,8 +282,8 @@ LabyrinthLevel generateMazeLevel({
   }
   double cx(int c) => inner + (c + 0.5) * cw;
   double cy(int row) => inner + (row + 0.5) * ch;
-  final walls = <Wall>[..._frame()];
-  for (var c = 0; c < cols; c++) {
+  final walls = <Wall>[if (frame) ..._frame()];
+  for (var c = 0; c < cols && mazeWalls; c++) {
     for (var row = 0; row < rows; row++) {
       final x1 = inner + c * cw, y1 = inner + row * ch;
       // Segments are extended by half a thickness so corners are closed.
@@ -245,6 +311,7 @@ LabyrinthLevel generateMazeLevel({
     goal: Hole(cx(goalCell.$1), cy(goalCell.$2), radius: holeRadius),
     walls: walls,
     holes: holes,
+    frame: frame,
   );
 }
 
@@ -295,6 +362,13 @@ class LabyrinthGame {
         _collide(w);
       }
       _checkHoles();
+      if (state == BallState.rolling &&
+          (x < 0 || y < 0 || x > boardWidth || y > boardHeight)) {
+        // Rolled off the edge of a board without frame.
+        state = BallState.fell;
+        x = x.clamp(0.0, boardWidth);
+        y = y.clamp(0.0, boardHeight);
+      }
     }
   }
 

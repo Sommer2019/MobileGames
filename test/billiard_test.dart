@@ -78,6 +78,7 @@ void main() {
   });
 
   eightBallTests();
+  soloTests();
 }
 
 void eightBallTests() {
@@ -174,5 +175,65 @@ void eightBallTests() {
       expect(other.balls[i].x, g.balls[i].x);
       expect(other.balls[i].pocketed, g.balls[i].pocketed);
     }
+  });
+}
+
+void soloTests() {
+  test('solo 8 last: early black ball loses, last black ball wins', () {
+    final early = SoloRules(SoloMode.eightLast);
+    early.evaluate(
+      pocketed: [8, 3],
+      firstHit: 3,
+      scratched: false,
+      othersBefore: 5,
+      targetBefore: null,
+    );
+    expect(early.lost, isTrue);
+
+    final legal = SoloRules(SoloMode.eightLast);
+    legal.evaluate(
+      pocketed: [8],
+      firstHit: 8,
+      scratched: false,
+      othersBefore: 0,
+      targetBefore: null,
+    );
+    expect(legal.lost, isFalse);
+    expect(legal.penalties, 0);
+
+    final touchEight = SoloRules(SoloMode.eightLast);
+    touchEight.evaluate(
+      pocketed: [],
+      firstHit: 8,
+      scratched: false,
+      othersBefore: 3,
+      targetBefore: null,
+    );
+    expect(touchEight.penalties, 1);
+  });
+
+  test('solo rotation: lowest ball first', () {
+    final g = BilliardGame();
+    final r = SoloRules(SoloMode.rotation);
+    expect(r.target(g), 1);
+    g.balls.firstWhere((b) => b.number == 1).pocketed = true;
+    expect(r.target(g), 2);
+    r.evaluate(
+      pocketed: [5],
+      firstHit: 5,
+      scratched: false,
+      othersBefore: 13,
+      targetBefore: 2,
+    );
+    expect(r.penalties, 1);
+    r.evaluate(
+      pocketed: [],
+      firstHit: 2,
+      scratched: false,
+      othersBefore: 13,
+      targetBefore: 2,
+    );
+    expect(r.penalties, 1);
+    expect(SoloRules.othersLeft(g), 13);
   });
 }

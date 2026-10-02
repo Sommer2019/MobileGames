@@ -50,7 +50,7 @@ bool levelSolvable(LabyrinthLevel l) {
 void main() {
   test('there are many levels and later ones are harder', () {
     expect(labyrinthLevels.length, greaterThanOrEqualTo(15));
-    final last = labyrinthLevels.last, firstMaze = labyrinthLevels[5];
+    final last = labyrinthLevels[16], firstMaze = labyrinthLevels[5];
     expect(last.holes.length, greaterThan(firstMaze.holes.length));
     expect(last.walls.length, greaterThan(firstMaze.walls.length));
     expect(
@@ -87,6 +87,21 @@ void main() {
       expect(g.x, inInclusiveRange(0, boardWidth));
       expect(g.y, inInclusiveRange(0, boardHeight));
     }
+  });
+
+  test('without frame the ball falls off the edge', () {
+    final l = labyrinthLevels.firstWhere((l) => l.name == 'Ohne Rand');
+    expect(l.frame, isFalse);
+    final g = LabyrinthGame(l);
+    for (var i = 0; i < 300 && g.state == BallState.rolling; i++) {
+      g.step(1 / 60, 1, 0);
+    }
+    expect(g.state, BallState.fell);
+    expect(
+      labyrinthLevels.where((l) => !l.frame).length,
+      greaterThanOrEqualTo(5),
+    );
+    expect(labyrinthLevels.length, greaterThanOrEqualTo(25));
   });
 
   test('falling into a hole and reaching the goal', () {
