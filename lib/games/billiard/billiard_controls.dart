@@ -1,7 +1,9 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../core/sphere.dart';
 import 'billiard_logic.dart';
@@ -100,15 +102,24 @@ class PoolTable extends StatelessWidget {
               onPanStart: (d) => handle(d.localPosition, start: true),
               onPanUpdate: (d) => handle(d.localPosition),
               onTapDown: (d) => handle(d.localPosition, start: true),
-              child: CustomPaint(
-                painter: TablePainter(
-                  game,
-                  scale,
-                  enabled ? aimAngle : null,
-                  power,
-                  highlight: highlight,
-                  spin: spin,
-                ),
+              child: ListenableBuilder(
+                listenable: Secrets.I,
+                builder: (context, _) {
+                  final table = TablePainter(
+                    game,
+                    scale,
+                    enabled ? aimAngle : null,
+                    power,
+                    highlight: highlight,
+                    spin: spin,
+                    disco: Secrets.on(Secret.disco),
+                  );
+                  return CustomPaint(
+                    painter: Secrets.on(Secret.retro)
+                        ? PixelatedPainter(table, pixel: 3.5)
+                        : table,
+                  );
+                },
               ),
             ),
           ),
@@ -365,6 +376,37 @@ class _SpinPainter extends CustomPainter {
   bool shouldRepaint(_SpinPainter old) => old.spin != spin;
 }
 
+/// Draws [inner] in coarse pixels, like an old video game.
+class PixelatedPainter extends CustomPainter {
+  PixelatedPainter(this.inner, {this.pixel = 4});
+  final CustomPainter inner;
+
+  /// Size of one "pixel" in logical pixels.
+  final double pixel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = max(1, (size.width / pixel).ceil());
+    final h = max(1, (size.height / pixel).ceil());
+    final recorder = ui.PictureRecorder();
+    final c = Canvas(recorder)..scale(1 / pixel);
+    inner.paint(c, size);
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(w, h);
+    picture.dispose();
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      Rect.fromLTWH(0, 0, w * pixel, h * pixel),
+      Paint()..filterQuality = FilterQuality.none,
+    );
+    image.dispose();
+  }
+
+  @override
+  bool shouldRepaint(PixelatedPainter old) => true;
+}
+
 class TablePainter extends CustomPainter {
   TablePainter(
     this.game,
@@ -373,10 +415,14 @@ class TablePainter extends CustomPainter {
     this.power, {
     this.highlight,
     this.spin = Offset.zero,
+    this.disco = false,
   });
 
   /// Hit point on the cue ball, for the predicted cue ball path.
   final Offset spin;
+
+  /// Secret: balls change colour as they roll.
+  final bool disco;
 
   final BilliardGame game;
   final double scale;
@@ -502,7 +548,12 @@ class TablePainter extends CustomPainter {
       Paint()..color = Colors.black38,
     );
     final o = b.orientation;
-    final color = ballColor(b.number);
+    var color = ballColor(b.number);
+    if (disco && b.number != 0) {
+      final hue =
+          (atan2(o.qy, o.qx) * 180 / pi + o.qz * 120 + b.number * 24) % 360;
+      color = HSVColor.fromAHSV(1, (hue + 360) % 360, 0.85, 0.95).toColor();
+    }
     final white = Paint()..color = Colors.white;
     canvas.drawCircle(c, r, Paint()..color = color);
     canvas.save();

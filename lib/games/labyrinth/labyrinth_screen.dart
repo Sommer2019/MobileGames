@@ -134,7 +134,18 @@ class LabyrinthScreen extends StatefulWidget {
 class _LabyrinthScreenState extends State<LabyrinthScreen>
     with SingleTickerProviderStateMixin {
   late int levelIndex = widget.levelIndex;
-  late LabyrinthGame game = LabyrinthGame(labyrinthLevels[levelIndex]);
+  late LabyrinthGame game = _newGame();
+
+  /// A game with the secret modes applied.
+  LabyrinthGame _newGame() {
+    final g = LabyrinthGame(labyrinthLevels[levelIndex]);
+    if (Secrets.on(Secret.rubberBall)) g.restitution = 0.9;
+    if (Secrets.on(Secret.nightmare)) g.damping = 0.25;
+    return g;
+  }
+
+  /// Secret nightmare mode: tilting works the other way round.
+  double get _mirror => Secrets.on(Secret.nightmare) ? -1 : 1;
   late final Ticker _ticker;
   StreamSubscription<AccelerometerEvent>? _accel;
   Duration _last = Duration.zero;
@@ -179,7 +190,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     _last = now;
     if (dt <= 0) return;
     final before = game.state;
-    game.step(min(dt, 0.05), tiltX, tiltY);
+    game.step(min(dt, 0.05), tiltX * _mirror, tiltY * _mirror);
     final hit = game.takeImpact();
     if (hit > 0.08) {
       Sound.play(
@@ -242,7 +253,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
                 Navigator.pop(c);
                 setState(() {
                   levelIndex++;
-                  game = LabyrinthGame(labyrinthLevels[levelIndex]);
+                  game = _newGame();
                   falls = 0;
                 });
               },
@@ -334,6 +345,9 @@ class _BoardPainter extends CustomPainter {
   _BoardPainter(this.game);
   final LabyrinthGame game;
 
+  /// The secret rubber ball is red.
+  bool get rubber => game.restitution > 0.5;
+
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width / boardWidth;
@@ -391,7 +405,9 @@ class _BoardPainter extends CustomPainter {
       rad,
       Paint()
         ..shader = RadialGradient(
-          colors: const [Colors.white, Color(0xFF9E9E9E), Color(0xFF424242)],
+          colors: rubber
+              ? const [Color(0xFFFF8A80), Color(0xFFE53935), Color(0xFF8E0000)]
+              : const [Colors.white, Color(0xFF9E9E9E), Color(0xFF424242)],
           stops: const [0, 0.5, 1],
           center: const Alignment(-0.4, -0.4),
         ).createShader(Rect.fromCircle(center: ball, radius: rad)),

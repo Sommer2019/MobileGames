@@ -7,9 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   test('every sound has its file in the assets', () {
     for (final s in Sfx.values) {
-      final f = File('assets/sounds/${s.name}.wav');
-      expect(f.existsSync(), isTrue, reason: s.name);
-      expect(f.lengthSync(), greaterThan(1000));
+      for (final dir in ['assets/sounds', 'assets/sounds/retro']) {
+        final f = File('$dir/${s.name}.wav');
+        expect(f.existsSync(), isTrue, reason: f.path);
+        expect(f.lengthSync(), greaterThan(500));
+      }
     }
   });
 

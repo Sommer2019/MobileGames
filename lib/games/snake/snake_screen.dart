@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'snake_logic.dart';
@@ -110,10 +111,15 @@ class _SnakeScreenState extends State<SnakeScreen>
     return KeyEventResult.handled;
   }
 
+  /// Secret retro mode: the look of an old Nokia display.
+  bool get _nokia => Secrets.on(Secret.retro);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1B2A1B),
+      backgroundColor: _nokia
+          ? const Color(0xFF2B3326)
+          : const Color(0xFF1B2A1B),
       appBar: AppBar(
         title: const Text('Snake'),
         actions: [
@@ -143,8 +149,11 @@ class _SnakeScreenState extends State<SnakeScreen>
                       child: Container(
                         margin: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
+                          color: _nokia ? _SnakePainter.lcd : null,
                           border: Border.all(
-                            color: wrap
+                            color: _nokia
+                                ? _SnakePainter.pixel
+                                : wrap
                                 ? Colors.lightGreen.shade800
                                 : Colors.lightGreen,
                             width: 3,
@@ -153,7 +162,9 @@ class _SnakeScreenState extends State<SnakeScreen>
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              child: CustomPaint(painter: _SnakePainter(game)),
+                              child: CustomPaint(
+                                painter: _SnakePainter(game, nokia: _nokia),
+                              ),
                             ),
                             if (!running)
                               Positioned.fill(
@@ -212,12 +223,21 @@ class _SnakeScreenState extends State<SnakeScreen>
 }
 
 class _SnakePainter extends CustomPainter {
-  _SnakePainter(this.game);
+  _SnakePainter(this.game, {this.nokia = false});
   final SnakeGame game;
+  final bool nokia;
+
+  /// Colours of the Nokia LCD.
+  static const lcd = Color(0xFFC7F0D8);
+  static const pixel = Color(0xFF43523D);
 
   @override
   void paint(Canvas canvas, Size size) {
     final cw = size.width / game.width, ch = size.height / game.height;
+    if (nokia) {
+      _paintNokia(canvas, cw, ch);
+      return;
+    }
     final grid = Paint()..color = const Color(0xFF223322);
     for (var y = 0; y < game.height; y++) {
       for (var x = 0; x < game.width; x++) {
@@ -246,6 +266,38 @@ class _SnakePainter extends CustomPainter {
           Radius.circular(cw * 0.3),
         ),
         Paint()..color = game.dead && i == 0 ? Colors.red : color,
+      );
+    }
+  }
+
+  /// Square blocks with small gaps, the food as a little cross.
+  void _paintNokia(Canvas canvas, double cw, double ch) {
+    final p = Paint()..color = pixel;
+    final g = cw * 0.12;
+    for (final (x, y) in game.body) {
+      canvas.drawRect(
+        Rect.fromLTWH(x * cw + g, y * ch + g, cw - 2 * g, ch - 2 * g),
+        p,
+      );
+    }
+    final (fx, fy) = game.food;
+    final c = Offset((fx + 0.5) * cw, (fy + 0.5) * ch);
+    canvas.drawRect(
+      Rect.fromCenter(center: c, width: cw * 0.3, height: ch * 0.8),
+      p,
+    );
+    canvas.drawRect(
+      Rect.fromCenter(center: c, width: cw * 0.8, height: ch * 0.3),
+      p,
+    );
+    if (game.dead && game.body.isNotEmpty) {
+      final (hx, hy) = game.body.first;
+      canvas.drawRect(
+        Rect.fromLTWH(hx * cw, hy * ch, cw, ch),
+        Paint()
+          ..color = pixel
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
       );
     }
   }

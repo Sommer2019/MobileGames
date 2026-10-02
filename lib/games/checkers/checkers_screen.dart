@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'checkers_logic.dart';
@@ -123,7 +124,7 @@ class _CheckersScreenState extends State<CheckersScreen> {
     setState(() => _aiThinking = true);
     await Future<void>.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
-    final m = game.aiMove();
+    final m = game.aiMove(null, Secrets.on(Secret.grandmaster));
     setState(() {
       if (m != null) {
         game.playPath(m.path);

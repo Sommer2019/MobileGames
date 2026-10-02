@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/secrets.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -28,6 +30,13 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
   bool get vsAi => widget.setup.kind == PlayKind.ai;
   final KniffelAi _ai = KniffelAi();
   bool _aiRunning = false;
+
+  /// Secret "lucky computer": in one of its turns the computer's first
+  /// roll is suspiciously good.
+  final Random _rng = Random();
+  int _aiTurn = 0;
+  late int _luckyTurn = _pickLuckyTurn();
+  int _pickLuckyTurn() => 2 + _rng.nextInt(9);
 
   /// Index of this device's player (online, or against the computer).
   /// The starting player alternates every round.
@@ -59,11 +68,25 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     while (mounted && !game.isOver && game.currentPlayer != me) {
       final heldBefore = List<bool>.from(game.held);
       final first = !game.hasRolled;
+      if (first) _aiTurn++;
+      final lucky =
+          first && _aiTurn == _luckyTurn && Secrets.on(Secret.luckyComputer);
       Sound.play(Sfx.dice);
       setState(() {
-        game.roll();
+        if (lucky) {
+          game.applyRoll(List.filled(5, 1 + _rng.nextInt(6)));
+        } else {
+          game.roll();
+        }
         _spin(heldBefore, first);
       });
+      if (lucky && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🤨 Der Computer hat verdächtig gut gewürfelt …'),
+          ),
+        );
+      }
       await pause(900);
       if (!mounted) break;
       final sheet = game.sheets[game.currentPlayer];
@@ -167,6 +190,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     setState(() {
       round++;
       game = KniffelGame(players);
+      _aiTurn = 0;
+      _luckyTurn = _pickLuckyTurn();
     });
     widget.setup.send({'t': 'rematch'});
     _maybeAi();

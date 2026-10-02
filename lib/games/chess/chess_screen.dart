@@ -4,6 +4,7 @@ import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'chess_logic.dart';
@@ -159,7 +160,7 @@ class _ChessScreenState extends State<ChessScreen> {
     }
     setState(() => _aiThinking = true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    final m = game.aiMove();
+    final m = game.aiMove(null, Secrets.on(Secret.grandmaster));
     if (!mounted) return;
     setState(() {
       if (m != null) {

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'card_cascade.dart';
@@ -85,8 +86,10 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   final List<int> _flown = List.filled(4, 0);
   List<int> _cascadeFrom = const [];
 
-  /// Starts the victory animation; completes when it is over.
-  Future<void> _playCascade() async {
+  /// Starts the victory animation; completes when it is over. With [demo]
+  /// (a secret: long press on the score line) a full deck flies, the game
+  /// stays as it is.
+  Future<void> _playCascade({bool demo = false}) async {
     final body = _bodyKey.currentContext?.findRenderObject() as RenderBox?;
     if (body == null) return;
     final starts = [
@@ -102,7 +105,11 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     final from = <int>[];
     for (var rank = 12; rank >= 0; rank--) {
       for (var f = 0; f < 4; f++) {
-        if (rank < game.foundations[f].length) {
+        if (demo) {
+          cards.add(
+            CascadeCard(PlayingCard(f, rank + 1, faceUp: true), starts[f]),
+          );
+        } else if (rank < game.foundations[f].length) {
           cards.add(CascadeCard(game.foundations[f][rank], starts[f]));
           from.add(f);
         }
@@ -111,7 +118,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     final done = Completer<void>();
     setState(() {
       _flown.fillRange(0, 4, 0);
-      _cascadeFrom = from;
+      _cascadeFrom = demo ? const [] : from;
       _cascade = cards;
       _cascadeDone = done;
     });
@@ -123,7 +130,9 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   Widget _cascadeOverlay() => CardCascade(
     cards: _cascade!,
     cardWidth: _cardWidth,
-    onLaunch: (i) => setState(() => _flown[_cascadeFrom[i]]++),
+    onLaunch: (i) {
+      if (i < _cascadeFrom.length) setState(() => _flown[_cascadeFrom[i]]++);
+    },
     onDone: () {
       setState(() => _cascade = null);
       _cascadeDone?.complete();
@@ -260,13 +269,21 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
             width: w * 7 + 8 * 6,
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Text(
-                    'Punkte: ${game.score + bonus}   •   '
-                    'Züge: ${game.moves}   •   Zeit: ${_time()}'
-                    '${best > 0 ? '   •   Rekord: $best' : ''}',
-                    style: const TextStyle(color: Colors.white70),
+                GestureDetector(
+                  key: const ValueKey('scoreLine'),
+                  onLongPress: () {
+                    if (Secrets.I.unlocked && _cascade == null) {
+                      _playCascade(demo: true);
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      'Punkte: ${game.score + bonus}   •   '
+                      'Züge: ${game.moves}   •   Zeit: ${_time()}'
+                      '${best > 0 ? '   •   Rekord: $best' : ''}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ),
                 ),
                 _topRow(w, h),

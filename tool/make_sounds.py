@@ -147,3 +147,64 @@ save('lose', pad(mix(
 ), 0.05), 0.6)
 
 print('ok', sorted(os.listdir(OUT)))
+
+# --------------------------------------------------------------- 8-bit set
+# Square waves and noise like an old console, used in the secret retro mode.
+RETRO = os.path.join(OUT, 'retro')
+os.makedirs(RETRO, exist_ok=True)
+
+
+def square(freq_fn, seconds, volume=0.6, duty=0.5):
+    out, phase = [], 0.0
+    for i in range(n(seconds)):
+        t = i / RATE
+        phase = (phase + freq_fn(t) / RATE) % 1.0
+        out.append(volume if phase < duty else -volume)
+    return out
+
+
+def noise(seconds, volume=0.5, hold=4):
+    out, v = [], 0.0
+    for i in range(n(seconds)):
+        if i % hold == 0:
+            v = random.choice((-volume, volume))
+        out.append(v)
+    return out
+
+
+def fade(samples):
+    total = len(samples)
+    return [s * (1 - i / total) for i, s in enumerate(samples)]
+
+
+def save_retro(name, samples):
+    global OUT
+    old, OUT = OUT, RETRO
+    save(name, samples, 0.5)
+    OUT = old
+
+
+def seq(*notes):
+    """Notes as (frequency, seconds); 0 = rest."""
+    out = []
+    for f, d in notes:
+        out += square(lambda t, f=f: f, d) if f else [0.0] * n(d)
+    return out
+
+
+save_retro('clack', fade(square(lambda t: 1300, 0.03)))
+save_retro('pocket', fade(square(lambda t: 500 * math.exp(-12 * t), 0.18)))
+save_retro('place', fade(square(lambda t: 330, 0.05, duty=0.25)))
+save_retro('click', fade(square(lambda t: 1600, 0.02)))
+save_retro('card', fade(noise(0.045, hold=2)))
+save_retro('dice', [s for _ in range(6)
+                    for s in fade(square(lambda t, f=random.uniform(500, 1400): f, 0.035))
+                    + [0.0] * n(0.015)])
+save_retro('thud', fade([a + b for a, b in zip(noise(0.08, 0.4, 16),
+                                                square(lambda t: 90, 0.08))]))
+save_retro('eat', seq((880, 0.04), (1320, 0.05)))
+save_retro('fall', fade(square(lambda t: 900 * math.exp(-4 * t), 0.45, duty=0.25)))
+save_retro('win', seq((523, 0.08), (659, 0.08), (784, 0.08), (1047, 0.08),
+                      (0, 0.04), (784, 0.08), (1047, 0.3)))
+save_retro('lose', seq((392, 0.15), (370, 0.15), (349, 0.15), (330, 0.4)))
+print('retro', sorted(os.listdir(RETRO)))

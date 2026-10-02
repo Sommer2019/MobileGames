@@ -491,8 +491,11 @@ class LabyrinthGame {
   final LabyrinthLevel level;
   static const double radius = 0.03;
   static const double gravity = 2.2; // board units / s² at full tilt
-  static const double damping = 0.6; // rolling friction per second
-  static const double restitution = 0.35;
+  /// Rolling friction per second (lower in the secret nightmare mode).
+  double damping = 0.6;
+
+  /// Bounce off walls (higher for the secret rubber ball).
+  double restitution = 0.35;
 
   double x = 0, y = 0, vx = 0, vy = 0;
   BallState state = BallState.rolling;
