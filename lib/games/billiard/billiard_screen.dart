@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/leaderboard.dart';
 import 'billiard_controls.dart';
 import 'billiard_logic.dart';
 
@@ -116,6 +117,7 @@ class _BilliardScreenState extends State<BilliardScreen>
   }
 
   Future<void> _finish() async {
+    await Leaderboard.submit('billiard.${mode.name}', score);
     final prefs = await SharedPreferences.getInstance();
     final prev = prefs.getInt(_bestKey);
     if (prev == null || score < prev) {

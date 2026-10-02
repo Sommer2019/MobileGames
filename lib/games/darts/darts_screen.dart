@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
@@ -285,6 +286,7 @@ class _DartsScreenState extends State<DartsScreen>
     final key = 'darts.best.${mode.name}';
     final prev = prefs.getInt(key);
     final darts = g.states[0].darts;
+    await Leaderboard.submit('darts.${mode.name}', darts);
     if (prev == null || darts < prev) {
       await prefs.setInt(key, darts);
       if (mounted) setState(() => _best = darts);

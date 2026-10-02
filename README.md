@@ -16,6 +16,9 @@ Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit zwölf Spielen:
 Dazu: 🏆 **Turniermodus** (mehrere Spiele × mehrere Runden gegen Freunde, Punktetabelle),
 **Freundschaftsanfragen** (beide stehen danach in der Liste des anderen), **Freundesliste mit Online-Status**, **Chat** mit Freunden (auch offline zugestellt),
 **Chat im Spiel**, Pop-up und System-Benachrichtigung bei Einladungen und Nachrichten.
+🏅 **Bestenliste** für die Einzelspieler-Spiele (Snake, Solitär, Mahjong, Kugellabyrinth,
+Kniffel allein, Darts allein, Billard allein): eigene Top 10, Freunde und weltweit.
+Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
 
 ## Download
 
@@ -47,6 +50,9 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
   im selben Raum; Sieg 3 Punkte, Unentschieden 1 Punkt. Wer anfängt, wechselt von Partie zu Partie.
 * **Räume:** Bei 3–4 Spielern ist der Host der Knotenpunkt: Er hält zu jedem Mitspieler eine
   eigene P2P-Verbindung und leitet Züge weiter (eine gemeinsame Reihenfolge für alle).
+* **Bestenliste:** Jeder veröffentlicht seine Bestwerte als ersetzbaren Nostr-Eintrag
+  (NIP-78). Ohne Server lassen sich die Werte nicht prüfen; die Freunde-Ansicht ist daher die
+  aussagekräftigste, offensichtlich unmögliche Werte werden ausgefiltert.
 * **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-04). Diese
   speichern die Relays, damit sie auch ankommen, wenn der Freund gerade offline ist.
 * **Benachrichtigungen:** Läuft die App im Hintergrund, kommen Einladungen und Nachrichten als

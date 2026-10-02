@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
 import '../../core/shake.dart';
 import '../../ui/play_setup.dart';
@@ -151,6 +152,9 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     if (!myTurn || !game.canScore(c)) return;
     setState(() => game.score(c));
     widget.setup.send({'t': 'score', 'cat': c.name});
+    if (game.isOver && players == 1 && widget.setup.kind == PlayKind.local) {
+      Leaderboard.submit('kniffel', game.sheets[0].total);
+    }
     _maybeAi();
   }
 

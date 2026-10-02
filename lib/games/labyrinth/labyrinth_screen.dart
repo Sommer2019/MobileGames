@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/leaderboard.dart';
+import '../../ui/leaderboard_screen.dart';
 import 'labyrinth_logic.dart';
 
 class LabyrinthLevelsScreen extends StatefulWidget {
@@ -40,7 +42,10 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Kugellabyrinth')),
+      appBar: AppBar(
+        title: const Text('Kugellabyrinth'),
+        actions: const [LeaderboardButton(game: 'labyrinth')],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
@@ -160,6 +165,11 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     if (prev == null || game.elapsed < prev) {
       await prefs.setDouble(key, game.elapsed);
     }
+    final solved = [
+      for (var i = 0; i < labyrinthLevels.length; i++)
+        if (prefs.getDouble('labyrinth.best.$i') != null) i,
+    ].length;
+    await Leaderboard.submit('labyrinth', solved);
     if (!mounted) return;
     final hasNext = levelIndex + 1 < labyrinthLevels.length;
     await showDialog<void>(

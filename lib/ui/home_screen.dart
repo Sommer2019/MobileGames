@@ -4,6 +4,7 @@ import '../core/services.dart';
 import '../games/registry.dart';
 import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
+import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -19,6 +20,11 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mobile Games'),
         actions: [
+          IconButton(
+            tooltip: 'Bestenliste',
+            icon: const Icon(Icons.leaderboard),
+            onPressed: () => openLeaderboard(context),
+          ),
           if (Services.isReady)
             ListenableBuilder(
               listenable: Listenable.merge([

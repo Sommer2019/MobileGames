@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/leaderboard.dart';
+import '../../ui/leaderboard_screen.dart';
 import 'mahjong_logic.dart';
 
 class MahjongScreen extends StatefulWidget {
@@ -60,6 +62,10 @@ class _MahjongScreenState extends State<MahjongScreen> {
         selected = null;
         if (g.won) {
           _clock.stop();
+          Leaderboard.submit(
+            _portrait ?? true ? 'mahjong.tower' : 'mahjong.pyramid',
+            _clock.elapsed.inSeconds,
+          );
           _showWin();
         } else if (g.stuck) {
           _showStuck();
@@ -132,6 +138,7 @@ class _MahjongScreenState extends State<MahjongScreen> {
       appBar: AppBar(
         title: const Text('Mahjong'),
         actions: [
+          const LeaderboardButton(game: 'mahjong'),
           IconButton(
             tooltip: 'Rückgängig',
             icon: const Icon(Icons.undo),

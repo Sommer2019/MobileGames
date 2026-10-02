@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../core/leaderboard.dart';
 import '../core/net/matchmaker.dart';
 import '../games/registry.dart';
+import 'leaderboard_screen.dart';
 import 'room_screens.dart';
 
 /// Opens the waiting screen after accepting an invite.
@@ -20,7 +22,13 @@ class LobbyScreen extends StatelessWidget {
     final multi = game.maxOnlinePlayers > 2;
     final soloFirst = game.offlineModes.any((m) => m.setup.players == 1);
     return Scaffold(
-      appBar: AppBar(title: Text(game.title)),
+      appBar: AppBar(
+        title: Text(game.title),
+        actions: [
+          if (boards.any((b) => b.game == game.id))
+            LeaderboardButton(game: game.id),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),

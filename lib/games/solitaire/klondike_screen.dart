@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/leaderboard.dart';
+import '../../ui/leaderboard_screen.dart';
 import 'klondike_logic.dart';
 
 class _Drag {
@@ -80,6 +82,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     wins++;
     await p.setInt('klondike.wins', wins);
     await p.setInt('klondike.best', best);
+    await Leaderboard.submit('klondike', total);
     if (!mounted) return;
     setState(() {});
     await showDialog<void>(
@@ -142,6 +145,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
       appBar: AppBar(
         title: const Text('Solitär'),
         actions: [
+          const LeaderboardButton(game: 'klondike'),
           IconButton(
             tooltip: 'Rückgängig',
             onPressed: game.canUndo && !_autoRunning

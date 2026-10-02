@@ -3,6 +3,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/leaderboard.dart';
+import '../../ui/leaderboard_screen.dart';
 import 'snake_logic.dart';
 
 class SnakeScreen extends StatefulWidget {
@@ -29,6 +31,9 @@ class _SnakeScreenState extends State<SnakeScreen>
     _ticker = createTicker(_tick)..start();
     SharedPreferences.getInstance().then((p) {
       if (mounted) setState(() => best = p.getInt('snake.best') ?? 0);
+      Leaderboard.best('snake').then((b) {
+        if (mounted && b != null && b > best) setState(() => best = b);
+      });
     });
   }
 
@@ -62,11 +67,8 @@ class _SnakeScreenState extends State<SnakeScreen>
   Future<void> _gameOver() async {
     running = false;
     HapticFeedback.heavyImpact();
-    if (game.score > best) {
-      best = game.score;
-      final p = await SharedPreferences.getInstance();
-      await p.setInt('snake.best', best);
-    }
+    if (game.score > 0) await Leaderboard.submit('snake', game.score);
+    if (game.score > best) best = game.score;
     if (mounted) setState(() {});
   }
 
@@ -110,6 +112,7 @@ class _SnakeScreenState extends State<SnakeScreen>
       appBar: AppBar(
         title: const Text('Snake'),
         actions: [
+          const LeaderboardButton(game: 'snake'),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
