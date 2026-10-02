@@ -76,13 +76,32 @@ class BilliardGame {
     cueInHand = true;
   }
 
+  /// How strongly follow/draw changes the cue ball's path after contact.
+  static const double followFactor = 0.6;
+
+  /// Spin lost per unit of distance the cue ball slides before contact.
+  static const double spinDecay = 0.35;
+
+  /// Side spin's effect on cushion rebounds.
+  static const double sideFactor = 0.3;
+
+  // Spin of the current shot: [_spinY] > 0 top (follow), < 0 bottom (draw);
+  // [_spinX] > 0 right, < 0 left. Both in -1..1.
+  double _spinX = 0, _spinY = 0;
+  double _dirX = 1, _dirY = 0;
+
   /// Shoots the cue ball. [angle] in radians, [power] 0..1.
-  bool shoot(double angle, double power) {
+  /// [spinX]/[spinY] is where the cue hits the cue ball (-1..1, y up).
+  bool shoot(double angle, double power, {double spinX = 0, double spinY = 0}) {
     if (moving || cue.pocketed || won) return false;
     cueInHand = false;
     final speed = power.clamp(0.0, 1.0) * maxSpeed;
-    cue.vx = cos(angle) * speed;
-    cue.vy = sin(angle) * speed;
+    _dirX = cos(angle);
+    _dirY = sin(angle);
+    _spinX = spinX.clamp(-1.0, 1.0);
+    _spinY = spinY.clamp(-1.0, 1.0);
+    cue.vx = _dirX * speed;
+    cue.vy = _dirY * speed;
     shots++;
     pocketedThisShot.clear();
     firstHit = null;
@@ -116,6 +135,10 @@ class BilliardGame {
       }
       b.x += b.vx * h;
       b.y += b.vy * h;
+      if (b.number == 0 && _spinY != 0) {
+        // Sliding wears the spin off.
+        _spinY *= exp(-spinDecay * sqrt(b.vx * b.vx + b.vy * b.vy) * h);
+      }
     }
     for (var i = 0; i < active.length; i++) {
       for (var j = i + 1; j < active.length; j++) {
@@ -139,6 +162,7 @@ class BilliardGame {
         }
       }
       if (b.pocketed) continue;
+      final inX = b.vx, inY = b.vy;
       if (b.x < radius) {
         b.x = radius;
         b.vx = b.vx.abs() * cushion;
@@ -153,7 +177,25 @@ class BilliardGame {
         b.y = height - radius;
         b.vy = -b.vy.abs() * cushion;
       }
+      final bounced = b.vx != inX || b.vy != inY;
+      if (bounced && b.number == 0 && _spinX != 0) _sideSpin(b, inX, inY);
     }
+  }
+
+  /// Side spin pushes the cue ball sideways (to the right for right spin,
+  /// seen in the direction it came from) along the cushion.
+  void _sideSpin(Ball b, double inX, double inY) {
+    final v = sqrt(inX * inX + inY * inY);
+    if (v == 0) return;
+    // Right-hand side of the incoming direction (y points down).
+    var kx = -inY / v * _spinX * sideFactor * v;
+    var ky = inX / v * _spinX * sideFactor * v;
+    // Only along the cushion.
+    if (b.x <= radius || b.x >= width - radius) kx = 0;
+    if (b.y <= radius || b.y >= height - radius) ky = 0;
+    b.vx += kx;
+    b.vy += ky;
+    _spinX *= 0.6;
   }
 
   void _collide(Ball a, Ball b) {
@@ -178,10 +220,22 @@ class BilliardGame {
     if (rel <= 0) return;
     const e = 0.95;
     final impulse = rel * (1 + e) / 2;
+    final cueBall = a.number == 0 ? a : (b.number == 0 ? b : null);
+    final cueSpeed = cueBall == null
+        ? 0.0
+        : sqrt(cueBall.vx * cueBall.vx + cueBall.vy * cueBall.vy);
     a.vx -= impulse * nx;
     a.vy -= impulse * ny;
     b.vx += impulse * nx;
     b.vy += impulse * ny;
+    if (cueBall != null && _spinY != 0) {
+      // Follow keeps the cue ball rolling forward, draw pulls it back.
+      final k = _spinY * followFactor * cueSpeed;
+      cueBall.vx += _dirX * k;
+      cueBall.vy += _dirY * k;
+      _spinY = 0;
+      _spinX *= 0.5;
+    }
   }
 
   /// Serialises the positions of all balls (for online play).
@@ -245,7 +299,7 @@ class BilliardGame {
 
   /// Where a shot in direction [angle] would go: the first ball the cue
   /// ball touches (ghost ball position) or the cushion it hits.
-  AimPreview preview(double angle) {
+  AimPreview preview(double angle, {double spinY = 0}) {
     final dx = cos(angle), dy = sin(angle);
     var best = double.infinity;
     Ball? hit;
@@ -274,7 +328,14 @@ class BilliardGame {
       final gx = cue.x + dx * best, gy = cue.y + dy * best;
       final nx = hit.x - gx, ny = hit.y - gy;
       final len = sqrt(nx * nx + ny * ny);
-      return AimPreview(gx, gy, hit, nx / len, ny / len);
+      final ux = nx / len, uy = ny / len;
+      // Cue ball after contact: keeps the tangential part of its motion,
+      // plus follow/draw along the shot line.
+      final along = dx * ux + dy * uy;
+      final follow = spinY * followFactor * exp(-spinDecay * best);
+      final cx = dx - along * ux + dx * follow;
+      final cy = dy - along * uy + dy * follow;
+      return AimPreview(gx, gy, hit, ux, uy, cueX: cx, cueY: cy);
     }
     final t = wall.isFinite ? max(0.0, wall) : 0.0;
     return AimPreview(cue.x + dx * t, cue.y + dy * t, null, 0, 0);
@@ -283,7 +344,15 @@ class BilliardGame {
 
 /// Result of [BilliardGame.preview].
 class AimPreview {
-  const AimPreview(this.x, this.y, this.ball, this.dirX, this.dirY);
+  const AimPreview(
+    this.x,
+    this.y,
+    this.ball,
+    this.dirX,
+    this.dirY, {
+    this.cueX = 0,
+    this.cueY = 0,
+  });
 
   /// Position of the cue ball at the moment of contact (ghost ball), or the
   /// point at the cushion.
@@ -294,6 +363,9 @@ class AimPreview {
 
   /// Direction the hit ball will roll.
   final double dirX, dirY;
+
+  /// Path of the cue ball after contact (length ~ relative speed).
+  final double cueX, cueY;
 }
 
 enum BallGroup { solids, stripes }

@@ -23,6 +23,7 @@ class _BilliardScreenState extends State<BilliardScreen>
   Duration _last = Duration.zero;
   double aimAngle = 0; // pointing at the rack from the head spot
   double power = 0;
+  Offset spin = Offset.zero;
   int? best;
   bool _wonShown = false;
   SoloMode mode = SoloMode.eightLast;
@@ -93,7 +94,9 @@ class _BilliardScreenState extends State<BilliardScreen>
     if (rules.lost) return;
     _othersBefore = SoloRules.othersLeft(game);
     _targetBefore = rules.target(game);
-    if (game.shoot(angle, power)) _shotRunning = true;
+    if (game.shoot(angle, power, spinX: spin.dx, spinY: spin.dy)) {
+      _shotRunning = true;
+    }
   }
 
   Future<void> _lost() async {
@@ -167,6 +170,7 @@ class _BilliardScreenState extends State<BilliardScreen>
                 power: power,
                 enabled: !game.moving && !rules.lost && !game.won,
                 highlight: rules.target(game),
+                spin: spin,
                 onAim: (a) => setState(() => aimAngle = a),
                 onPlaceCue: (x, y) => setState(() => game.placeCue(x, y)),
               ),
@@ -174,13 +178,15 @@ class _BilliardScreenState extends State<BilliardScreen>
             SizedBox(
               width: 150,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Zurück',
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(
                             Icons.arrow_back,
@@ -191,16 +197,24 @@ class _BilliardScreenState extends State<BilliardScreen>
                           child: Text(
                             'Billard',
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.white, fontSize: 18),
+                            style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Neu aufbauen',
+                          onPressed: _restart,
+                          icon: const Icon(Icons.replay, color: Colors.white),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
                     for (final m in SoloMode.values)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.only(bottom: 2),
                         child: ChoiceChip(
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                           label: Text(
                             m.label,
                             style: const TextStyle(fontSize: 12),
@@ -213,10 +227,13 @@ class _BilliardScreenState extends State<BilliardScreen>
                           },
                         ),
                       ),
+                    const SizedBox(height: 4),
                     _stat('Stöße', '${game.shots}'),
                     _stat('Fouls', '${game.fouls + rules.penalties}'),
                     if (rules.target(game) != null)
                       _stat('Ziel', '${rules.target(game)}'),
+                    _stat('Übrig', '${game.remaining}'),
+                    if (best != null) _stat('Bestwert', '$best'),
                     if (rules.lastEvent.isNotEmpty)
                       Text(
                         rules.lastEvent,
@@ -225,25 +242,14 @@ class _BilliardScreenState extends State<BilliardScreen>
                           fontSize: 12,
                         ),
                       ),
-                    _stat('Übrig', '${game.remaining}'),
-                    if (best != null) _stat('Bestwert', '$best'),
-
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       game.cueInHand
                           ? 'Weiße verschieben: Kugel ziehen'
                           : 'Tisch antippen zum Zielen',
                       style: const TextStyle(
                         color: Colors.white60,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: _restart,
-                      child: const Text(
-                        'Neu aufbauen',
-                        style: TextStyle(color: Colors.white),
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -260,6 +266,8 @@ class _BilliardScreenState extends State<BilliardScreen>
                     onPower: (p) => setState(() => power = p),
                     onShoot: (p) => _shoot(aimAngle, p),
                     onRotate: (d) => setState(() => aimAngle += d),
+                    spin: spin,
+                    onSpin: (v) => setState(() => spin = v),
                   ),
                 ),
               ),
@@ -271,7 +279,7 @@ class _BilliardScreenState extends State<BilliardScreen>
   }
 
   Widget _stat(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -281,7 +289,7 @@ class _BilliardScreenState extends State<BilliardScreen>
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 16,
           ),
         ),
       ],

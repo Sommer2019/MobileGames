@@ -281,4 +281,71 @@ void controlTests() {
     g.shoot(0, 0.3);
     expect(g.cueInHand, isFalse);
   });
+
+  group('spin', () {
+    /// Cue ball at x=0.5, one object ball straight ahead at x=1.0.
+    BilliardGame straight() {
+      final g = BilliardGame();
+      for (final b in g.balls.skip(1)) {
+        b.pocketed = true;
+      }
+      g.balls[1]
+        ..pocketed = false
+        ..x = 1.0
+        ..y = 0.5;
+      g.cue
+        ..x = 0.5
+        ..y = 0.5;
+      return g;
+    }
+
+    /// Cue ball speed along the shot line right after the contact.
+    double cueAfter(double spinY) {
+      final g = straight();
+      g.shoot(0, 0.5, spinY: spinY);
+      for (var i = 0; i < 600 && g.firstHit == null; i++) {
+        g.step(1 / 600);
+      }
+      expect(g.firstHit, 1);
+      return g.cue.vx;
+    }
+
+    test('stun stops, follow runs on, draw comes back', () {
+      final stun = cueAfter(0);
+      final follow = cueAfter(0.7);
+      final draw = cueAfter(-0.7);
+      expect(stun.abs(), lessThan(0.1));
+      expect(follow, greaterThan(0.5));
+      expect(draw, lessThan(-0.5));
+    });
+
+    test('preview shows the cue ball path with spin', () {
+      final g = straight();
+      expect(g.preview(0).cueX.abs(), lessThan(0.01));
+      expect(g.preview(0, spinY: 0.7).cueX, greaterThan(0.2));
+      expect(g.preview(0, spinY: -0.7).cueX, lessThan(-0.2));
+    });
+
+    test('side spin bends the rebound off a cushion', () {
+      double yAfterBounce(double spinX) {
+        final g = straight();
+        g.balls[1]
+          ..x = 0.2
+          ..y = 0.1;
+        g.cue
+          ..x = 1.0
+          ..y = 0.5;
+        g.shoot(0, 0.4, spinX: spinX);
+        for (var i = 0; i < 60 && g.cue.vx >= 0; i++) {
+          g.step(1 / 60);
+        }
+        return g.cue.vy;
+      }
+
+      expect(yAfterBounce(0), closeTo(0, 1e-9));
+      // Moving right, right spin pushes down (to the right of the path).
+      expect(yAfterBounce(0.7), greaterThan(0.05));
+      expect(yAfterBounce(-0.7), lessThan(-0.05));
+    });
+  });
 }

@@ -18,7 +18,8 @@ const _ballColors = {
 Color ballColor(int n) =>
     n == 0 ? Colors.white : _ballColors[n > 8 ? n - 8 : n]!;
 
-const double _rail = 0.06;
+/// Rail width; wide enough to hold the pockets completely.
+const double _rail = 0.08;
 
 /// The table with touch aiming: touching anywhere points the cue at that
 /// spot. While the cue ball is "in hand", dragging it moves it instead.
@@ -32,7 +33,11 @@ class PoolTable extends StatelessWidget {
     required this.onAim,
     required this.onPlaceCue,
     this.highlight,
+    this.spin = Offset.zero,
   });
+
+  /// Where the cue hits the cue ball (see [SpinPicker]).
+  final Offset spin;
 
   final BilliardGame game;
   final double? aimAngle;
@@ -44,6 +49,10 @@ class PoolTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Padding(padding: const EdgeInsets.all(6), child: _table());
+  }
+
+  Widget _table() {
     return LayoutBuilder(
       builder: (context, c) {
         final scale = min(
@@ -85,6 +94,7 @@ class PoolTable extends StatelessWidget {
                   enabled ? aimAngle : null,
                   power,
                   highlight: highlight,
+                  spin: spin,
                 ),
               ),
             ),
@@ -103,7 +113,13 @@ class CueControls extends StatefulWidget {
     required this.onPower,
     required this.onShoot,
     required this.onRotate,
+    this.spin,
+    this.onSpin,
   });
+
+  /// Hit point on the cue ball; the picker is shown when [onSpin] is set.
+  final Offset? spin;
+  final ValueChanged<Offset>? onSpin;
 
   final bool enabled;
   final ValueChanged<double> onPower;
@@ -137,10 +153,18 @@ class _CueControlsState extends State<CueControls> {
             _repeatButton(Icons.rotate_right, () => widget.onRotate(fine)),
           ],
         ),
+        if (widget.onSpin != null) ...[
+          const SizedBox(height: 8),
+          SpinPicker(
+            spin: widget.spin ?? Offset.zero,
+            enabled: widget.enabled,
+            onChanged: widget.onSpin!,
+          ),
+        ],
         const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, c) {
-            const height = 170.0;
+            const height = 150.0;
             return GestureDetector(
               key: const ValueKey('powerBar'),
               onVerticalDragStart: widget.enabled ? (_) => _set(0) : null,
@@ -227,6 +251,107 @@ class _CueControlsState extends State<CueControls> {
   }
 }
 
+/// The cue ball seen from the player: tap where the cue should hit it.
+/// Above the centre = follow, below = draw, left/right = side spin.
+/// Double tap resets to the centre. The value is in -1..1 with y up.
+class SpinPicker extends StatelessWidget {
+  const SpinPicker({
+    super.key,
+    required this.spin,
+    required this.onChanged,
+    this.enabled = true,
+    this.size = 64,
+  });
+
+  final Offset spin;
+  final ValueChanged<Offset> onChanged;
+  final bool enabled;
+  final double size;
+
+  /// Hits further out than this would miscue.
+  static const double maxOffset = 0.75;
+
+  void _set(Offset local) {
+    final r = size / 2;
+    var v = Offset((local.dx - r) / r, -(local.dy - r) / r);
+    if (v.distance > maxOffset) v = v / v.distance * maxOffset;
+    // Snap to the centre near the middle.
+    if (v.distance < 0.08) v = Offset.zero;
+    onChanged(v);
+  }
+
+  String get label {
+    if (spin == Offset.zero) return 'Mitte';
+    final parts = <String>[
+      if (spin.dy > 0.15) 'Nachläufer',
+      if (spin.dy < -0.15) 'Rückläufer',
+      if (spin.dx > 0.15) 'rechts',
+      if (spin.dx < -0.15) 'links',
+    ];
+    return parts.isEmpty ? 'Mitte' : parts.join(' + ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          key: const ValueKey('spinPicker'),
+          onTapDown: enabled ? (d) => _set(d.localPosition) : null,
+          onPanUpdate: enabled ? (d) => _set(d.localPosition) : null,
+          onDoubleTap: enabled ? () => onChanged(Offset.zero) : null,
+          child: CustomPaint(
+            size: Size.square(size),
+            painter: _SpinPainter(spin),
+          ),
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          width: size + 24,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpinPainter extends CustomPainter {
+  _SpinPainter(this.spin);
+  final Offset spin;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.width / 2;
+    final c = Offset(r, r);
+    canvas.drawCircle(c, r, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      c,
+      r * SpinPicker.maxOffset,
+      Paint()
+        ..color = Colors.black12
+        ..style = PaintingStyle.stroke,
+    );
+    final cross = Paint()
+      ..color = Colors.black26
+      ..strokeWidth = 1;
+    canvas.drawLine(c - Offset(r * 0.8, 0), c + Offset(r * 0.8, 0), cross);
+    canvas.drawLine(c - Offset(0, r * 0.8), c + Offset(0, r * 0.8), cross);
+    canvas.drawCircle(
+      c + Offset(spin.dx * r, -spin.dy * r),
+      r * 0.16,
+      Paint()..color = Colors.redAccent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SpinPainter old) => old.spin != spin;
+}
+
 class TablePainter extends CustomPainter {
   TablePainter(
     this.game,
@@ -234,7 +359,11 @@ class TablePainter extends CustomPainter {
     this.aimAngle,
     this.power, {
     this.highlight,
+    this.spin = Offset.zero,
   });
+
+  /// Hit point on the cue ball, for the predicted cue ball path.
+  final Offset spin;
 
   final BilliardGame game;
   final double scale;
@@ -293,7 +422,7 @@ class TablePainter extends CustomPainter {
     if (angle != null && !game.moving && !game.cue.pocketed) {
       final c = p(game.cue.x, game.cue.y);
       final dir = Offset(cos(angle), sin(angle));
-      final pre = game.preview(angle);
+      final pre = game.preview(angle, spinY: spin.dy);
       final guide = Paint()
         ..color = Colors.white70
         ..strokeWidth = 1.5;
@@ -318,6 +447,17 @@ class TablePainter extends CustomPainter {
             ..color = Colors.yellowAccent
             ..strokeWidth = 2,
         );
+        // Where the cue ball goes after the contact.
+        final cuePath = Offset(pre.cueX, pre.cueY);
+        if (cuePath.distance > 0.02) {
+          canvas.drawLine(
+            ghost,
+            ghost + cuePath * scale * 0.35,
+            Paint()
+              ..color = Colors.white38
+              ..strokeWidth = 1.5,
+          );
+        }
       }
       // The cue stick, pulled back with the power.
       final back = r + 4 + power * scale * 0.25;

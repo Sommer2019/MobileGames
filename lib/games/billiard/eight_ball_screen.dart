@@ -32,6 +32,7 @@ class _EightBallScreenState extends State<EightBallScreen>
   Duration _last = Duration.zero;
   double aimAngle = 0;
   double power = 0;
+  Offset spin = Offset.zero;
   StreamSubscription<RoomMessage>? _sub;
 
   bool _myShotRunning = false;
@@ -74,6 +75,8 @@ class _EightBallScreenState extends State<EightBallScreen>
           game.shoot(
             (m['angle'] as num).toDouble(),
             (m['power'] as num).toDouble(),
+            spinX: (m['sx'] as num?)?.toDouble() ?? 0,
+            spinY: (m['sy'] as num?)?.toDouble() ?? 0,
           );
           _remoteShotRunning = true;
         });
@@ -152,7 +155,7 @@ class _EightBallScreenState extends State<EightBallScreen>
     _clearedBefore =
         group != null && rules.remainingOf(game, rules.current) == 0;
     final cx = game.cue.x, cy = game.cue.y;
-    if (game.shoot(aimAngle, p)) {
+    if (game.shoot(aimAngle, p, spinX: spin.dx, spinY: spin.dy)) {
       _myShotRunning = true;
       widget.setup.send({
         't': 'cue',
@@ -160,6 +163,8 @@ class _EightBallScreenState extends State<EightBallScreen>
         'power': p,
         'cx': cx,
         'cy': cy,
+        'sx': spin.dx,
+        'sy': spin.dy,
       });
     }
   }
@@ -220,6 +225,7 @@ class _EightBallScreenState extends State<EightBallScreen>
               enabled: _canShoot,
               onAim: (a) => setState(() => aimAngle = a),
               onPlaceCue: _placeCue,
+              spin: spin,
             ),
           ),
           SizedBox(
@@ -260,13 +266,12 @@ class _EightBallScreenState extends State<EightBallScreen>
                       ),
                     ),
                   ),
-                if (!rules.isOver)
-                  if (rules.isOver)
-                    GameOverActions(
-                      setup: widget.setup,
-                      winnerSeats: [(rules.winner! + round) % 2],
-                      onRematch: _reset,
-                    ),
+                if (rules.isOver)
+                  GameOverActions(
+                    setup: widget.setup,
+                    winnerSeats: [(rules.winner! + round) % 2],
+                    onRematch: _reset,
+                  ),
               ],
             ),
           ),
@@ -280,6 +285,8 @@ class _EightBallScreenState extends State<EightBallScreen>
                   onPower: (p) => setState(() => power = p),
                   onShoot: _shoot,
                   onRotate: (d) => setState(() => aimAngle += d),
+                  spin: spin,
+                  onSpin: (v) => setState(() => spin = v),
                 ),
               ),
             ),
