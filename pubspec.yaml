@@ -54,6 +54,7 @@ dependencies:
   vibration: ^3.2.1
   audioplayers: ^6.8.1
   home_widget: ^0.10.0
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

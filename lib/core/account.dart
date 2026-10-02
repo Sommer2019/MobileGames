@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'device_identity.dart';
 import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/keys.dart';
@@ -37,13 +38,21 @@ class Account extends ChangeNotifier {
 
   /// Loads (or creates) the account. [prefix] separates the storage keys
   /// (used by tests that simulate several players on one device).
-  static Future<Account> load({String prefix = 'account'}) async {
+  /// [recover] supplies the key of an earlier installation on this device
+  /// (default: [DeviceIdentity.recover]).
+  static Future<Account> load({
+    String prefix = 'account',
+    Future<String?> Function()? recover,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     var priv = prefs.getString('$prefix.privateKey');
     if (priv == null) {
-      priv = KeyPair.generate().privateKey;
+      // After a reinstall: the same account again, if the device allows.
+      priv = _validKey(await (recover ?? DeviceIdentity.recover)());
+      priv ??= KeyPair.generate().privateKey;
       await prefs.setString('$prefix.privateKey', priv);
     }
+    await DeviceIdentity.remember(priv);
     final keys = KeyPair(priv);
     final name =
         cleanNameOrNull(prefs.getString('$prefix.name')) ??
@@ -56,6 +65,16 @@ class Account extends ChangeNotifier {
       }
     } catch (_) {}
     return Account._(prefs, keys, name, friends, prefix);
+  }
+
+  static String? _validKey(String? key) {
+    if (key == null || !RegExp(r'^[0-9a-f]{64}$').hasMatch(key)) return null;
+    try {
+      KeyPair(key);
+      return key;
+    } catch (_) {
+      return null;
+    }
   }
 
   String get name => _name;

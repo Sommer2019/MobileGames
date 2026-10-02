@@ -5,6 +5,7 @@ import 'chat.dart';
 import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'leaderboard.dart';
+import 'profile_backup.dart';
 import 'secrets.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
@@ -28,6 +29,7 @@ class Services {
     friendCodes = FriendCodes(client, account.keys);
     friendRequests = FriendRequests(account, chat, codes: friendCodes);
     friendCodes.publish(account.name);
+    profileBackup = ProfileBackup(client, account);
     leaderboard = Leaderboard(client, account);
     Leaderboard.instance = leaderboard;
     leaderboard.publish();
@@ -59,6 +61,7 @@ class Services {
     final s = Services(account: account, client: RelayPool());
     _instance = s;
     await s.friendRequests.start();
+    unawaited(s._restoreProfile());
     await s.chat.start();
     return s;
   }
@@ -73,6 +76,16 @@ class Services {
   late final FriendRequests friendRequests;
   late final FriendCodes friendCodes;
   late final Leaderboard leaderboard;
+  late final ProfileBackup profileBackup;
+
+  /// Brings back name and friends after a reinstall, then keeps the backup
+  /// up to date. Saving only starts afterwards so an empty fresh profile
+  /// never overwrites the backup.
+  Future<void> _restoreProfile() async {
+    final changed = await profileBackup.restore();
+    account.addListener(profileBackup.schedule);
+    if (changed || account.friends.isNotEmpty) profileBackup.schedule();
+  }
 
   GameSession createSession(MatchInfo match) =>
       GameSession(match, messenger, p2p: p2pFactory());
