@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../ui/play_setup.dart';
+import 'battleship/battleship_local_screen.dart';
 import 'battleship/battleship_screen.dart';
 import 'billiard/billiard_screen.dart';
+import 'billiard/eight_ball_screen.dart';
 import 'checkers/checkers_screen.dart';
 import 'darts/darts_screen.dart';
 import 'chess/chess_screen.dart';
@@ -10,6 +12,7 @@ import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'mill/mill_screen.dart';
+import 'snake/snake_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
 /// An offline way to play a multiplayer game.
@@ -73,8 +76,11 @@ final List<GameInfo> games = [
     color: const Color(0xFF1565C0),
     offlineModes: const [
       OfflineMode('Gegen Computer', Icons.smart_toy, PlaySetup.ai()),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
     ],
-    multiplayerBuilder: (s) => BattleshipScreen(setup: s),
+    multiplayerBuilder: (s) => s.kind == PlayKind.local
+        ? const BattleshipLocalScreen()
+        : BattleshipScreen(setup: s),
   ),
   GameInfo(
     id: 'connect_four',
@@ -183,6 +189,14 @@ final List<GameInfo> games = [
     singleplayerBuilder: () => const LabyrinthLevelsScreen(),
   ),
   GameInfo(
+    id: 'snake',
+    title: 'Snake',
+    description: 'Fressen, wachsen, nicht in den Schwanz beißen',
+    icon: Icons.gesture,
+    color: const Color(0xFF558B2F),
+    singleplayerBuilder: () => const SnakeScreen(),
+  ),
+  GameInfo(
     id: 'mahjong',
     title: 'Mahjong',
     description: 'Räume alle Steinpaare ab',
@@ -193,10 +207,24 @@ final List<GameInfo> games = [
   GameInfo(
     id: 'billiard',
     title: 'Billard',
-    description: 'Versenke alle Kugeln mit möglichst wenigen Stößen',
+    description: 'Allein alle Kugeln versenken oder 8-Ball zu zweit',
     icon: Icons.sports_baseball,
     color: const Color(0xFF1B5E20),
-    singleplayerBuilder: () => const BilliardScreen(),
+    offlineModes: const [
+      OfflineMode(
+        'Allein: Tisch abräumen',
+        Icons.person,
+        PlaySetup.local(players: 1),
+      ),
+      OfflineMode(
+        '8-Ball: 2 Spieler, 1 Gerät',
+        Icons.people,
+        PlaySetup.local(),
+      ),
+    ],
+    multiplayerBuilder: (s) =>
+        s.players == 1 ? const BilliardScreen() : EightBallScreen(setup: s),
+    alsoSingleplayer: true,
   ),
 ];
 

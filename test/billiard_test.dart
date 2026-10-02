@@ -76,4 +76,103 @@ void main() {
     expect(s.cue.pocketed, isFalse, reason: 'cue ball is placed back');
     expect(s.score, 2);
   });
+
+  eightBallTests();
+}
+
+void eightBallTests() {
+  test('8-ball: open table assigns groups and continues the turn', () {
+    final r = EightBallRules();
+    r.evaluate(
+      pocketed: [3],
+      firstHit: 3,
+      scratched: false,
+      clearedBefore: false,
+    );
+    expect(r.groups, [BallGroup.solids, BallGroup.stripes]);
+    expect(r.current, 0);
+    r.evaluate(
+      pocketed: [],
+      firstHit: 2,
+      scratched: false,
+      clearedBefore: false,
+    );
+    expect(r.current, 1);
+  });
+
+  test('8-ball: fouls pass the turn', () {
+    final r = EightBallRules()
+      ..groups[0] = BallGroup.solids
+      ..groups[1] = BallGroup.stripes;
+    r.evaluate(
+      pocketed: [2],
+      firstHit: 10,
+      scratched: false,
+      clearedBefore: false,
+    );
+    expect(r.current, 1, reason: 'wrong ball first');
+    r.evaluate(
+      pocketed: [],
+      firstHit: null,
+      scratched: false,
+      clearedBefore: false,
+    );
+    expect(r.current, 0, reason: 'nothing hit');
+    r.evaluate(
+      pocketed: [1],
+      firstHit: 1,
+      scratched: true,
+      clearedBefore: false,
+    );
+    expect(r.current, 1, reason: 'scratch');
+    expect(r.lastEvent, contains('weiße'));
+  });
+
+  test('8-ball: the black ball decides', () {
+    final early = EightBallRules()
+      ..groups[0] = BallGroup.solids
+      ..groups[1] = BallGroup.stripes;
+    early.evaluate(
+      pocketed: [8],
+      firstHit: 1,
+      scratched: false,
+      clearedBefore: false,
+    );
+    expect(early.winner, 1);
+
+    final legal = EightBallRules()
+      ..groups[0] = BallGroup.solids
+      ..groups[1] = BallGroup.stripes;
+    legal.evaluate(
+      pocketed: [8],
+      firstHit: 8,
+      scratched: false,
+      clearedBefore: true,
+    );
+    expect(legal.winner, 0);
+
+    final scratch = EightBallRules()
+      ..groups[0] = BallGroup.solids
+      ..groups[1] = BallGroup.stripes;
+    scratch.evaluate(
+      pocketed: [8],
+      firstHit: 8,
+      scratched: true,
+      clearedBefore: true,
+    );
+    expect(scratch.winner, 1);
+  });
+
+  test('first hit, snapshot and restore', () {
+    final g = BilliardGame();
+    g.shoot(0, 0.8);
+    simulate(g);
+    expect(g.firstHit, isNotNull);
+    final snap = g.snapshot();
+    final other = BilliardGame()..restore(snap);
+    for (var i = 0; i < 16; i++) {
+      expect(other.balls[i].x, g.balls[i].x);
+      expect(other.balls[i].pocketed, g.balls[i].pocketed);
+    }
+  });
 }

@@ -76,18 +76,6 @@ jobs:
         with:
           name: MobileGames-android-apk
           path: build/app/outputs/flutter-apk/MobileGames-*.apk
-      - name: Publish release (main branch)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
-          name: Mobile Games ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('Build {0}', github.run_number) }}
-          target_commitish: ${{ github.sha }}
-          make_latest: true
-          body: |
-            Automatisch gebaut aus ${{ github.sha }}.
-            APK herunterladen und auf einem Android-Gerät (ab Android 10) installieren.
-          files: build/app/outputs/flutter-apk/MobileGames-*.apk
 
   ios:
     name: iOS (unsigned)
@@ -107,8 +95,39 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qr MobileGames-unsigned.ipa Payload
+          zip -qr MobileGames-${{ github.run_number }}-iOS-iPadOS-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: MobileGames-ios-unsigned
-          path: MobileGames-unsigned.ipa
+          path: MobileGames-*-iOS-iPadOS-unsigned.ipa
+
+  release:
+    name: GitHub Release
+    needs: [android, ios]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - name: Publish release with APK and IPA
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
+          name: Mobile Games ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('Build {0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: |
+            Automatisch gebaut aus ${{ github.sha }}.
+
+            **Android (ab Android 10):** `MobileGames-${{ github.run_number }}.apk` herunterladen und installieren
+            (Installation aus unbekannten Quellen erlauben).
+
+            **iPhone & iPad (iOS/iPadOS):** `MobileGames-${{ github.run_number }}-iOS-iPadOS-unsigned.ipa` ist eine
+            universelle, aber **unsignierte** App. Sie muss vor der Installation signiert werden, z. B. mit
+            AltStore, Sideloadly oder einem Apple-Developer-Account.
+          files: |
+            dist/*.apk
+            dist/*.ipa

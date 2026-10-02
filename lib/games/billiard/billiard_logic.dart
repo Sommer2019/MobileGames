@@ -39,6 +39,12 @@ class BilliardGame {
   int fouls = 0;
   final List<int> pocketedThisShot = [];
 
+  /// Number of the first ball the cue ball touched during the last shot.
+  int? firstHit;
+
+  /// Whether the cue ball was pocketed during the last shot.
+  bool scratched = false;
+
   Ball get cue => balls.first;
   bool get moving => balls.any((b) => !b.pocketed && b.moving);
   int get remaining => balls.where((b) => b.number != 0 && !b.pocketed).length;
@@ -76,6 +82,8 @@ class BilliardGame {
     cue.vy = sin(angle) * speed;
     shots++;
     pocketedThisShot.clear();
+    firstHit = null;
+    scratched = false;
     return true;
   }
 
@@ -120,6 +128,7 @@ class BilliardGame {
           b.vy = 0;
           if (b.number == 0) {
             fouls++;
+            scratched = true;
           } else {
             pocketedThisShot.add(b.number);
           }
@@ -149,6 +158,10 @@ class BilliardGame {
     final d2 = dx * dx + dy * dy;
     const minD = radius * 2;
     if (d2 >= minD * minD || d2 == 0) return;
+    if (firstHit == null) {
+      if (a.number == 0) firstHit = b.number;
+      if (b.number == 0) firstHit = a.number;
+    }
     final d = sqrt(d2);
     final nx = dx / d, ny = dy / d;
     // Separate overlapping balls.
@@ -166,6 +179,23 @@ class BilliardGame {
     a.vy -= impulse * ny;
     b.vx += impulse * nx;
     b.vy += impulse * ny;
+  }
+
+  /// Serialises the positions of all balls (for online play).
+  List<List<num>> snapshot() => [
+    for (final b in balls) [b.x, b.y, b.pocketed ? 1 : 0],
+  ];
+
+  void restore(List<dynamic> snap) {
+    for (var i = 0; i < balls.length && i < snap.length; i++) {
+      final s = snap[i] as List;
+      balls[i]
+        ..x = (s[0] as num).toDouble()
+        ..y = (s[1] as num).toDouble()
+        ..pocketed = s[2] == 1
+        ..vx = 0
+        ..vy = 0;
+    }
   }
 
   void _respawnCue() {
@@ -186,5 +216,90 @@ class BilliardGame {
       ..y = y
       ..vx = 0
       ..vy = 0;
+  }
+}
+
+enum BallGroup { solids, stripes }
+
+BallGroup? groupOf(int n) => n >= 1 && n <= 7
+    ? BallGroup.solids
+    : (n >= 9 && n <= 15 ? BallGroup.stripes : null);
+
+/// Simplified 8-ball rules for two players.
+///
+/// Open table until the first ball is legally pocketed. A turn continues
+/// while the player legally pockets own balls. Fouls (scratch, touching no
+/// ball or a wrong ball first) pass the turn. Pocketing the 8 wins only
+/// after all own balls are gone and without a foul, otherwise it loses.
+class EightBallRules {
+  int current = 0;
+  final List<BallGroup?> groups = [null, null];
+  int? winner;
+  String lastEvent = '';
+
+  bool get isOver => winner != null;
+
+  int remainingOf(BilliardGame g, int player) {
+    final group = groups[player];
+    if (group == null) return 7;
+    return g.balls
+        .where((b) => !b.pocketed && groupOf(b.number) == group)
+        .length;
+  }
+
+  /// Evaluates a finished shot. [pocketed] are the balls pocketed during
+  /// the shot (without the cue ball) and [clearedBefore] whether the
+  /// shooter had already pocketed all own balls before the shot.
+  void evaluate({
+    required List<int> pocketed,
+    required int? firstHit,
+    required bool scratched,
+    required bool clearedBefore,
+  }) {
+    if (isOver) return;
+    final me = current, opp = 1 - current;
+    final mine = groups[me];
+    final foul =
+        scratched ||
+        firstHit == null ||
+        (mine == null && firstHit == 8) ||
+        (mine != null &&
+            !(groupOf(firstHit) == mine || (clearedBefore && firstHit == 8)));
+    if (pocketed.contains(8)) {
+      if (clearedBefore && !foul) {
+        winner = me;
+        lastEvent = 'Die 8 versenkt – Sieg!';
+      } else {
+        winner = opp;
+        lastEvent = 'Die 8 zu früh oder mit Foul versenkt – verloren!';
+      }
+      return;
+    }
+    if (mine == null && !foul) {
+      final first = pocketed.where((n) => groupOf(n) != null).firstOrNull;
+      if (first != null) {
+        groups[me] = groupOf(first);
+        groups[opp] = groups[me] == BallGroup.solids
+            ? BallGroup.stripes
+            : BallGroup.solids;
+      }
+    }
+    final own = groups[me];
+    final pottedOwn = own != null && pocketed.any((n) => groupOf(n) == own);
+    if (foul) {
+      lastEvent = scratched
+          ? 'Foul: weiße Kugel versenkt'
+          : firstHit == null
+          ? 'Foul: keine Kugel getroffen'
+          : 'Foul: falsche Kugel zuerst getroffen';
+      current = opp;
+    } else if (pottedOwn) {
+      lastEvent = 'Versenkt – nochmal!';
+    } else {
+      lastEvent = pocketed.isEmpty
+          ? 'Nichts versenkt'
+          : 'Fremde Kugel versenkt';
+      current = opp;
+    }
   }
 }

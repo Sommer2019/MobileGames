@@ -1,13 +1,20 @@
 # Mobile Games
 
-Eine Flutter-App (Android ab Version 10, zusätzlich iOS) mit sieben Spielen:
+Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit elf Spielen:
 
-| Mehrspieler (online P2P oder offline) | Einzelspieler |
-| --- | --- |
-| ♟️ Schach (inkl. Computergegner) | 🟤 Kugellabyrinth (Bewegungssensor, 5 Level) |
-| 🚢 Schiffe versenken (inkl. Computergegner) | 🀄 Mahjong (immer lösbar generiert) |
-| 🔴 4 gewinnt (inkl. Computergegner) | 🎱 Billard (alle Kugeln mit wenig Stößen versenken) |
-| 🎲 Kniffel (1–4 Spieler offline, 2 online) | |
+| Mehrspieler (online P2P und an einem Gerät) | Spieler | Einzelspieler |
+| --- | --- | --- |
+| ♟️ Schach (+ Computer) | 2 | 🟤 Kugellabyrinth (Bewegungssensor, 5 Level) |
+| ⚪ Dame (+ Computer) | 2 | 🀄 Mahjong (immer lösbar) |
+| ⭕ Mühle (+ Computer) | 2 | 🐍 Snake |
+| 🚢 Schiffe versenken (+ Computer, Pass & Play) | 2 | 🎯 Darts allein (501/301/Rund um die Uhr) |
+| 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (Tisch abräumen) |
+| 🎲 Kniffel | 1–4 | |
+| 🎯 Darts | 2–4 | |
+| 🎱 Billard 8-Ball | 2 | |
+
+Dazu: **Freundesliste mit Online-Status**, **Chat** mit Freunden (auch offline zugestellt),
+**Chat im Spiel**, Pop-up und System-Benachrichtigung bei Einladungen und Nachrichten.
 
 ## Download
 
@@ -16,8 +23,9 @@ Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
 * **Releases** → neuester Eintrag `Build N` → `MobileGames-N.apk` herunterladen und installieren
   (Installation aus unbekannten Quellen erlauben).
 * Alternativ unter **Actions → Build → Artifacts**.
-* Für iOS wird eine *unsignierte* `.ipa` als Artifact gebaut. Installieren lässt sie sich
-  nur nach eigenem Signieren (z. B. AltStore/Sideloadly oder mit Apple-Developer-Account).
+* **iPhone & iPad:** Im selben Release liegt `MobileGames-N-iOS-iPadOS-unsigned.ipa`
+  (eine universelle App für iOS und iPadOS). Sie ist *unsigniert* und lässt sich erst nach
+  eigenem Signieren installieren (z. B. AltStore/Sideloadly oder Apple-Developer-Account).
 
 ## Serverloser Multiplayer
 
@@ -31,6 +39,12 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
   öffentliche, kostenlose [Nostr](https://nostr.com)-Relays genutzt. Nachrichten sind
   signiert und Ende-zu-Ende verschlüsselt (NIP-04) und werden von den Relays nicht
   gespeichert (ephemere Events).
+* **Räume:** Bei 3–4 Spielern ist der Host der Knotenpunkt: Er hält zu jedem Mitspieler eine
+  eigene P2P-Verbindung und leitet Züge weiter (eine gemeinsame Reihenfolge für alle).
+* **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-04). Diese
+  speichern die Relays, damit sie auch ankommen, wenn der Freund gerade offline ist.
+* **Benachrichtigungen:** Läuft die App im Hintergrund, kommen Einladungen und Nachrichten als
+  System-Benachrichtigung. Ist die App ganz geschlossen, geht das ohne eigenen Push-Server nicht.
 * **Spielen:** Danach verbinden sich die Geräte direkt per **WebRTC (Peer-to-Peer)**.
   Wenn beide Netze keine Direktverbindung zulassen (strenges NAT, kein TURN-Server),
   laufen die Spielzüge automatisch verschlüsselt über die Relays weiter. Das Symbol oben

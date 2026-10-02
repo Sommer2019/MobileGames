@@ -5,10 +5,13 @@ import 'package:mobile_games/games/checkers/checkers_screen.dart';
 import 'package:mobile_games/games/chess/chess_screen.dart';
 import 'package:mobile_games/games/mill/mill_screen.dart';
 import 'package:mobile_games/games/darts/darts_screen.dart';
+import 'package:mobile_games/games/billiard/eight_ball_screen.dart';
 import 'package:mobile_games/games/connect_four/connect_four_screen.dart';
 import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:mobile_games/games/mahjong/mahjong_screen.dart';
+import 'package:mobile_games/games/battleship/battleship_local_screen.dart';
 import 'package:mobile_games/games/battleship/battleship_screen.dart';
+import 'package:mobile_games/games/snake/snake_screen.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/home_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
@@ -22,19 +25,24 @@ Widget app(Widget child) => MaterialApp(home: child);
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('home lists all seven games', (tester) async {
+  testWidgets('home lists all games', (tester) async {
     await tester.pumpWidget(app(const HomeScreen()));
-    for (final title in [
+    final titles = [
       'Schach',
       'Schiffe versenken',
       '4 gewinnt',
+      'Dame',
+      'Mühle',
       'Kniffel',
-    ]) {
-      expect(find.text(title), findsOneWidget);
-    }
-    await tester.scrollUntilVisible(find.text('Billard'), 200);
-    for (final title in ['Kugellabyrinth', 'Mahjong', 'Billard']) {
-      expect(find.text(title), findsOneWidget);
+      'Darts',
+      'Billard',
+      'Kugellabyrinth',
+      'Mahjong',
+      'Snake',
+    ];
+    for (final t in titles) {
+      await tester.scrollUntilVisible(find.text(t).first, 100);
+      expect(find.text(t), findsWidgets);
     }
   });
 
@@ -83,7 +91,9 @@ void main() {
   });
 
   testWidgets('darts solo: choose mode and throw three darts', (tester) async {
-    await tester.pumpWidget(app(const DartsScreen(setup: PlaySetup.local(players: 1))));
+    await tester.pumpWidget(
+      app(const DartsScreen(setup: PlaySetup.local(players: 1))),
+    );
     await tester.tap(find.byKey(const ValueKey('dartsStart')));
     await tester.pump();
     expect(find.textContaining('Du wirfst (Dart 1/3)'), findsOneWidget);
@@ -123,6 +133,38 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Du:'), findsOneWidget);
     await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('battleship pass and play hides boards between turns', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const BattleshipLocalScreen()));
+    expect(find.text('Gerät an Spieler 1 übergeben'), findsOneWidget);
+    await tester.tap(find.text('Ich bin bereit'));
+    await tester.pump();
+    await tester.tap(find.text('Fertig'));
+    await tester.pump();
+    expect(find.text('Gerät an Spieler 2 übergeben'), findsOneWidget);
+    await tester.tap(find.text('Ich bin bereit'));
+    await tester.pump();
+    await tester.tap(find.text('Fertig'));
+    await tester.pump();
+    await tester.tap(find.text('Ich bin bereit'));
+    await tester.pump();
+    expect(find.text('Spieler 1 schießt'), findsOneWidget);
+  });
+
+  testWidgets('snake starts and runs', (tester) async {
+    await tester.pumpWidget(app(const SnakeScreen()));
+    await tester.tap(find.byKey(const ValueKey('snakeStart')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.textContaining('Punkte:'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('single player screens build', (tester) async {
@@ -226,6 +268,86 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+  });
+
+  testWidgets('online 8-ball: shot is mirrored and the turn passes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(2400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final rooms = (await tester.runAsync(
+      () => buildRoom(
+        FakeRelayBus(),
+        1,
+        gameId: 'billiard',
+        names: ['Anna', 'Ben'],
+      ),
+    ))!;
+    await tester.pumpWidget(
+      app(
+        Column(
+          children: [
+            Expanded(
+              child: KeyedSubtree(
+                key: const ValueKey('A'),
+                child: EightBallScreen(setup: PlaySetup.online(rooms[0])),
+              ),
+            ),
+            Expanded(
+              child: KeyedSubtree(
+                key: const ValueKey('B'),
+                child: EightBallScreen(setup: PlaySetup.online(rooms[1])),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final a = find.byKey(const ValueKey('A')),
+        b = find.byKey(const ValueKey('B'));
+    expect(
+      find.descendant(of: a, matching: find.text('Du bist am Stoß')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: b, matching: find.text('Anna ist am Stoß')),
+      findsOneWidget,
+    );
+    // Anna drags away from the cue ball (left of it) and releases: break shot.
+    final table = find.descendant(
+      of: a,
+      matching: find.byKey(const ValueKey('poolTable')),
+    );
+    final rect = tester.getRect(table);
+    final cue = Offset(
+      rect.left + rect.width * (0.06 + 0.5) / 2.12,
+      rect.center.dy,
+    );
+    await tester.dragFrom(cue - const Offset(60, 0), const Offset(-120, 0));
+    for (var i = 0; i < 80; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // Both devices agree on whose turn it is after the shot.
+    final aTurn = find
+        .descendant(of: a, matching: find.text('Du bist am Stoß'))
+        .evaluate()
+        .isNotEmpty;
+    final bTurn = find
+        .descendant(of: b, matching: find.text('Du bist am Stoß'))
+        .evaluate()
+        .isNotEmpty;
+    expect(aTurn != bTurn, isTrue, reason: 'exactly one player is to shoot');
+    final event = find.textContaining(RegExp('versenkt|Foul|Nichts'));
+    expect(find.descendant(of: a, matching: event), findsOneWidget);
+    expect(find.descendant(of: b, matching: event), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 50)),

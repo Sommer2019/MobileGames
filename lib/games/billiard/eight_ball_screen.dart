@@ -1,0 +1,298 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/net/room.dart';
+import '../../ui/play_setup.dart';
+import 'billiard_logic.dart';
+import 'billiard_screen.dart';
+
+/// 8-ball for two players, on one device or online.
+///
+/// Online the shooter's device is authoritative: it sends the shot (so the
+/// opponent sees it animated) and afterwards the resulting ball positions
+/// and events, which both devices then apply identically.
+class EightBallScreen extends StatefulWidget {
+  const EightBallScreen({super.key, required this.setup});
+  final PlaySetup setup;
+
+  @override
+  State<EightBallScreen> createState() => _EightBallScreenState();
+}
+
+class _EightBallScreenState extends State<EightBallScreen>
+    with SingleTickerProviderStateMixin {
+  BilliardGame game = BilliardGame();
+  EightBallRules rules = EightBallRules();
+  int round = 0;
+  late final Ticker _ticker;
+  Duration _last = Duration.zero;
+  Offset? _aimPoint;
+  StreamSubscription<RoomMessage>? _sub;
+
+  bool _myShotRunning = false;
+  bool _clearedBefore = false;
+  bool _remoteShotRunning = false;
+  Map<String, dynamic>? _pendingSettle;
+
+  /// Player index p is played by seat (p + round) % 2.
+  int get myIndex => (widget.setup.mySeat - round % 2 + 2) % 2;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    _ticker = createTicker(_tick)..start();
+    _sub = widget.setup.listen((m) => _onMessage(m.data));
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    _ticker.dispose();
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _onMessage(Map<String, dynamic> m) {
+    switch (m['t']) {
+      case 'cue':
+        setState(() {
+          game.shoot(
+            (m['angle'] as num).toDouble(),
+            (m['power'] as num).toDouble(),
+          );
+          _remoteShotRunning = true;
+        });
+      case 'settle':
+        _pendingSettle = m;
+      case 'rematch':
+        _reset(send: false);
+    }
+  }
+
+  void _tick(Duration now) {
+    final dt = _last == Duration.zero
+        ? 0.0
+        : (now - _last).inMicroseconds / 1e6;
+    _last = now;
+    if (dt <= 0) return;
+    if (game.moving) {
+      final before = game.balls.where((b) => b.pocketed).length;
+      setState(() => game.step(min(dt, 0.05)));
+      if (game.balls.where((b) => b.pocketed).length > before) {
+        HapticFeedback.lightImpact();
+      }
+      return;
+    }
+    if (_myShotRunning) {
+      _myShotRunning = false;
+      final pocketed = List<int>.from(game.pocketedThisShot);
+      setState(() {
+        rules.evaluate(
+          pocketed: pocketed,
+          firstHit: game.firstHit,
+          scratched: game.scratched,
+          clearedBefore: _clearedBefore,
+        );
+      });
+      widget.setup.send({
+        't': 'settle',
+        'snap': game.snapshot(),
+        'pocketed': pocketed,
+        'firstHit': game.firstHit,
+        'scratched': game.scratched,
+        'cleared': _clearedBefore,
+      });
+    }
+    final settle = _pendingSettle;
+    if (settle != null) {
+      _pendingSettle = null;
+      _remoteShotRunning = false;
+      setState(() {
+        game.restore(settle['snap'] as List<dynamic>);
+        rules.evaluate(
+          pocketed: [for (final n in settle['pocketed'] as List) n as int],
+          firstHit: settle['firstHit'] as int?,
+          scratched: settle['scratched'] as bool? ?? false,
+          clearedBefore: settle['cleared'] as bool? ?? false,
+        );
+      });
+    }
+  }
+
+  bool get _canShoot =>
+      !game.moving &&
+      !rules.isOver &&
+      !_myShotRunning &&
+      !_remoteShotRunning &&
+      _pendingSettle == null &&
+      (!widget.setup.online || rules.current == myIndex);
+
+  (double, double)? get _shot {
+    final p = _aimPoint;
+    if (p == null) return null;
+    final dx = game.cue.x - p.dx, dy = game.cue.y - p.dy;
+    final dist = sqrt(dx * dx + dy * dy);
+    final power = ((dist - BilliardGame.radius * 2) / 0.6).clamp(0.0, 1.0);
+    return (atan2(dy, dx), power);
+  }
+
+  void _shoot() {
+    final s = _shot;
+    setState(() => _aimPoint = null);
+    if (s == null || s.$2 <= 0.02 || !_canShoot) return;
+    final group = rules.groups[rules.current];
+    _clearedBefore =
+        group != null && rules.remainingOf(game, rules.current) == 0;
+    if (game.shoot(s.$1, s.$2)) {
+      _myShotRunning = true;
+      widget.setup.send({'t': 'cue', 'angle': s.$1, 'power': s.$2});
+    }
+  }
+
+  void _reset({bool send = true}) {
+    setState(() {
+      game = BilliardGame();
+      rules = EightBallRules();
+      round++;
+      _myShotRunning = false;
+      _remoteShotRunning = false;
+      _pendingSettle = null;
+    });
+    if (send) widget.setup.send({'t': 'rematch'});
+  }
+
+  String _name(int p) {
+    final room = widget.setup.room;
+    if (room != null) return p == myIndex ? 'Du' : room.names[(p + round) % 2];
+    return 'Spieler ${p + 1}';
+  }
+
+  String _groupLabel(BallGroup? g) => switch (g) {
+    BallGroup.solids => 'Volle (1–7)',
+    BallGroup.stripes => 'Halbe (9–15)',
+    null => 'offen',
+  };
+
+  String _status() {
+    if (rules.isOver) {
+      final w = _name(rules.winner!);
+      return w == 'Du' ? 'Du hast gewonnen! 🎱' : '$w gewinnt!';
+    }
+    final n = _name(rules.current);
+    return n == 'Du' ? 'Du bist am Stoß' : '$n ist am Stoß';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OnlineGameFrame(
+      setup: widget.setup,
+      title: '8-Ball',
+      child: Row(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, c) {
+                const rail = 0.06;
+                final scale = min(
+                  c.maxWidth / (BilliardGame.width + rail * 2),
+                  c.maxHeight / (BilliardGame.height + rail * 2),
+                );
+                Offset toTable(Offset local) =>
+                    Offset(local.dx / scale - rail, local.dy / scale - rail);
+                return Center(
+                  child: SizedBox(
+                    width: (BilliardGame.width + rail * 2) * scale,
+                    height: (BilliardGame.height + rail * 2) * scale,
+                    child: GestureDetector(
+                      key: const ValueKey('poolTable'),
+                      onPanStart: (d) {
+                        if (_canShoot) {
+                          setState(() => _aimPoint = toTable(d.localPosition));
+                        }
+                      },
+                      onPanUpdate: (d) {
+                        if (_canShoot) {
+                          setState(() => _aimPoint = toTable(d.localPosition));
+                        }
+                      },
+                      onPanEnd: (_) => _shoot(),
+                      child: CustomPaint(
+                        painter: TablePainter(
+                          game,
+                          scale,
+                          rail,
+                          _canShoot ? _shot : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          SizedBox(
+            width: 170,
+            child: ListView(
+              padding: const EdgeInsets.all(8),
+              children: [
+                Text(_status(), style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                if (rules.lastEvent.isNotEmpty)
+                  Text(
+                    rules.lastEvent,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                const SizedBox(height: 8),
+                for (var p = 0; p < 2; p++)
+                  Card(
+                    color: p == rules.current && !rules.isOver
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _name(p),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(_groupLabel(rules.groups[p])),
+                          if (rules.groups[p] != null)
+                            Text(
+                              rules.remainingOf(game, p) == 0
+                                  ? 'Jetzt die 8!'
+                                  : 'Noch ${rules.remainingOf(game, p)}',
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_shot != null && _canShoot)
+                  LinearProgressIndicator(
+                    value: _shot!.$2,
+                    minHeight: 8,
+                    color: Colors.orange,
+                  ),
+                if (rules.isOver)
+                  FilledButton.icon(
+                    onPressed: _reset,
+                    icon: const Icon(Icons.replay),
+                    label: Text(widget.setup.online ? 'Revanche' : 'Nochmal'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

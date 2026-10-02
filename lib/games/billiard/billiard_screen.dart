@@ -160,7 +160,7 @@ class _BilliardScreenState extends State<BilliardScreen>
                           if (s != null && s.$2 > 0.02) game.shoot(s.$1, s.$2);
                         },
                         child: CustomPaint(
-                          painter: _TablePainter(game, scale, rail, _shot),
+                          painter: TablePainter(game, scale, rail, _shot),
                         ),
                       ),
                     ),
@@ -247,8 +247,8 @@ class _BilliardScreenState extends State<BilliardScreen>
   );
 }
 
-class _TablePainter extends CustomPainter {
-  _TablePainter(this.game, this.scale, this.rail, this.shot);
+class TablePainter extends CustomPainter {
+  TablePainter(this.game, this.scale, this.rail, this.shot);
   final BilliardGame game;
   final double scale;
   final double rail;
@@ -359,5 +359,5 @@ class _TablePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_TablePainter old) => true;
+  bool shouldRepaint(TablePainter old) => true;
 }
