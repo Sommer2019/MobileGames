@@ -9,6 +9,7 @@ import '../../core/net/room.dart';
 import '../../core/secrets.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
+import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import 'yahtzee_logic.dart';
 
@@ -272,39 +273,12 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
                 onTap: () => _hold(i),
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: game.held[i]
-                          ? Colors.amber.shade200
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: game.held[i]
-                            ? Colors.amber.shade800
-                            : Colors.black26,
-                        width: game.held[i] ? 3 : 1,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 3,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: game.hasRolled
-                        ? AnimatedRotation(
-                            turns: _spins[i].toDouble(),
-                            duration: const Duration(milliseconds: 450),
-                            curve: Curves.easeOutBack,
-                            child: CustomPaint(
-                              painter: _DiePainter(game.dice[i]),
-                              size: Size.infinite,
-                            ),
-                          )
-                        : null,
+                  child: RollingDie(
+                    key: ValueKey('die-$i'),
+                    value: game.dice[i],
+                    rollId: _spins[i],
+                    held: game.held[i],
+                    visible: game.hasRolled,
                   ),
                 ),
               ),
@@ -403,40 +377,4 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
       ),
     );
   }
-}
-
-class _DiePainter extends CustomPainter {
-  _DiePainter(this.value);
-  final int value;
-
-  static const _pips = {
-    1: [(0.5, 0.5)],
-    2: [(0.25, 0.25), (0.75, 0.75)],
-    3: [(0.25, 0.25), (0.5, 0.5), (0.75, 0.75)],
-    4: [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)],
-    5: [(0.25, 0.25), (0.75, 0.25), (0.5, 0.5), (0.25, 0.75), (0.75, 0.75)],
-    6: [
-      (0.25, 0.22),
-      (0.75, 0.22),
-      (0.25, 0.5),
-      (0.75, 0.5),
-      (0.25, 0.78),
-      (0.75, 0.78),
-    ],
-  };
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black87;
-    for (final (x, y) in _pips[value]!) {
-      canvas.drawCircle(
-        Offset(x * size.width, y * size.height),
-        size.width * 0.09,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DiePainter old) => old.value != value;
 }

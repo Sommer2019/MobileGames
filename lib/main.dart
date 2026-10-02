@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'core/background.dart';
 import 'core/chat.dart';
+import 'core/home_widgets.dart';
 import 'core/net/matchmaker.dart';
 import 'core/nostr/relay_pool.dart';
 import 'core/notifications.dart';
@@ -47,6 +48,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Notifications.I.init();
         await BackgroundService.I.init();
+        await HomeWidgets.init(_navigator);
       });
       _lifecycle = AppLifecycleListener(
         onHide: () => _pausedAt = DateTime.now(),

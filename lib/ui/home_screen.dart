@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/home_widgets.dart';
 import '../core/konami.dart';
 import '../core/secrets.dart';
 import '../core/services.dart';
@@ -175,14 +176,17 @@ class _GameCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: ValueKey('game-${game.id}'),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => game.isMultiplayer
-                ? LobbyScreen(game: game)
-                : game.singleplayerBuilder!(),
-          ),
-        ),
+        onTap: () {
+          HomeWidgets.recordPlayed(game.id);
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => game.isMultiplayer
+                  ? LobbyScreen(game: game)
+                  : game.singleplayerBuilder!(),
+            ),
+          );
+        },
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

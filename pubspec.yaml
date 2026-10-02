@@ -53,6 +53,7 @@ dependencies:
   battery_plus: ^7.1.2
   vibration: ^3.2.1
   audioplayers: ^6.8.1
+  home_widget: ^0.10.0
 
 dev_dependencies:
   flutter_test:

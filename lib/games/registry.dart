@@ -7,6 +7,7 @@ import 'billiard/billiard_screen.dart';
 import 'billiard/eight_ball_screen.dart';
 import 'checkers/checkers_screen.dart';
 import 'darts/darts_screen.dart';
+import 'dice/dice_cup_screen.dart';
 import 'chess/chess_screen.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
@@ -190,6 +191,14 @@ final List<GameInfo> games = [
     icon: Icons.blur_circular,
     color: const Color(0xFF8D6E63),
     singleplayerBuilder: () => const LabyrinthLevelsScreen(),
+  ),
+  GameInfo(
+    id: 'dice',
+    title: 'Würfelbecher',
+    description: '1–6 Würfel für Brettspiele – Handy schütteln zum Würfeln',
+    icon: Icons.casino_outlined,
+    color: const Color(0xFF33691E),
+    singleplayerBuilder: () => const DiceCupScreen(),
   ),
   GameInfo(
     id: 'snake',
