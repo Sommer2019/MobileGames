@@ -23,6 +23,11 @@ Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
 `tool/make_sounds.py`, abschaltbar oben auf der Startseite.
 🎮 Und irgendwo steckt ein Geheimnis für Kenner alter Konsolen …
 
+**Widgets** (Android und iOS 17+): 🎲 *Würfel* – 1–6 Würfel direkt auf dem Startbildschirm,
+antippen zum Würfeln (iOS: Anzahl über „Widget bearbeiten“; 📳 öffnet den Würfelbecher, dort
+klappt auch Schütteln). 🎮 *Spieleabend* – ungelesene Nachrichten, Freundesanfragen, wer online
+ist und die zuletzt gespielten Spiele zum direkten Starten.
+
 ## Download
 
 Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
