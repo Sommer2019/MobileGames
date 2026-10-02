@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:vibration/vibration.dart';
 import 'package:volume_controller/volume_controller.dart';
 
 enum KonamiInput { up, down, left, right, volumeUp, volumeDown, plugIn }
@@ -33,6 +34,9 @@ class KonamiCode {
 
   int get progress => _pos;
 
+  static bool _isVolume(KonamiInput i) =>
+      i == KonamiInput.volumeUp || i == KonamiInput.volumeDown;
+
   /// Feeds one input. Returns true when the code is complete.
   bool add(KonamiInput input, {DateTime? now}) {
     now ??= DateTime.now();
@@ -49,6 +53,11 @@ class KonamiCode {
     // A wrong input may itself be the start of a new attempt (and ↑ ↑ ↑
     // still works, like in the original).
     if (_pos == 2 && input == KonamiInput.up) return false;
+    // Some phones need two presses before the volume changes (the first
+    // only shows the slider): repeated volume presses count once.
+    if (_pos > 0 && _isVolume(input) && sequence[_pos - 1] == input) {
+      return false;
+    }
     _pos = 0;
     if (input == sequence.first) {
       _started = now;
@@ -56,6 +65,41 @@ class KonamiCode {
     }
     return false;
   }
+}
+
+/// Vibration rhythm of the code itself: ↑↑ ↓↓ ←→←→, then the accented
+/// "B A" and a long final buzz. Alternating pause / vibration in ms.
+const konamiJingle = [
+  0, 60, 80, 60, // ↑ ↑
+  200, 60, 80, 60, // ↓ ↓
+  200, 50, 70, 50, 70, 50, 70, 50, // ← → ← →
+  220, 140, 90, 140, // B A
+  260, 600, // ta-daa
+];
+
+/// Strength (1-255) for each entry of [konamiJingle]; pauses are 0.
+const konamiJingleIntensities = [
+  0, 160, 0, 160, //
+  0, 160, 0, 160, //
+  0, 120, 0, 120, 0, 120, 0, 120, //
+  0, 255, 0, 255, //
+  0, 255, //
+];
+
+/// Plays [konamiJingle] on the vibration motor (independent of the
+/// system's touch feedback setting). Falls back to haptic feedback.
+Future<void> playKonamiJingle() async {
+  try {
+    if (await Vibration.hasVibrator()) {
+      final amplitude = await Vibration.hasAmplitudeControl();
+      await Vibration.vibrate(
+        pattern: konamiJingle,
+        intensities: amplitude ? konamiJingleIntensities : const [],
+      );
+      return;
+    }
+  } catch (_) {}
+  await HapticFeedback.heavyImpact();
 }
 
 /// Listens for swipes on [child], the volume buttons and the charger and
@@ -146,7 +190,7 @@ class _KonamiDetectorState extends State<KonamiDetector> {
 
   void _input(KonamiInput input) {
     if (_code.add(input)) {
-      HapticFeedback.heavyImpact();
+      playKonamiJingle();
       widget.onUnlocked();
     }
   }

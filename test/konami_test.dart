@@ -33,6 +33,25 @@ void main() {
     }
   });
 
+  test('pressing a volume button twice is fine', () {
+    final k = KonamiCode();
+    for (final i in KonamiCode.sequence.take(8)) {
+      k.add(i);
+    }
+    k.add(KonamiInput.volumeUp);
+    k.add(KonamiInput.volumeUp);
+    k.add(KonamiInput.volumeDown);
+    k.add(KonamiInput.volumeDown);
+    expect(k.add(KonamiInput.plugIn), isTrue);
+  });
+
+  test('jingle: pauses and vibrations alternate, all have a strength', () {
+    expect(konamiJingle.length, konamiJingleIntensities.length);
+    for (var i = 0; i < konamiJingle.length; i++) {
+      expect(konamiJingleIntensities[i] == 0, i.isEven);
+    }
+  });
+
   test('too slow does not count', () {
     final k = KonamiCode();
     final t0 = DateTime(2026);
