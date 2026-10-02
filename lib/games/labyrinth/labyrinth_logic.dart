@@ -497,6 +497,9 @@ class LabyrinthGame {
   double x = 0, y = 0, vx = 0, vy = 0;
   BallState state = BallState.rolling;
 
+  /// Cheat: only the goal swallows the ball, edges act like walls.
+  bool ghost = false;
+
   /// How the ball has turned (only for drawing).
   final SphereOrientation orientation = SphereOrientation(axisAngle: 0.6);
   double elapsed = 0;
@@ -531,7 +534,12 @@ class LabyrinthGame {
         _collide(w);
       }
       _checkHoles();
-      if (state == BallState.rolling &&
+      if (ghost) {
+        if (x < radius || x > boardWidth - radius) vx = -vx * restitution;
+        if (y < radius || y > boardHeight - radius) vy = -vy * restitution;
+        x = x.clamp(radius, boardWidth - radius);
+        y = y.clamp(radius, boardHeight - radius);
+      } else if (state == BallState.rolling &&
           (x < 0 || y < 0 || x > boardWidth || y > boardHeight)) {
         // Rolled off the edge of a board without frame.
         state = BallState.fell;
@@ -590,6 +598,7 @@ class LabyrinthGame {
       y = level.goal.y;
       return;
     }
+    if (ghost) return;
     for (final h in level.holes) {
       if (inside(h)) {
         state = BallState.fell;

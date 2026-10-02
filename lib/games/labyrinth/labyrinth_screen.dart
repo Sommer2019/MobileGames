@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/leaderboard.dart';
 import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
+import 'konami.dart';
 import 'labyrinth_logic.dart';
 
 class LabyrinthLevelsScreen extends StatefulWidget {
@@ -23,15 +24,25 @@ class LabyrinthLevelsScreen extends StatefulWidget {
 class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
   Map<int, double> best = {};
 
+  /// Secret cheat (Konami code): all levels, harmless holes.
+  bool cheat = false;
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
+  Future<void> _setCheat(bool on) async {
+    setState(() => cheat = on);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('labyrinth.cheat', on);
+  }
+
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
+      cheat = prefs.getBool('labyrinth.cheat') ?? false;
       best = {
         for (var i = 0; i < labyrinthLevels.length; i++)
           if (prefs.getDouble('labyrinth.best.$i') != null)
@@ -47,50 +58,90 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
         title: const Text('Kugellabyrinth'),
         actions: const [LeaderboardButton(game: 'labyrinth')],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text(
-              'Neige dein Handy, um die Kugel ins grüne Zielloch zu rollen. '
-              'Fällt sie in ein anderes Loch, geht es von vorne los.',
-            ),
-          ),
-          for (var i = 0; i < labyrinthLevels.length; i++)
-            Card(
-              child: ListTile(
-                leading: CircleAvatar(child: Text('${i + 1}')),
-                title: Text(labyrinthLevels[i].name),
-                subtitle: Text(
-                  best[i] != null
-                      ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
-                      : 'Noch nicht geschafft',
-                ),
-                enabled: i == 0 || best.containsKey(i - 1),
-                trailing: Icon(
-                  best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
-                ),
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => LabyrinthScreen(levelIndex: i),
-                    ),
-                  );
-                  _load();
-                },
+      body: KonamiDetector(
+        onUnlocked: () {
+          _setCheat(!cheat);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                cheat
+                    ? '🎮 Cheat aktiv: alle Level frei, Löcher harmlos'
+                    : 'Cheat aus',
               ),
             ),
-        ],
+          );
+        },
+        child: _list(),
       ),
+    );
+  }
+
+  Widget _list() {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if (cheat)
+          Card(
+            color: Colors.amber.shade100,
+            child: SwitchListTile(
+              key: const ValueKey('cheatSwitch'),
+              title: const Text('🎮 Cheat aktiv'),
+              subtitle: const Text(
+                'Alle Level frei, nur das Zielloch zählt. '
+                'Zeiten werden nicht gespeichert.',
+              ),
+              value: cheat,
+              onChanged: _setCheat,
+            ),
+          ),
+        const Padding(
+          padding: EdgeInsets.all(8),
+          child: Text(
+            'Neige dein Handy, um die Kugel ins grüne Zielloch zu rollen. '
+            'Fällt sie in ein anderes Loch, geht es von vorne los.',
+          ),
+        ),
+        for (var i = 0; i < labyrinthLevels.length; i++)
+          Card(
+            child: ListTile(
+              leading: CircleAvatar(child: Text('${i + 1}')),
+              title: Text(labyrinthLevels[i].name),
+              subtitle: Text(
+                best[i] != null
+                    ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
+                    : 'Noch nicht geschafft',
+              ),
+              enabled: cheat || i == 0 || best.containsKey(i - 1),
+              trailing: Icon(
+                best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
+              ),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        LabyrinthScreen(levelIndex: i, cheat: cheat),
+                  ),
+                );
+                _load();
+              },
+            ),
+          ),
+      ],
     );
   }
 }
 
 class LabyrinthScreen extends StatefulWidget {
-  const LabyrinthScreen({super.key, required this.levelIndex});
+  const LabyrinthScreen({
+    super.key,
+    required this.levelIndex,
+    this.cheat = false,
+  });
   final int levelIndex;
+
+  /// Holes don't swallow the ball; results are not saved.
+  final bool cheat;
 
   @override
   State<LabyrinthScreen> createState() => _LabyrinthScreenState();
@@ -99,7 +150,8 @@ class LabyrinthScreen extends StatefulWidget {
 class _LabyrinthScreenState extends State<LabyrinthScreen>
     with SingleTickerProviderStateMixin {
   late int levelIndex = widget.levelIndex;
-  late LabyrinthGame game = LabyrinthGame(labyrinthLevels[levelIndex]);
+  late LabyrinthGame game = LabyrinthGame(labyrinthLevels[levelIndex])
+    ..ghost = widget.cheat;
   late final Ticker _ticker;
   StreamSubscription<AccelerometerEvent>? _accel;
   Duration _last = Duration.zero;
@@ -160,17 +212,19 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   }
 
   Future<void> _won() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'labyrinth.best.$levelIndex';
-    final prev = prefs.getDouble(key);
-    if (prev == null || game.elapsed < prev) {
-      await prefs.setDouble(key, game.elapsed);
+    if (!widget.cheat) {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'labyrinth.best.$levelIndex';
+      final prev = prefs.getDouble(key);
+      if (prev == null || game.elapsed < prev) {
+        await prefs.setDouble(key, game.elapsed);
+      }
+      final solved = [
+        for (var i = 0; i < labyrinthLevels.length; i++)
+          if (prefs.getDouble('labyrinth.best.$i') != null) i,
+      ].length;
+      await Leaderboard.submit('labyrinth', solved);
     }
-    final solved = [
-      for (var i = 0; i < labyrinthLevels.length; i++)
-        if (prefs.getDouble('labyrinth.best.$i') != null) i,
-    ].length;
-    await Leaderboard.submit('labyrinth', solved);
     if (!mounted) return;
     final hasNext = levelIndex + 1 < labyrinthLevels.length;
     await showDialog<void>(
@@ -198,7 +252,8 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
                 Navigator.pop(c);
                 setState(() {
                   levelIndex++;
-                  game = LabyrinthGame(labyrinthLevels[levelIndex]);
+                  game = LabyrinthGame(labyrinthLevels[levelIndex])
+                    ..ghost = widget.cheat;
                   falls = 0;
                 });
               },
