@@ -4,6 +4,7 @@ import 'package:mobile_games/games/billiard/billiard_screen.dart';
 import 'package:mobile_games/games/checkers/checkers_screen.dart';
 import 'package:mobile_games/games/chess/chess_screen.dart';
 import 'package:mobile_games/games/mill/mill_screen.dart';
+import 'package:mobile_games/games/darts/darts_screen.dart';
 import 'package:mobile_games/games/connect_four/connect_four_screen.dart';
 import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:mobile_games/games/mahjong/mahjong_screen.dart';
@@ -62,7 +63,9 @@ void main() {
   });
 
   testWidgets('dame: move a stone', (tester) async {
-    await tester.pumpWidget(app(const CheckersScreen(setup: PlaySetup.local())));
+    await tester.pumpWidget(
+      app(const CheckersScreen(setup: PlaySetup.local())),
+    );
     expect(find.textContaining('Weiß ist am Zug'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ck5-0')));
     await tester.pump();
@@ -77,6 +80,20 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mill0')));
     await tester.pump();
     expect(find.text('Schwarz setzt (noch 9)'), findsOneWidget);
+  });
+
+  testWidgets('darts solo: choose mode and throw three darts', (tester) async {
+    await tester.pumpWidget(app(const DartsScreen(setup: PlaySetup.local(players: 1))));
+    await tester.tap(find.byKey(const ValueKey('dartsStart')));
+    await tester.pump();
+    expect(find.textContaining('Du wirfst (Dart 1/3)'), findsOneWidget);
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const ValueKey('dartBoard')));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.textContaining('Du wirfst (Dart 1/3)'), findsOneWidget);
+    expect(find.textContaining('Darts: 3'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('kniffel solo: roll and score', (tester) async {

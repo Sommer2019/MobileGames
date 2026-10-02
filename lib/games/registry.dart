@@ -4,6 +4,7 @@ import '../ui/play_setup.dart';
 import 'battleship/battleship_screen.dart';
 import 'billiard/billiard_screen.dart';
 import 'checkers/checkers_screen.dart';
+import 'darts/darts_screen.dart';
 import 'chess/chess_screen.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
@@ -30,7 +31,11 @@ class GameInfo {
     this.multiplayerBuilder,
     this.singleplayerBuilder,
     this.maxOnlinePlayers = 2,
+    this.alsoSingleplayer = false,
   });
+
+  /// Multiplayer game that can also be played alone (listed in both sections).
+  final bool alsoSingleplayer;
 
   /// Online games support 2..[maxOnlinePlayers] players.
   final int maxOnlinePlayers;
@@ -144,6 +149,30 @@ final List<GameInfo> games = [
     ],
     maxOnlinePlayers: 4,
     multiplayerBuilder: (s) => YahtzeeScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'darts',
+    title: 'Darts',
+    description: '501, 301 oder Rund um die Uhr – allein oder bis zu 4 Spieler',
+    icon: Icons.adjust,
+    color: const Color(0xFFC62828),
+    offlineModes: const [
+      OfflineMode('Allein üben', Icons.person, PlaySetup.local(players: 1)),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+      OfflineMode(
+        '3 Spieler, 1 Gerät',
+        Icons.groups,
+        PlaySetup.local(players: 3),
+      ),
+      OfflineMode(
+        '4 Spieler, 1 Gerät',
+        Icons.groups,
+        PlaySetup.local(players: 4),
+      ),
+    ],
+    multiplayerBuilder: (s) => DartsScreen(setup: s),
+    maxOnlinePlayers: 4,
+    alsoSingleplayer: true,
   ),
   GameInfo(
     id: 'labyrinth',

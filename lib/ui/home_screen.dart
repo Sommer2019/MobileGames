@@ -11,7 +11,9 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final multi = games.where((g) => g.isMultiplayer).toList();
-    final single = games.where((g) => !g.isMultiplayer).toList();
+    final single = games
+        .where((g) => !g.isMultiplayer || g.alsoSingleplayer)
+        .toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mobile Games'),
