@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../ui/leaderboard_screen.dart';
+import 'card_cascade.dart';
 import 'klondike_logic.dart';
 
 class _Drag {
@@ -73,6 +74,64 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     }
   }
 
+  final GlobalKey _bodyKey = GlobalKey();
+  final List<GlobalKey> _foundationKeys = List.generate(4, (_) => GlobalKey());
+
+  /// Cards of the win animation, null while it doesn't run.
+  List<CascadeCard>? _cascade;
+
+  /// Cards per foundation that already flew off.
+  final List<int> _flown = List.filled(4, 0);
+  List<int> _cascadeFrom = const [];
+
+  /// Starts the victory animation; completes when it is over.
+  Future<void> _playCascade() async {
+    final body = _bodyKey.currentContext?.findRenderObject() as RenderBox?;
+    if (body == null) return;
+    final starts = [
+      for (final k in _foundationKeys)
+        body.globalToLocal(
+          (k.currentContext!.findRenderObject() as RenderBox).localToGlobal(
+            Offset.zero,
+          ),
+        ),
+    ];
+    // Kings first, round the four piles, like the original.
+    final cards = <CascadeCard>[];
+    final from = <int>[];
+    for (var rank = 12; rank >= 0; rank--) {
+      for (var f = 0; f < 4; f++) {
+        if (rank < game.foundations[f].length) {
+          cards.add(CascadeCard(game.foundations[f][rank], starts[f]));
+          from.add(f);
+        }
+      }
+    }
+    final done = Completer<void>();
+    setState(() {
+      _flown.fillRange(0, 4, 0);
+      _cascadeFrom = from;
+      _cascade = cards;
+      _cascadeDone = done;
+    });
+    await done.future;
+  }
+
+  Completer<void>? _cascadeDone;
+
+  Widget _cascadeOverlay() => CardCascade(
+    cards: _cascade!,
+    cardWidth: _cardWidth,
+    onLaunch: (i) => setState(() => _flown[_cascadeFrom[i]]++),
+    onDone: () {
+      setState(() => _cascade = null);
+      _cascadeDone?.complete();
+      _cascadeDone = null;
+    },
+  );
+
+  double _cardWidth = 60;
+
   Future<void> _celebrate() async {
     bonus = KlondikeGame.timeBonus(_clock.elapsed.inSeconds);
     final total = game.score + bonus;
@@ -85,6 +144,8 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     await Leaderboard.submit('klondike', total);
     if (!mounted) return;
     setState(() {});
+    await _playCascade();
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
@@ -173,45 +234,54 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final w = min((min(c.maxWidth, 900) - 8 * 6) / 7, 110.0);
-            final h = w * 1.4;
-            return Center(
-              child: SizedBox(
-                width: w * 7 + 8 * 6,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Text(
-                        'Punkte: ${game.score + bonus}   •   '
-                        'Züge: ${game.moves}   •   Zeit: ${_time()}'
-                        '${best > 0 ? '   •   Rekord: $best' : ''}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    _topRow(w, h),
-                    const SizedBox(height: 12),
-                    Expanded(child: _tableauRow(w, h)),
-                    if (game.canAutoComplete)
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: FilledButton.icon(
-                          key: const ValueKey('autoComplete'),
-                          onPressed: _autoRunning ? null : _autoComplete,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('Automatisch ablegen'),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+      body: Stack(
+        key: _bodyKey,
+        children: [
+          SafeArea(child: _table()),
+          if (_cascade != null) Positioned.fill(child: _cascadeOverlay()),
+        ],
       ),
+    );
+  }
+
+  Widget _table() {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = min((min(c.maxWidth, 900) - 8 * 6) / 7, 110.0);
+        _cardWidth = w;
+        final h = w * 1.4;
+        return Center(
+          child: SizedBox(
+            width: w * 7 + 8 * 6,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(
+                    'Punkte: ${game.score + bonus}   •   '
+                    'Züge: ${game.moves}   •   Zeit: ${_time()}'
+                    '${best > 0 ? '   •   Rekord: $best' : ''}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ),
+                _topRow(w, h),
+                const SizedBox(height: 12),
+                Expanded(child: _tableauRow(w, h)),
+                if (game.canAutoComplete)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: FilledButton.icon(
+                      key: const ValueKey('autoComplete'),
+                      onPressed: _autoRunning ? null : _autoComplete,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('Automatisch ablegen'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -256,23 +326,30 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
           const SizedBox(width: 8),
           for (var f = 0; f < 4; f++) ...[
             if (f > 0) const SizedBox(width: 8),
-            _target(
-              PileRef(PileKind.foundation, f),
-              w,
-              h,
-              child: game.foundations[f].isEmpty
-                  ? _emptySlot(w, h, null, label: 'A')
-                  : _draggable(
-                      PileRef(PileKind.foundation, f),
-                      game.foundations[f].length - 1,
-                      [game.foundations[f].last],
-                      w,
-                    ),
+            KeyedSubtree(
+              key: _foundationKeys[f],
+              child: _target(
+                PileRef(PileKind.foundation, f),
+                w,
+                h,
+                child: _foundation(f, w, h),
+              ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  Widget _foundation(int f, double w, double h) {
+    final pile = game.foundations[f];
+    // During the win animation the flown cards are gone.
+    final shown = _cascade == null ? pile.length : pile.length - _flown[f];
+    if (shown <= 0) return _emptySlot(w, h, null, label: 'A');
+    if (_cascade != null) return _CardView(card: pile[shown - 1], width: w);
+    return _draggable(PileRef(PileKind.foundation, f), pile.length - 1, [
+      pile.last,
+    ], w);
   }
 
   Widget _tableauRow(double w, double h) {
