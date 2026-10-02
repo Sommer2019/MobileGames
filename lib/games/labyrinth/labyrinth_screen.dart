@@ -9,6 +9,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'labyrinth_logic.dart';
 
@@ -350,6 +351,33 @@ class _BoardPainter extends CustomPainter {
           stops: const [0, 0.5, 1],
           center: const Alignment(-0.4, -0.4),
         ).createShader(Rect.fromCircle(center: ball, radius: rad)),
+    );
+    // Dots on six sides make the rolling visible.
+    final o = game.orientation;
+    final (bx, by, bz) = o.b;
+    final dot = Paint()..color = const Color(0x99263238);
+    for (final (x, y, z) in [
+      (o.qx, o.qy, o.qz),
+      (o.ax, o.ay, o.az),
+      (bx, by, bz),
+    ]) {
+      for (final sign in const [1.0, -1.0]) {
+        final spot = SphereOrientation.capPath(
+          ball,
+          rad,
+          x * sign,
+          y * sign,
+          z * sign,
+          0.32,
+        );
+        if (spot != null) canvas.drawPath(spot, dot);
+      }
+    }
+    // Fixed reflection of the light on top.
+    canvas.drawCircle(
+      ball - Offset(rad * 0.35, rad * 0.35),
+      rad * 0.22,
+      Paint()..color = Colors.white70,
     );
   }
 

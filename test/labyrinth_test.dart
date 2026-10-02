@@ -126,4 +126,16 @@ void main() {
     expect(up.state, BallState.rolling);
     expect(up.y, 0.5);
   });
+
+  test('the ball turns while it rolls', () {
+    final g = LabyrinthGame(labyrinthLevels.first);
+    final before = g.orientation.qz;
+    for (var i = 0; i < 20; i++) {
+      g.step(1 / 60, 0.5, 0);
+    }
+    expect(g.vx, greaterThan(0));
+    expect(g.orientation.qz, isNot(closeTo(before, 1e-6)));
+    // Rolling to the right moves the top of the ball to the right.
+    expect(g.orientation.qx, greaterThan(0));
+  });
 }

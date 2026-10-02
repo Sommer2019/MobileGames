@@ -353,14 +353,19 @@ void controlTests() {
     final b = Ball(3, 0.5, 0.5);
     const r = BilliardGame.radius;
     b.roll(pi / 2 * r, 0);
-    expect(b.qx, closeTo(1, 1e-9));
-    expect(b.qz, closeTo(0, 1e-9));
+    expect(b.orientation.qx, closeTo(1, 1e-9));
+    expect(b.orientation.qz, closeTo(0, 1e-9));
     b.roll(pi / 2 * r, 0);
     b.roll(pi * r, 0);
-    expect(b.qz, closeTo(1, 1e-9));
+    expect(b.orientation.qz, closeTo(1, 1e-9));
     b.roll(0, pi / 2 * r);
-    expect(b.qy, closeTo(1, 1e-9));
+    expect(b.orientation.qy, closeTo(1, 1e-9));
     // Stays a unit vector perpendicular to the stripe axis.
-    expect(b.qx * b.ax + b.qy * b.ay + b.qz * b.az, closeTo(0, 1e-9));
+    expect(
+      b.orientation.qx * b.orientation.ax +
+          b.orientation.qy * b.orientation.ay +
+          b.orientation.qz * b.orientation.az,
+      closeTo(0, 1e-9),
+    );
   });
 }

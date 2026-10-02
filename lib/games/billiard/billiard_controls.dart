@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/sphere.dart';
 import 'billiard_logic.dart';
 
 const _ballColors = {
@@ -488,6 +489,7 @@ class TablePainter extends CustomPainter {
       r,
       Paint()..color = Colors.black38,
     );
+    final o = b.orientation;
     final color = ballColor(b.number);
     final white = Paint()..color = Colors.white;
     canvas.drawCircle(c, r, Paint()..color = color);
@@ -496,7 +498,14 @@ class TablePainter extends CustomPainter {
     if (b.number > 8) {
       // Stripe: white caps around both ends of the stripe axis.
       for (final sign in const [1.0, -1.0]) {
-        final cap = _capPath(c, r, b.ax * sign, b.ay * sign, b.az * sign, 0.98);
+        final cap = SphereOrientation.capPath(
+          c,
+          r,
+          o.ax * sign,
+          o.ay * sign,
+          o.az * sign,
+          0.98,
+        );
         if (cap != null) canvas.drawPath(cap, white);
       }
     }
@@ -504,19 +513,19 @@ class TablePainter extends CustomPainter {
       // A few red dots make the cue ball's rotation visible.
       final dot = Paint()..color = const Color(0xFFE53935);
       for (final (x, y, z) in [
-        (b.qx, b.qy, b.qz),
-        (-b.qx, -b.qy, -b.qz),
-        (b.ax, b.ay, b.az),
-        (-b.ax, -b.ay, -b.az),
+        (o.qx, o.qy, o.qz),
+        (-o.qx, -o.qy, -o.qz),
+        (o.ax, o.ay, o.az),
+        (-o.ax, -o.ay, -o.az),
       ]) {
-        final spot = _capPath(c, r, x, y, z, 0.16);
+        final spot = SphereOrientation.capPath(c, r, x, y, z, 0.16);
         if (spot != null) canvas.drawPath(spot, dot);
       }
     } else {
       // Number circles on two opposite sides.
       for (final sign in const [1.0, -1.0]) {
-        final qx = b.qx * sign, qy = b.qy * sign, qz = b.qz * sign;
-        final spot = _capPath(c, r, qx, qy, qz, 0.5);
+        final qx = o.qx * sign, qy = o.qy * sign, qz = o.qz * sign;
+        final spot = SphereOrientation.capPath(c, r, qx, qy, qz, 0.5);
         if (spot == null) continue;
         canvas.drawPath(spot, white);
         if (qz > 0.3) _number(canvas, b.number, c, r, qx, qy, qz);
@@ -529,59 +538,6 @@ class TablePainter extends CustomPainter {
       r * 0.25,
       Paint()..color = Colors.white38,
     );
-  }
-
-  /// Outline of a spherical cap around the unit vector (qx, qy, qz) with
-  /// the angular radius [alpha], as seen from above. Parts on the far side
-  /// are pushed onto the outline of the ball. Null if nothing is visible.
-  static Path? _capPath(
-    Offset c,
-    double r,
-    double qx,
-    double qy,
-    double qz,
-    double alpha,
-  ) {
-    // Two vectors perpendicular to q.
-    var ux = -qy, uy = qx, uz = 0.0;
-    var len = sqrt(ux * ux + uy * uy);
-    if (len < 1e-6) {
-      ux = 1;
-      uy = 0;
-      len = 1;
-    }
-    ux /= len;
-    uy /= len;
-    final wx = qy * uz - qz * uy;
-    final wy = qz * ux - qx * uz;
-    final wz = qx * uy - qy * ux;
-    final ca = cos(alpha), sa = sin(alpha);
-    final path = Path();
-    var visible = false;
-    const n = 28;
-    for (var i = 0; i < n; i++) {
-      final t = i * 2 * pi / n;
-      final ct = cos(t), st = sin(t);
-      var x = qx * ca + (ux * ct + wx * st) * sa;
-      var y = qy * ca + (uy * ct + wy * st) * sa;
-      final z = qz * ca + (uz * ct + wz * st) * sa;
-      if (z >= 0) {
-        visible = true;
-      } else {
-        final l = sqrt(x * x + y * y);
-        if (l > 1e-6) {
-          x /= l;
-          y /= l;
-        }
-      }
-      final pt = c + Offset(x, y) * r;
-      if (i == 0) {
-        path.moveTo(pt.dx, pt.dy);
-      } else {
-        path.lineTo(pt.dx, pt.dy);
-      }
-    }
-    return visible ? (path..close()) : null;
   }
 
   /// The number, squeezed towards the edge like on a real ball.

@@ -1,5 +1,8 @@
 import 'dart:collection';
 import 'dart:math';
+
+import '../../core/sphere.dart';
+
 import 'dart:typed_data';
 
 /// Axis aligned wall rectangle in board units.
@@ -493,6 +496,9 @@ class LabyrinthGame {
 
   double x = 0, y = 0, vx = 0, vy = 0;
   BallState state = BallState.rolling;
+
+  /// How the ball has turned (only for drawing).
+  final SphereOrientation orientation = SphereOrientation(axisAngle: 0.6);
   double elapsed = 0;
 
   void reset() {
@@ -520,6 +526,7 @@ class LabyrinthGame {
       vy *= f;
       x += vx * h;
       y += vy * h;
+      orientation.roll(vx * h, vy * h, radius);
       for (final w in level.walls) {
         _collide(w);
       }
