@@ -8,6 +8,32 @@ import 'package:volume_controller/volume_controller.dart';
 
 enum KonamiInput { up, down, left, right, volumeUp, volumeDown, plugIn }
 
+/// Whether a chat message spells the Konami code, e.g. "↑↑↓↓←→←→BA",
+/// "uuddlrlrba" or "up up down down left right left right b a".
+bool isKonamiText(String text) {
+  var s = text.toLowerCase();
+  for (final (from, to) in const [
+    ('↑', 'u'),
+    ('↓', 'd'),
+    ('←', 'l'),
+    ('→', 'r'),
+    ('⬆', 'u'),
+    ('⬇', 'd'),
+    ('⬅', 'l'),
+    ('➡', 'r'),
+  ]) {
+    s = s.replaceAll(from, to);
+  }
+  s = s.replaceAll(RegExp('[^a-z]'), '');
+  s = s
+      .replaceAll('down', 'd')
+      .replaceAll('up', 'u')
+      .replaceAll('left', 'l')
+      .replaceAll('right', 'r')
+      .replaceAll('start', '');
+  return s == 'uuddlrlrba' || s == 'uuddlrlr';
+}
+
 /// The secret: swipe ↑ ↑ ↓ ↓ ← → ← →, volume up, volume down, plug in.
 class KonamiCode {
   KonamiCode({this.timeout = const Duration(seconds: 60)});

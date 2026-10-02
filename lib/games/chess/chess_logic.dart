@@ -9,6 +9,9 @@ enum ChessSide { white, black }
 class ChessGame {
   ChessGame() : _c = ch.Chess();
 
+  /// A position from FEN notation (for tests and puzzles).
+  ChessGame.fromFen(String fen) : _c = ch.Chess.fromFEN(fen);
+
   final ch.Chess _c;
 
   static const files = 'abcdefgh';

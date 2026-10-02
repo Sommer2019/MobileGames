@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'account.dart';
 import 'nostr/event.dart';
 import 'nostr/relay_pool.dart';
+import 'secrets.dart';
 
 /// One ranking, e.g. "Snake – points" or "Darts 501 – darts needed".
 class ScoreBoard {
@@ -162,9 +163,18 @@ class ScoreEntry {
 
 /// A player's published best values.
 class RemoteScores {
-  RemoteScores(this.pubkey, this.name, this.scores, this.createdAt);
+  RemoteScores(
+    this.pubkey,
+    this.name,
+    this.scores,
+    this.createdAt, {
+    this.badge = false,
+  });
   final String pubkey;
   final String name;
+
+  /// Found the Konami code (🎮).
+  final bool badge;
   final Map<String, int> scores;
   final int createdAt;
 }
@@ -260,7 +270,11 @@ class Leaderboard {
       NostrEvent.create(
         keys: account.keys,
         kind: kind,
-        content: jsonEncode({'name': account.name, 's': scores}),
+        content: jsonEncode({
+          'name': account.name,
+          's': scores,
+          if (Secrets.I.unlocked) 'k': true,
+        }),
         tags: [
           ['d', _d],
           ['t', _t],
@@ -307,6 +321,7 @@ class Leaderboard {
                   : name.substring(0, name.length.clamp(0, 24)),
               s,
               e.createdAt,
+              badge: j['k'] == true,
             );
           } catch (_) {}
         });

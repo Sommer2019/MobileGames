@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../core/konami.dart';
+import 'confetti.dart';
+
 class ChatEntry {
   const ChatEntry({
     required this.mine,
@@ -39,6 +42,27 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final _controller = TextEditingController();
 
+  /// Messages already looked at (older ones don't trigger confetti).
+  late int _seen;
+  bool _confetti = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _seen = widget.lines.length;
+  }
+
+  @override
+  void didUpdateWidget(ChatView old) {
+    super.didUpdateWidget(old);
+    final lines = widget.lines;
+    if (lines.length > _seen &&
+        lines.skip(_seen).any((l) => isKonamiText(l.text))) {
+      _confetti = true;
+    }
+    _seen = lines.length;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -59,6 +83,25 @@ class _ChatViewState extends State<ChatView> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final lines = widget.lines.reversed.toList();
+    return Stack(
+      children: [
+        _column(context, scheme, lines),
+        if (_confetti)
+          Positioned.fill(
+            child: Confetti(
+              key: const ValueKey('confetti'),
+              onDone: () => setState(() => _confetti = false),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _column(
+    BuildContext context,
+    ColorScheme scheme,
+    List<ChatEntry> lines,
+  ) {
     return Column(
       children: [
         Expanded(

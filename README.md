@@ -21,6 +21,7 @@ Kniffel allein, Darts allein, Billard allein): eigene Top 10, Freunde und weltwe
 Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
 🔊 **Sounds** (Kugelklacken, Würfel, Karten, Spielsteine, Sieg …) – selbst erzeugt mit
 `tool/make_sounds.py`, abschaltbar oben auf der Startseite.
+🎮 Und irgendwo steckt ein Geheimnis für Kenner alter Konsolen …
 
 ## Download
 

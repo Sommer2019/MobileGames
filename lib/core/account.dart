@@ -8,6 +8,7 @@ import 'nostr/event.dart';
 import 'nostr/keys.dart';
 import 'nostr/relay_pool.dart';
 import 'net/messenger.dart';
+import 'secrets.dart';
 
 class Friend {
   Friend(this.pubkey, this.name);
@@ -132,6 +133,11 @@ class Presence extends ChangeNotifier {
   StreamSubscription<NostrEvent>? _sub;
   List<String> _watched = const [];
 
+  final Set<String> _badges = {};
+
+  /// Whether the friend found the Konami code (shows 🎮 next to the name).
+  bool hasBadge(String pubkey) => _badges.contains(pubkey);
+
   bool isOnline(String pubkey) {
     final t = _lastSeen[pubkey];
     return t != null && DateTime.now().difference(t) < interval * 2.5;
@@ -155,7 +161,10 @@ class Presence extends ChangeNotifier {
       NostrEvent.create(
         keys: account.keys,
         kind: Kinds.presence,
-        content: jsonEncode({'name': account.name}),
+        content: jsonEncode({
+          'name': account.name,
+          if (Secrets.I.unlocked) 'k': true,
+        }),
         tags: [
           ['t', 'mobilegames-presence'],
         ],
@@ -179,8 +188,14 @@ class Presence extends ChangeNotifier {
         .listen((e) {
           _lastSeen[e.pubkey] = DateTime.now();
           try {
-            final name = (jsonDecode(e.content) as Map)['name'];
+            final j = jsonDecode(e.content) as Map;
+            final name = j['name'];
             if (name is String) account.updateFriendName(e.pubkey, name);
+            if (j['k'] == true) {
+              _badges.add(e.pubkey);
+            } else {
+              _badges.remove(e.pubkey);
+            }
           } catch (_) {}
           notifyListeners();
         });

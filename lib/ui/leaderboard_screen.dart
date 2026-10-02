@@ -205,9 +205,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         for (var i = 0; i < ranked.length && i < 100; i++)
           _row(
             i,
-            ranked[i].$1.pubkey == me
-                ? 'Du'
-                : names[ranked[i].$1.pubkey] ?? ranked[i].$1.name,
+            (ranked[i].$1.pubkey == me
+                    ? 'Du'
+                    : names[ranked[i].$1.pubkey] ?? ranked[i].$1.name) +
+                (ranked[i].$1.badge ? ' 🎮' : ''),
             ranked[i].$2,
             highlight: ranked[i].$1.pubkey == me,
           ),

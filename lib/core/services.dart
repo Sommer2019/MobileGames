@@ -5,6 +5,7 @@ import 'chat.dart';
 import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'leaderboard.dart';
+import 'secrets.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
 import 'net/messenger.dart';
@@ -30,6 +31,14 @@ class Services {
     leaderboard = Leaderboard(client, account);
     Leaderboard.instance = leaderboard;
     leaderboard.publish();
+    // Show the 🎮 badge to friends as soon as the code was found.
+    var badge = Secrets.I.unlocked;
+    Secrets.I.addListener(() {
+      if (Secrets.I.unlocked == badge) return;
+      badge = Secrets.I.unlocked;
+      presence.announce();
+      leaderboard.publish();
+    });
     var lastName = account.name;
     account.addListener(() {
       if (account.name != lastName) {

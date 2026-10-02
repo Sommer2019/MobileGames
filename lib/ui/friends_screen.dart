@@ -325,7 +325,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 Card(
                   child: ListTile(
                     leading: _avatar(f.name, f.pubkey),
-                    title: Text(f.name),
+                    title: Text(
+                      services.presence.hasBadge(f.pubkey)
+                          ? '${f.name} 🎮'
+                          : f.name,
+                    ),
                     subtitle: Text(
                       chat.messages(f.pubkey).isNotEmpty
                           ? chat.messages(f.pubkey).last.text
