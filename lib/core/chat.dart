@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/keys.dart';
 import 'nostr/relay_pool.dart';
@@ -185,7 +186,7 @@ class ChatService extends ChangeNotifier {
             ChatSignal(
               e.pubkey,
               j['type'] as String,
-              j['name'] as String?,
+              cleanNameOrNull(j['name']),
               DateTime.fromMillisecondsSinceEpoch(e.createdAt * 1000),
             ),
           );
@@ -193,7 +194,7 @@ class ChatService extends ChangeNotifier {
         }
         if (j is Map && j['mg'] == 1) {
           text = j['text'] as String;
-          name = j['name'] as String?;
+          name = cleanNameOrNull(j['name']);
         } else {
           text = plain;
         }

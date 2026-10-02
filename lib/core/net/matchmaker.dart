@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../names.dart';
 import '../nostr/event.dart';
 import '../nostr/keys.dart';
 import 'messenger.dart';
@@ -127,7 +128,7 @@ class Matchmaker {
     if (seek.proposedTo != null || seek.awaitingConfirmFrom != null) return;
     String name = 'Spieler';
     try {
-      name = (jsonDecode(e.content) as Map)['name'] as String? ?? name;
+      name = cleanNameOrNull((jsonDecode(e.content) as Map)['name']) ?? name;
     } catch (_) {}
     final matchId = randomHex(8);
     seek
@@ -230,7 +231,7 @@ class Matchmaker {
         }
         seek.awaitingConfirmFrom = m.from;
         seek.awaitingMatch = matchId;
-        seek.awaitingName = m.data['name'] as String? ?? 'Spieler';
+        seek.awaitingName = cleanNameOrNull(m.data['name']) ?? 'Spieler';
         seek.confirmTimer = Timer(handshakeTimeout, () {
           seek.awaitingConfirmFrom = null;
           seek.awaitingMatch = null;
@@ -252,7 +253,9 @@ class Matchmaker {
               gameId: seek.gameId,
               opponent: m.from,
               opponentName:
-                  m.data['name'] as String? ?? seek.proposedName ?? 'Spieler',
+                  cleanNameOrNull(m.data['name']) ??
+                  seek.proposedName ??
+                  'Spieler',
               isHost: true,
             ),
           );
@@ -287,7 +290,7 @@ class Matchmaker {
         if (game is! String) return;
         final invite = IncomingInvite(
           m.from,
-          m.data['name'] as String? ?? 'Spieler',
+          cleanNameOrNull(m.data['name']) ?? 'Spieler',
           game,
           matchId,
         );
@@ -312,7 +315,7 @@ class Matchmaker {
             matchId: matchId,
             gameId: p.gameId,
             opponent: p.friend,
-            opponentName: m.data['name'] as String? ?? p.friendName,
+            opponentName: cleanNameOrNull(m.data['name']) ?? p.friendName,
             isHost: true,
           ),
         );

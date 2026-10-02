@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../names.dart';
 import '../nostr/event.dart';
 import '../nostr/keys.dart';
 import 'matchmaker.dart';
@@ -201,7 +202,7 @@ class RandomRoomSearch {
               matchId: matchId,
               gameId: gameId,
               opponent: m.from,
-              opponentName: m.data['name'] as String? ?? 'Spieler',
+              opponentName: cleanNameOrNull(m.data['name']) ?? 'Spieler',
               isHost: true,
             ),
           ),
@@ -223,7 +224,7 @@ class RandomRoomSearch {
               matchId: matchId,
               gameId: gameId,
               opponent: m.from,
-              opponentName: m.data['name'] as String? ?? 'Host',
+              opponentName: cleanNameOrNull(m.data['name']) ?? 'Host',
               isHost: false,
             ),
           ),

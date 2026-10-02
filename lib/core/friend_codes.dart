@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/keys.dart';
 import 'nostr/relay_pool.dart';
@@ -49,7 +50,7 @@ class FriendCodes {
           if (shortCodeFor(e.pubkey) != code || completer.isCompleted) return;
           String? name;
           try {
-            name = (jsonDecode(e.content) as Map)['name'] as String?;
+            name = cleanNameOrNull((jsonDecode(e.content) as Map)['name']);
           } catch (_) {}
           completer.complete((e.pubkey, name));
         });

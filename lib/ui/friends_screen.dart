@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/names.dart';
 import '../core/services.dart';
 import 'chat_view.dart';
 import 'friend_code_widgets.dart';
@@ -50,7 +51,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          maxLength: 24,
+          maxLength: maxNameLength,
+          inputFormatters: [NameInputFormatter()],
           decoration: const InputDecoration(hintText: 'Spielername'),
           onSubmitted: (v) => Navigator.pop(c, v),
         ),

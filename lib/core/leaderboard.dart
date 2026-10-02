@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'account.dart';
+import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/relay_pool.dart';
 import 'secrets.dart';
@@ -313,7 +314,7 @@ class Leaderboard {
                 s[key] = value;
               }
             }
-            final name = (j['name'] as String? ?? '').trim();
+            final name = cleanNameOrNull(j['name']) ?? '';
             latest[e.pubkey] = RemoteScores(
               e.pubkey,
               name.isEmpty

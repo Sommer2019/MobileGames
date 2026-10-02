@@ -150,6 +150,41 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   StreamSubscription<AccelerometerEvent>? _accel;
   Duration _last = Duration.zero;
   double tiltX = 0, tiltY = 0;
+
+  /// Latest sensor reading and the holding position that counts as level
+  /// (saved, so a comfortable angle can be the neutral one).
+  double _rawX = 0, _rawY = 0;
+  static double _calX = 0, _calY = 0;
+  static const _calKey = 'labyrinth.calibration';
+
+  static Future<void> loadCalibration() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getStringList(_calKey);
+    if (v != null && v.length == 2) {
+      _calX = double.tryParse(v[0]) ?? 0;
+      _calY = double.tryParse(v[1]) ?? 0;
+    }
+  }
+
+  Future<void> _calibrate({bool reset = false}) async {
+    _calX = reset ? 0 : _rawX.clamp(-0.8, 0.8);
+    _calY = reset ? 0 : _rawY.clamp(-0.8, 0.8);
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_calKey, ['$_calX', '$_calY']);
+    HapticFeedback.mediumImpact();
+    if (!mounted) return;
+    setState(game.reset);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          reset
+              ? 'Kalibrierung zurückgesetzt: flach = waagerecht'
+              : 'Kalibriert: diese Haltung gilt jetzt als waagerecht',
+        ),
+      ),
+    );
+  }
+
   bool _sensorSeen = false;
   Offset? _dragStart;
   int falls = 0;
@@ -158,6 +193,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    loadCalibration();
     _ticker = createTicker(_tick)..start();
     try {
       _accel =
@@ -167,8 +203,10 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
             _sensorSeen = true;
             // Android convention: x is positive when the left edge points down,
             // y is positive when the top edge points up.
-            tiltX = (-e.x / 9.81).clamp(-1.0, 1.0);
-            tiltY = (e.y / 9.81).clamp(-1.0, 1.0);
+            _rawX = -e.x / 9.81;
+            _rawY = e.y / 9.81;
+            tiltX = (_rawX - _calX).clamp(-1.0, 1.0);
+            tiltY = (_rawY - _calY).clamp(-1.0, 1.0);
           }, onError: (_) {});
     } catch (_) {
       // No accelerometer (e.g. emulator): touch control is used instead.
@@ -279,6 +317,22 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
       appBar: AppBar(
         title: Text('Level ${levelIndex + 1}: ${game.level.name}'),
         actions: [
+          PopupMenuButton<bool>(
+            key: const ValueKey('calibrate'),
+            tooltip: 'Kalibrieren',
+            icon: const Icon(Icons.screen_rotation_alt),
+            onSelected: (reset) => _calibrate(reset: reset),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: false,
+                child: Text('Aktuelle Haltung als waagerecht'),
+              ),
+              PopupMenuItem(
+                value: true,
+                child: Text('Kalibrierung zurücksetzen'),
+              ),
+            ],
+          ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),

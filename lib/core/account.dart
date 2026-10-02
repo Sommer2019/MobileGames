@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/keys.dart';
 import 'nostr/relay_pool.dart';
@@ -17,7 +18,7 @@ class Friend {
 
   Map<String, String> toJson() => {'pubkey': pubkey, 'name': name};
   factory Friend.fromJson(Map<String, dynamic> j) =>
-      Friend(j['pubkey'] as String, j['name'] as String? ?? 'Freund');
+      Friend(j['pubkey'] as String, cleanNameOrNull(j['name']) ?? 'Freund');
 }
 
 /// Local, serverless account: a key pair stored on the device, a display
@@ -45,7 +46,7 @@ class Account extends ChangeNotifier {
     }
     final keys = KeyPair(priv);
     final name =
-        prefs.getString('$prefix.name') ??
+        cleanNameOrNull(prefs.getString('$prefix.name')) ??
         'Spieler ${keys.publicKey.substring(0, 4)}';
     final friends = <Friend>[];
     try {
@@ -70,9 +71,9 @@ class Account extends ChangeNotifier {
       'mobilegames://friend/$friendCode?name=${Uri.encodeComponent(name)}';
 
   Future<void> setName(String value) async {
-    final v = value.trim();
+    final v = cleanName(value);
     if (v.isEmpty) return;
-    _name = v.length > 24 ? v.substring(0, 24) : v;
+    _name = v;
     await _prefs.setString(_keyName, _name);
     notifyListeners();
   }
@@ -90,7 +91,9 @@ class Account extends ChangeNotifier {
     if (pub == null) return 'Ungültiger Freundescode';
     if (pub == keys.publicKey) return 'Das ist dein eigener Code';
     if (friend(pub) != null) return 'Ist schon in deiner Freundesliste';
-    friends.add(Friend(pub, name ?? 'Freund ${pub.substring(0, 4)}'));
+    friends.add(
+      Friend(pub, cleanNameOrNull(name) ?? 'Freund ${pub.substring(0, 4)}'),
+    );
     await _save();
     return null;
   }
@@ -102,8 +105,9 @@ class Account extends ChangeNotifier {
 
   Future<void> updateFriendName(String pubkey, String name) async {
     final f = friend(pubkey);
-    if (f == null || f.name == name || name.trim().isEmpty) return;
-    f.name = name.trim();
+    final clean = cleanName(name);
+    if (f == null || f.name == clean || clean.isEmpty) return;
+    f.name = clean;
     await _save();
   }
 

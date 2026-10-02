@@ -232,6 +232,17 @@ class _DartsScreenState extends State<DartsScreen>
     });
   }
 
+  /// The current holding position aims at the bull again (e.g. when the
+  /// aim drifted or you changed your stance).
+  void _recalibrate() {
+    final g = _gravity;
+    final aim = _motionAim;
+    if (g == null || aim == null) return;
+    aim.calibrate(g.$1, g.$2, g.$3);
+    HapticFeedback.heavyImpact();
+    setState(() {});
+  }
+
   void _motionThrow((double, double, double) t) {
     _hapticTimer?.cancel();
     final (x, y, strength) = t;
@@ -548,9 +559,20 @@ class _DartsScreenState extends State<DartsScreen>
                 shadows: [Shadow(blurRadius: 8)],
               ),
             ),
-            TextButton(
-              onPressed: _cancelMotion,
-              child: const Text('Abbrechen'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton.icon(
+                  key: const ValueKey('recalibrate'),
+                  onPressed: _recalibrate,
+                  icon: const Icon(Icons.center_focus_strong),
+                  label: const Text('Neu ausrichten'),
+                ),
+                TextButton(
+                  onPressed: _cancelMotion,
+                  child: const Text('Abbrechen'),
+                ),
+              ],
             ),
           ],
         );
