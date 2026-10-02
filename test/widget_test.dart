@@ -26,7 +26,11 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('home lists all games', (tester) async {
+    tester.view.physicalSize = const Size(1200, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app(const HomeScreen()));
+    expect(find.text('Turnier mit Freunden'), findsOneWidget);
     final titles = [
       'Schach',
       'Schiffe versenken',
@@ -41,7 +45,6 @@ void main() {
       'Snake',
     ];
     for (final t in titles) {
-      await tester.scrollUntilVisible(find.text(t).first, 100);
       expect(find.text(t), findsWidgets);
     }
   });

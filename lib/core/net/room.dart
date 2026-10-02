@@ -47,7 +47,8 @@ class GameRoom extends ChangeNotifier {
   final Map<String, dynamic> options;
   final List<GameSession> _links;
 
-  final _messages = StreamController<RoomMessage>();
+  final List<_Listener> _listeners = [];
+  final List<RoomMessage> _unclaimed = [];
   final List<ChatLine> chat = [];
   final _chat = StreamController<ChatLine>.broadcast();
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -61,7 +62,40 @@ class GameRoom extends ChangeNotifier {
   bool get isDirect => _links.isNotEmpty && _links.every((l) => l.isDirect);
 
   /// Game messages from the other players (buffered until listened to).
-  Stream<RoomMessage> get messages => _messages.stream;
+  Stream<RoomMessage> get messages => messagesWhere((_) => true);
+
+  /// Game messages matching [test]. Messages that no current listener wants
+  /// are kept and handed to the next matching listener, so nothing gets
+  /// lost while one game screen closes and the next one opens.
+  Stream<RoomMessage> messagesWhere(bool Function(RoomMessage m) test) {
+    late final _Listener listener;
+    final controller = StreamController<RoomMessage>(
+      onCancel: () => _listeners.remove(listener),
+    );
+    listener = _Listener(test, controller);
+    controller.onListen = () {
+      _listeners.add(listener);
+      final mine = _unclaimed.where(test).toList();
+      _unclaimed.removeWhere(mine.contains);
+      mine.forEach(controller.add);
+    };
+    return controller.stream;
+  }
+
+  void _dispatch(RoomMessage m) {
+    var claimed = false;
+    for (final l in List.of(_listeners)) {
+      if (l.test(m)) {
+        l.controller.add(m);
+        claimed = true;
+      }
+    }
+    if (!claimed) {
+      _unclaimed.add(m);
+      if (_unclaimed.length > 500) _unclaimed.removeAt(0);
+    }
+  }
+
   Stream<ChatLine> get chatStream => _chat.stream;
 
   String nameOf(int seat) => seat == mySeat ? 'Du' : names[seat];
@@ -89,7 +123,7 @@ class GameRoom extends ChangeNotifier {
       case 'g':
         final d = m['d'];
         if (d is! Map<String, dynamic>) return;
-        _messages.add(RoomMessage(seat, d));
+        _dispatch(RoomMessage(seat, d));
         if (isHost) _forward(linkIndex, {'k': 'g', 's': seat, 'd': d});
       case 'c':
         final text = m['text'];
@@ -149,6 +183,12 @@ class GameRoom extends ChangeNotifier {
       await l.close();
     }
   }
+}
+
+class _Listener {
+  _Listener(this.test, this.controller);
+  final bool Function(RoomMessage) test;
+  final StreamController<RoomMessage> controller;
 }
 
 enum GuestStatus { connecting, connected, left }

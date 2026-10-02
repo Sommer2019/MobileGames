@@ -23,6 +23,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     services.account.addListener(_refresh);
     services.presence.addListener(_refresh);
     services.chat.addListener(_refresh);
+    services.friendRequests.addListener(_refresh);
   }
 
   @override
@@ -30,6 +31,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     services.account.removeListener(_refresh);
     services.presence.removeListener(_refresh);
     services.chat.removeListener(_refresh);
+    services.friendRequests.removeListener(_refresh);
     super.dispose();
   }
 
@@ -104,7 +106,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             ),
             FilledButton(
               onPressed: () async {
-                final err = await services.account.addFriend(
+                final err = await services.friendRequests.addByCode(
                   code.text,
                   name: name.text.trim().isEmpty ? null : name.text.trim(),
                 );
@@ -255,6 +257,43 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   ),
                 ),
+              if (services.friendRequests.pending.isNotEmpty &&
+                  !widget.pickMode) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Freundschaftsanfragen',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                for (final e in services.friendRequests.pending.entries)
+                  Card(
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person_add),
+                      ),
+                      title: Text(e.value),
+                      subtitle: const Text('möchte mit dir befreundet sein'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Ablehnen',
+                            icon: const Icon(Icons.close),
+                            onPressed: () =>
+                                services.friendRequests.declineRequest(e.key),
+                          ),
+                          IconButton.filled(
+                            key: ValueKey('accept-${e.key}'),
+                            tooltip: 'Annehmen',
+                            icon: const Icon(Icons.check),
+                            onPressed: () =>
+                                services.friendRequests.acceptRequest(e.key),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 8),
               Text(
                 'Freunde (${friends.length})',
@@ -337,8 +376,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         child: IconButton(
                           tooltip: 'Als Freund hinzufügen',
                           icon: const Icon(Icons.person_add_alt),
-                          onPressed: () =>
-                              account.addFriend(p, name: chat.nameOf(p)),
+                          onPressed: () => services.friendRequests.addByCode(
+                            p,
+                            name: chat.nameOf(p),
+                          ),
                         ),
                       ),
                     ),

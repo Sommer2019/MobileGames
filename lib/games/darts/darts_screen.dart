@@ -23,7 +23,7 @@ class _DartsScreenState extends State<DartsScreen>
   DartsGame? game;
   DartsMode mode = DartsMode.x501;
   bool doubleOut = true;
-  int round = 0;
+  late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
   late final Ticker _ticker;
   final Random _random = Random();
@@ -385,13 +385,11 @@ class _DartsScreenState extends State<DartsScreen>
         if (players == 1 && _best != null)
           Text('Bestwert: $_best Darts', textAlign: TextAlign.center),
         if (g.isOver)
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: FilledButton.icon(
-              onPressed: _rematch,
-              icon: const Icon(Icons.replay),
-              label: Text(widget.setup.online ? 'Revanche' : 'Nochmal'),
-            ),
+          GameOverActions(
+            setup: widget.setup,
+            winnerSeats: [seatOf(g.winner!)],
+            onRematch: _rematch,
+            rematchLabel: widget.setup.online ? null : 'Nochmal',
           ),
       ],
     );

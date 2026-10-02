@@ -36,6 +36,16 @@ class ChatMessage {
   );
 }
 
+/// A non-chat control message sent through the stored DM channel
+/// (e.g. friend requests), so it also reaches players who are offline.
+class ChatSignal {
+  ChatSignal(this.from, this.type, this.name, this.time);
+  final String from;
+  final String type;
+  final String? name;
+  final DateTime time;
+}
+
 class IncomingChat {
   IncomingChat(this.from, this.senderName, this.message);
   final String from;
@@ -65,6 +75,8 @@ class ChatService extends ChangeNotifier {
   final Map<String, String> _names = {};
   final Set<String> _seenIds = {};
   final _incoming = StreamController<IncomingChat>.broadcast();
+  final _signals = StreamController<ChatSignal>.broadcast();
+  final List<String> _signalIds = [];
   StreamSubscription<NostrEvent>? _sub;
   int _lastSync = 0;
 
@@ -72,6 +84,9 @@ class ChatService extends ChangeNotifier {
   String? openConversation;
 
   Stream<IncomingChat> get incoming => _incoming.stream;
+
+  /// Control messages such as friend requests.
+  Stream<ChatSignal> get signals => _signals.stream;
 
   List<ChatMessage> messages(String pubkey) =>
       List.unmodifiable(_conversations[pubkey] ?? const []);
@@ -123,6 +138,8 @@ class ChatService extends ChangeNotifier {
       for (final e in unread.entries) {
         _unread[e.key as String] = e.value as int;
       }
+      _signalIds.addAll(_prefs.getStringList('chat.signalIds') ?? const []);
+      _seenIds.addAll(_signalIds);
       final names = jsonDecode(_prefs.getString('chat.names') ?? '{}') as Map;
       for (final e in names.entries) {
         _names[e.key as String] = e.value as String;
@@ -141,6 +158,7 @@ class ChatService extends ChangeNotifier {
     await _prefs.setString('chat.unread', jsonEncode(_unread));
     await _prefs.setString('chat.names', jsonEncode(_names));
     await _prefs.setInt('chat.lastSync', _lastSync);
+    await _prefs.setStringList('chat.signalIds', _signalIds);
   }
 
   void _add(String pubkey, ChatMessage m) {
@@ -158,6 +176,21 @@ class ChatService extends ChangeNotifier {
       final plain = nip04Decrypt(keys.privateKey, e.pubkey, e.content);
       try {
         final j = jsonDecode(plain);
+        if (j is Map && j['mg'] == 1 && j['type'] is String) {
+          _signalIds.add(e.id);
+          if (_signalIds.length > 500) _signalIds.removeAt(0);
+          if (e.createdAt > _lastSync) _lastSync = e.createdAt;
+          _save();
+          _signals.add(
+            ChatSignal(
+              e.pubkey,
+              j['type'] as String,
+              j['name'] as String?,
+              DateTime.fromMillisecondsSinceEpoch(e.createdAt * 1000),
+            ),
+          );
+          return;
+        }
         if (j is Map && j['mg'] == 1) {
           text = j['text'] as String;
           name = j['name'] as String?;
@@ -185,6 +218,25 @@ class ChatService extends ChangeNotifier {
     _save();
     notifyListeners();
     _incoming.add(IncomingChat(e.pubkey, name, msg));
+  }
+
+  /// Sends a stored control message (see [signals]).
+  Future<void> sendSignal(String to, String type, {required String myName}) {
+    final content = nip04Encrypt(
+      keys.privateKey,
+      to,
+      jsonEncode({'mg': 1, 'type': type, 'name': myName}),
+    );
+    final event = NostrEvent.create(
+      keys: keys,
+      kind: kind,
+      content: content,
+      tags: [
+        ['p', to],
+      ],
+    );
+    _seenIds.add(event.id);
+    return client.publish(event);
   }
 
   Future<void> send(String to, String text, {required String myName}) async {

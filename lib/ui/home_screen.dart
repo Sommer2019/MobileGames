@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/services.dart';
 import '../games/registry.dart';
+import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
 import 'lobby_screen.dart';
 
@@ -32,8 +33,13 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 icon: Badge(
-                  isLabelVisible: Services.I.chat.totalUnread > 0,
-                  label: Text('${Services.I.chat.totalUnread}'),
+                  isLabelVisible:
+                      Services.I.chat.totalUnread +
+                          Services.I.friendRequests.pending.length >
+                      0,
+                  label: Text(
+                    '${Services.I.chat.totalUnread + Services.I.friendRequests.pending.length}',
+                  ),
                   child: const Icon(Icons.people),
                 ),
                 label: Text(
@@ -46,6 +52,44 @@ class HomeScreen extends StatelessWidget {
       ),
       body: CustomScrollView(
         slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                color: const Color(0xFFFFF3C4),
+                child: ListTile(
+                  key: const ValueKey('tournamentCard'),
+                  leading: const Icon(
+                    Icons.emoji_events,
+                    size: 40,
+                    color: Color(0xFFF9A825),
+                  ),
+                  title: const Text(
+                    'Turnier mit Freunden',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Mehrere Spiele, mehrere Runden, eine Tabelle',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.black54,
+                  ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TournamentSetupScreen(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           _header(
             context,
             'Mehrspieler',

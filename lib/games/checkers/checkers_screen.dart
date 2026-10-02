@@ -16,7 +16,7 @@ class CheckersScreen extends StatefulWidget {
 
 class _CheckersScreenState extends State<CheckersScreen> {
   CheckersGame game = CheckersGame();
-  int round = 0;
+  late int round = widget.setup.firstRound;
   List<(int, int)> _partial = [];
   StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
@@ -139,6 +139,15 @@ class _CheckersScreenState extends State<CheckersScreen> {
 
   String _sideName(Side s) => s == Side.white ? 'Weiß' : 'Schwarz';
 
+  /// Seat that plays white this round.
+  int get _whiteSeat => round.isEven ? 0 : 1;
+
+  List<int> _winnerSeats() {
+    final w = game.winner;
+    if (w == null) return [0, 1];
+    return [w == Side.white ? _whiteSeat : 1 - _whiteSeat];
+  }
+
   String _status() {
     if (game.draw) return 'Remis';
     final w = game.winner;
@@ -211,13 +220,10 @@ class _CheckersScreenState extends State<CheckersScreen> {
             ),
           ),
           if (game.isOver)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: _reset,
-                icon: const Icon(Icons.replay),
-                label: Text(widget.setup.online ? 'Revanche' : 'Neues Spiel'),
-              ),
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: _winnerSeats(),
+              onRematch: _reset,
             ),
         ],
       ),

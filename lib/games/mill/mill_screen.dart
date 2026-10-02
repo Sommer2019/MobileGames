@@ -35,7 +35,7 @@ class MillScreen extends StatefulWidget {
 
 class _MillScreenState extends State<MillScreen> {
   MillGame game = MillGame();
-  int round = 0;
+  late int round = widget.setup.firstRound;
   int? selected;
   StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
@@ -154,6 +154,12 @@ class _MillScreenState extends State<MillScreen> {
     PlayKind.online => p == me ? 'Du' : widget.setup.opponentName,
   };
 
+  List<int> _winnerSeats() {
+    if (game.winner == 0) return [0, 1];
+    final whiteSeat = round.isEven ? 0 : 1;
+    return [game.winner == 1 ? whiteSeat : 1 - whiteSeat];
+  }
+
   String _status() {
     if (game.draw) return 'Remis';
     if (game.winner != 0) {
@@ -237,13 +243,10 @@ class _MillScreenState extends State<MillScreen> {
             ),
           ),
           if (game.isOver)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: _reset,
-                icon: const Icon(Icons.replay),
-                label: Text(widget.setup.online ? 'Revanche' : 'Neues Spiel'),
-              ),
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: _winnerSeats(),
+              onRematch: _reset,
             ),
         ],
       ),

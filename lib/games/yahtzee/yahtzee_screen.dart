@@ -18,7 +18,7 @@ class YahtzeeScreen extends StatefulWidget {
 
 class _YahtzeeScreenState extends State<YahtzeeScreen> {
   late KniffelGame game;
-  int round = 0;
+  late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
 
   int get players => widget.setup.players;
@@ -157,17 +157,17 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
                     label: Text(game.hasRolled ? 'Nochmal würfeln' : 'Würfeln'),
                   ),
                 ),
-                if (game.isOver) ...[
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _rematch,
-                    icon: const Icon(Icons.replay),
-                    label: const Text('Neu'),
-                  ),
-                ],
               ],
             ),
           ),
+          if (game.isOver)
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: [
+                for (final i in game.winners()) (i + round) % players,
+              ],
+              onRematch: _rematch,
+            ),
           if (myTurn && game.canRoll)
             Padding(
               padding: const EdgeInsets.only(top: 4),

@@ -22,36 +22,38 @@ class Friend {
 /// Local, serverless account: a key pair stored on the device, a display
 /// name and a friend list. The public key (as "npub" code) is the friend code.
 class Account extends ChangeNotifier {
-  Account._(this._prefs, this.keys, this._name, this.friends);
+  Account._(this._prefs, this.keys, this._name, this.friends, this._prefix);
 
-  static const _keyPriv = 'account.privateKey';
-  static const _keyName = 'account.name';
-  static const _keyFriends = 'account.friends';
+  final String _prefix;
+  String get _keyName => '$_prefix.name';
+  String get _keyFriends => '$_prefix.friends';
 
   final SharedPreferences _prefs;
   final KeyPair keys;
   String _name;
   final List<Friend> friends;
 
-  static Future<Account> load() async {
+  /// Loads (or creates) the account. [prefix] separates the storage keys
+  /// (used by tests that simulate several players on one device).
+  static Future<Account> load({String prefix = 'account'}) async {
     final prefs = await SharedPreferences.getInstance();
-    var priv = prefs.getString(_keyPriv);
+    var priv = prefs.getString('$prefix.privateKey');
     if (priv == null) {
       priv = KeyPair.generate().privateKey;
-      await prefs.setString(_keyPriv, priv);
+      await prefs.setString('$prefix.privateKey', priv);
     }
     final keys = KeyPair(priv);
     final name =
-        prefs.getString(_keyName) ??
+        prefs.getString('$prefix.name') ??
         'Spieler ${keys.publicKey.substring(0, 4)}';
     final friends = <Friend>[];
     try {
       for (final f
-          in jsonDecode(prefs.getString(_keyFriends) ?? '[]') as List) {
+          in jsonDecode(prefs.getString('$prefix.friends') ?? '[]') as List) {
         friends.add(Friend.fromJson(Map<String, dynamic>.from(f as Map)));
       }
     } catch (_) {}
-    return Account._(prefs, keys, name, friends);
+    return Account._(prefs, keys, name, friends, prefix);
   }
 
   String get name => _name;

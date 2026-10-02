@@ -13,6 +13,7 @@ import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
+import 'tournament/tournament_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
 /// An offline way to play a multiplayer game.
@@ -229,6 +230,7 @@ final List<GameInfo> games = [
 ];
 
 GameInfo? gameById(String id) {
+  if (id == tournamentId) return tournamentInfo();
   for (final g in games) {
     if (g.id == id) return g;
   }

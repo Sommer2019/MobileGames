@@ -16,7 +16,7 @@ class ConnectFourScreen extends StatefulWidget {
 
 class _ConnectFourScreenState extends State<ConnectFourScreen> {
   late ConnectFourGame game = ConnectFourGame(players: widget.setup.players);
-  int round = 0;
+  late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
 
@@ -110,6 +110,10 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     _maybeAi();
   }
 
+  List<int> _winnerSeats() => game.winner == 0
+      ? [for (var i = 0; i < players; i++) i]
+      : [seatOf(game.winner)];
+
   String _status() {
     String name(int p) {
       switch (widget.setup.kind) {
@@ -186,13 +190,10 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
             ),
           ),
           if (game.isOver)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: _reset,
-                icon: const Icon(Icons.replay),
-                label: Text(widget.setup.online ? 'Revanche' : 'Neues Spiel'),
-              ),
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: _winnerSeats(),
+              onRematch: _reset,
             ),
         ],
       ),

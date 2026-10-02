@@ -7,22 +7,55 @@ import 'chat_view.dart';
 
 enum PlayKind { local, ai, online }
 
+/// Result of a finished game: the seats that won (all seats on a draw).
+typedef GameResultCallback = void Function(List<int> winnerSeats);
+
 /// How a game is played: on one device, against the computer or online.
 class PlaySetup {
   const PlaySetup.local({int players = 2})
     : kind = PlayKind.local,
       _players = players,
-      room = null;
-  const PlaySetup.ai() : kind = PlayKind.ai, _players = 2, room = null;
-  const PlaySetup.online(GameRoom this.room)
-    : kind = PlayKind.online,
-      _players = 0;
+      room = null,
+      scope = null,
+      firstRound = 0,
+      onFinished = null,
+      onLeave = null;
+  const PlaySetup.ai()
+    : kind = PlayKind.ai,
+      _players = 2,
+      room = null,
+      scope = null,
+      firstRound = 0,
+      onFinished = null,
+      onLeave = null;
+  const PlaySetup.online(
+    GameRoom this.room, {
+    this.scope,
+    this.firstRound = 0,
+    this.onFinished,
+    this.onLeave,
+  }) : kind = PlayKind.online,
+       _players = 0;
 
   final PlayKind kind;
   final int _players;
   final GameRoom? room;
 
+  /// Tournament: messages of this game are tagged with [scope] so they do
+  /// not mix with other games played in the same room.
+  final String? scope;
+
+  /// Start value of the round counter (rotates who begins).
+  final int firstRound;
+
+  /// Tournament: reports the result once the game is over.
+  final GameResultCallback? onFinished;
+
+  /// Tournament: leaving the game leaves the whole tournament.
+  final VoidCallback? onLeave;
+
   bool get online => kind == PlayKind.online;
+  bool get inTournament => onFinished != null;
 
   /// Number of players taking part.
   int get players => room?.size ?? _players;
@@ -41,11 +74,67 @@ class PlaySetup {
   }
 
   /// Sends a game message to the other players (no-op offline).
-  void send(Map<String, dynamic> data) => room?.send(data);
+  void send(Map<String, dynamic> data) =>
+      room?.send(scope == null ? data : {...data, '_s': scope});
 
   /// Game messages of the other players.
   StreamSubscription<RoomMessage>? listen(void Function(RoomMessage) onData) =>
-      room?.messages.listen(onData);
+      room?.messagesWhere((m) => m.data['_s'] == scope).listen(onData);
+}
+
+/// Buttons shown when a game is over: a rematch normally, in a tournament
+/// the way back to the standings. Also reports the result in tournaments.
+class GameOverActions extends StatefulWidget {
+  const GameOverActions({
+    super.key,
+    required this.setup,
+    required this.winnerSeats,
+    required this.onRematch,
+    this.rematchLabel,
+  });
+
+  final PlaySetup setup;
+  final List<int> winnerSeats;
+  final VoidCallback onRematch;
+  final String? rematchLabel;
+
+  @override
+  State<GameOverActions> createState() => _GameOverActionsState();
+}
+
+class _GameOverActionsState extends State<GameOverActions> {
+  @override
+  void initState() {
+    super.initState();
+    final report = widget.setup.onFinished;
+    if (report != null) {
+      final winners = widget.winnerSeats;
+      WidgetsBinding.instance.addPostFrameCallback((_) => report(winners));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final setup = widget.setup;
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: setup.inTournament
+          ? FilledButton.icon(
+              key: const ValueKey('toTournament'),
+              onPressed: () => OnlineGameFrame.leaveFinished(context),
+              icon: const Icon(Icons.emoji_events),
+              label: const Text('Zur Turniertabelle'),
+            )
+          : FilledButton.icon(
+              onPressed: widget.onRematch,
+              icon: const Icon(Icons.replay),
+              label: Text(
+                widget.rematchLabel ??
+                    (setup.online ? 'Revanche' : 'Neues Spiel'),
+              ),
+            ),
+    );
+  }
 }
 
 /// Wraps a game screen: online it shows the connection type, offers the
@@ -64,6 +153,19 @@ class OnlineGameFrame extends StatefulWidget {
   final Widget child;
   final List<Widget>? actions;
 
+  /// Leaves a finished tournament game without asking.
+  static void leaveFinished(BuildContext context) {
+    final state = context.findAncestorStateOfType<_OnlineGameFrameState>();
+    if (state == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    state._markFinished();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (state.mounted) Navigator.of(state.context).pop();
+    });
+  }
+
   @override
   State<OnlineGameFrame> createState() => _OnlineGameFrameState();
 }
@@ -71,6 +173,9 @@ class OnlineGameFrame extends StatefulWidget {
 class _OnlineGameFrameState extends State<OnlineGameFrame> {
   StreamSubscription<ChatLine>? _chatSub;
   bool _leftDialogShown = false;
+  bool _finished = false;
+
+  void _markFinished() => setState(() => _finished = true);
   bool _chatOpen = false;
   int _unread = 0;
 
@@ -84,6 +189,8 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
       r.addListener(_onRoomChanged);
       _chatSub = r.chatStream.listen((line) {
         if (!mounted || line.seat == r.mySeat) return;
+        // Only the screen on top shows popups (tournament table + game).
+        if (ModalRoute.of(context)?.isCurrent == false) return;
         if (!_chatOpen) {
           setState(() => _unread++);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -124,7 +231,8 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   void dispose() {
     _chatSub?.cancel();
     _room?.removeListener(_onRoomChanged);
-    _room?.close();
+    // In a tournament the room lives on for the next games.
+    if (!widget.setup.inTournament) _room?.close();
     super.dispose();
   }
 
@@ -177,8 +285,14 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
     final leave = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Spiel verlassen?'),
-        content: const Text('Das laufende Online-Spiel wird beendet.'),
+        title: Text(
+          widget.setup.inTournament ? 'Turnier verlassen?' : 'Spiel verlassen?',
+        ),
+        content: Text(
+          widget.setup.inTournament
+              ? 'Das Turnier wird für alle beendet.'
+              : 'Das laufende Online-Spiel wird beendet.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -198,11 +312,17 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   Widget build(BuildContext context) {
     final r = _room;
     return PopScope(
-      canPop: r == null || r.leftPlayer != null,
+      canPop: r == null || r.leftPlayer != null || _finished,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final nav = Navigator.of(context);
-        if (await _confirmLeave()) nav.pop();
+        if (!await _confirmLeave()) return;
+        final leave = widget.setup.onLeave;
+        if (leave != null) {
+          leave();
+        } else {
+          nav.pop();
+        }
       },
       child: Scaffold(
         appBar: AppBar(

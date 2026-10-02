@@ -13,7 +13,8 @@ Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit elf Spielen:
 | 🎯 Darts | 2–4 | |
 | 🎱 Billard 8-Ball | 2 | |
 
-Dazu: **Freundesliste mit Online-Status**, **Chat** mit Freunden (auch offline zugestellt),
+Dazu: 🏆 **Turniermodus** (mehrere Spiele × mehrere Runden gegen Freunde, Punktetabelle),
+**Freundschaftsanfragen** (beide stehen danach in der Liste des anderen), **Freundesliste mit Online-Status**, **Chat** mit Freunden (auch offline zugestellt),
 **Chat im Spiel**, Pop-up und System-Benachrichtigung bei Einladungen und Nachrichten.
 
 ## Download
@@ -39,6 +40,10 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
   öffentliche, kostenlose [Nostr](https://nostr.com)-Relays genutzt. Nachrichten sind
   signiert und Ende-zu-Ende verschlüsselt (NIP-04) und werden von den Relays nicht
   gespeichert (ephemere Events).
+* **Freunde:** Wer einen Freundescode hinzufügt, schickt eine Anfrage (auch an Offline-Freunde).
+  Nimmt der andere an, sind beide gegenseitig befreundet.
+* **Turnier:** Der Host wählt Spiele und Rundenzahl und lädt 1–3 Freunde ein. Alle Partien laufen
+  im selben Raum; Sieg 3 Punkte, Unentschieden 1 Punkt. Wer anfängt, wechselt von Partie zu Partie.
 * **Räume:** Bei 3–4 Spielern ist der Host der Knotenpunkt: Er hält zu jedem Mitspieler eine
   eigene P2P-Verbindung und leitet Züge weiter (eine gemeinsame Reihenfolge für alle).
 * **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-04). Diese

@@ -18,7 +18,7 @@ class ChessScreen extends StatefulWidget {
 
 class _ChessScreenState extends State<ChessScreen> {
   ChessGame game = ChessGame();
-  int round = 0;
+  late int round = widget.setup.firstRound;
   String? selected;
   List<String> targets = const [];
   StreamSubscription<RoomMessage>? _sub;
@@ -180,6 +180,17 @@ class _ChessScreenState extends State<ChessScreen> {
     widget.setup.send({'t': 'resign'});
   }
 
+  List<int> _winnerSeats() {
+    final me = widget.setup.mySeat, other = 1 - me;
+    if (_resigned == 'me') return [other];
+    if (_resigned == 'opponent') return [me];
+    if (game.isCheckmate) {
+      // The side to move is mated.
+      return [game.turn == mySide ? other : me];
+    }
+    return [0, 1];
+  }
+
   String _status() {
     if (_resigned == 'me') return 'Du hast aufgegeben';
     if (_resigned == 'opponent') {
@@ -225,17 +236,11 @@ class _ChessScreenState extends State<ChessScreen> {
             ),
           ),
           if (over)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: _reset,
-                icon: const Icon(Icons.replay),
-                label: Text(
-                  widget.setup.online
-                      ? 'Revanche (Farben tauschen)'
-                      : 'Neues Spiel',
-                ),
-              ),
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: _winnerSeats(),
+              onRematch: _reset,
+              rematchLabel: 'Revanche (Farben tauschen)',
             ),
         ],
       ),

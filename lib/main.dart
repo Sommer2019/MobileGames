@@ -29,6 +29,8 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<IncomingInvite>? _invites;
   StreamSubscription<IncomingChat>? _chats;
+  StreamSubscription<String>? _requests;
+  StreamSubscription<String>? _accepts;
 
   @override
   void initState() {
@@ -36,8 +38,15 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     if (Services.isReady) {
       _invites = Services.I.matchmaker.invites.listen(_onInvite);
       _chats = Services.I.chat.incoming.listen(_onChat);
+      _requests = Services.I.friendRequests.incoming.listen(_onFriendRequest);
+      _accepts = Services.I.friendRequests.accepted.listen(_onFriendAccepted);
       Notifications.I.onTap = (payload) {
         if (payload.startsWith('chat:')) _openChat(payload.substring(5));
+        if (payload == 'friends') {
+          _navigator.currentState?.push(
+            MaterialPageRoute<void>(builder: (_) => const FriendsScreen()),
+          );
+        }
       };
     }
   }
@@ -46,7 +55,58 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   void dispose() {
     _invites?.cancel();
     _chats?.cancel();
+    _requests?.cancel();
+    _accepts?.cancel();
     super.dispose();
+  }
+
+  Future<void> _onFriendRequest(String pubkey) async {
+    final fr = Services.I.friendRequests;
+    final name = fr.pending[pubkey] ?? 'Jemand';
+    if (!Notifications.I.inForeground) {
+      Notifications.I.show(
+        'Freundschaftsanfrage',
+        '$name möchte mit dir befreundet sein.',
+        payload: 'friends',
+      );
+    }
+    final ctx = _navigator.currentContext;
+    if (ctx == null) return;
+    final accept = await showDialog<bool>(
+      context: ctx,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.person_add, size: 40),
+        title: const Text('Freundschaftsanfrage'),
+        content: Text('$name möchte mit dir befreundet sein.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Ablehnen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Später'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Annehmen'),
+          ),
+        ],
+      ),
+    );
+    if (accept == true) await fr.acceptRequest(pubkey);
+    if (accept == false) await fr.declineRequest(pubkey);
+  }
+
+  void _onFriendAccepted(String pubkey) {
+    final name = Services.I.account.friend(pubkey)?.name ?? 'Jemand';
+    if (!Notifications.I.inForeground) {
+      Notifications.I.show('Neuer Freund', '$name ist jetzt dein Freund.');
+      return;
+    }
+    _messenger.currentState?.showSnackBar(
+      SnackBar(content: Text('🤝 $name ist jetzt dein Freund')),
+    );
   }
 
   String _senderName(String pubkey, String? fallback) =>

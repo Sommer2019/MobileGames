@@ -25,7 +25,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
   bool awaitingResult = false;
   bool opponentReady = false;
   bool? iWon;
-  int round = 0;
+  late int round = widget.setup.firstRound;
   String? lastEvent;
 
   // Computer opponent.
@@ -183,6 +183,10 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
     widget.setup.send({'t': 'rematch'});
   }
 
+  List<int> _winnerSeats() => [
+    iWon == true ? widget.setup.mySeat : 1 - widget.setup.mySeat,
+  ];
+
   String _status() {
     switch (phase) {
       case _Phase.placing:
@@ -244,13 +248,10 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
             const Text('Deine Flotte'),
             Expanded(flex: 2, child: _grid(own: true, interactive: false)),
             if (phase == _Phase.over)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: FilledButton.icon(
-                  onPressed: _rematch,
-                  icon: const Icon(Icons.replay),
-                  label: Text(widget.setup.online ? 'Revanche' : 'Neues Spiel'),
-                ),
+              GameOverActions(
+                setup: widget.setup,
+                winnerSeats: _winnerSeats(),
+                onRematch: _rematch,
               ),
           ],
         ],

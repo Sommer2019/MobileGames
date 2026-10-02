@@ -27,7 +27,7 @@ class _EightBallScreenState extends State<EightBallScreen>
     with SingleTickerProviderStateMixin {
   BilliardGame game = BilliardGame();
   EightBallRules rules = EightBallRules();
-  int round = 0;
+  late int round = widget.setup.firstRound;
   late final Ticker _ticker;
   Duration _last = Duration.zero;
   Offset? _aimPoint;
@@ -283,10 +283,10 @@ class _EightBallScreenState extends State<EightBallScreen>
                     color: Colors.orange,
                   ),
                 if (rules.isOver)
-                  FilledButton.icon(
-                    onPressed: _reset,
-                    icon: const Icon(Icons.replay),
-                    label: Text(widget.setup.online ? 'Revanche' : 'Nochmal'),
+                  GameOverActions(
+                    setup: widget.setup,
+                    winnerSeats: [(rules.winner! + round) % 2],
+                    onRematch: _reset,
                   ),
               ],
             ),

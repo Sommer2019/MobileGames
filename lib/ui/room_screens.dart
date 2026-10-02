@@ -7,6 +7,7 @@ import '../core/net/random_room.dart';
 import '../core/net/room.dart';
 import '../core/services.dart';
 import '../games/registry.dart';
+import '../games/tournament/tournament_screen.dart';
 import 'play_setup.dart';
 
 /// Replaces the current route with the game screen for [room].
@@ -18,6 +19,7 @@ void openGameRoom(BuildContext context, GameRoom room) {
   }
   Navigator.of(context).pushReplacement(
     MaterialPageRoute<void>(
+      settings: room.gameId == tournamentId ? tournamentRouteSettings() : null,
       builder: (_) => game.multiplayerBuilder!(PlaySetup.online(room)),
     ),
   );
@@ -237,8 +239,15 @@ enum _InviteState { pending, accepted, declined }
 
 /// Host a room and invite friends (up to the game's maximum).
 class FriendsRoomScreen extends StatefulWidget {
-  const FriendsRoomScreen({super.key, required this.game});
+  const FriendsRoomScreen({
+    super.key,
+    required this.game,
+    this.startOptions = const {},
+  });
   final GameInfo game;
+
+  /// Options sent to all players when the game starts.
+  final Map<String, dynamic> startOptions;
 
   @override
   State<FriendsRoomScreen> createState() => _FriendsRoomScreenState();
@@ -302,7 +311,7 @@ class _FriendsRoomScreenState extends State<FriendsRoomScreen> {
   void _start() {
     if (_started || !host.canStart) return;
     _started = true;
-    final room = host.start();
+    final room = host.start(options: widget.startOptions);
     openGameRoom(context, room);
   }
 

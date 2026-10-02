@@ -23,6 +23,7 @@ Future<List<GameRoom>> buildRoom(
   int guests, {
   String gameId = 'g',
   List<String>? names,
+  Map<String, dynamic> options = const {'mode': 'x'},
 }) async {
   final hostMsg = newMessenger(bus);
   final host = RoomHost(
@@ -61,7 +62,7 @@ Future<List<GameRoom>> buildRoom(
   }
   expect(host.connected.length, guests);
   expect(host.isFull, isTrue);
-  final hostRoom = host.start(options: {'mode': 'x'});
+  final hostRoom = host.start(options: options);
   final rooms = await Future.wait(guestRooms)
       .timeout(const Duration(seconds: 5));
   return [hostRoom, ...rooms];
