@@ -48,6 +48,17 @@ bool levelSolvable(LabyrinthLevel l) {
 }
 
 void main() {
+  test('there are many levels and later ones are harder', () {
+    expect(labyrinthLevels.length, greaterThanOrEqualTo(15));
+    final last = labyrinthLevels.last, firstMaze = labyrinthLevels[5];
+    expect(last.holes.length, greaterThan(firstMaze.holes.length));
+    expect(last.walls.length, greaterThan(firstMaze.walls.length));
+    expect(
+      labyrinthLevels.map((l) => l.name).toSet().length,
+      labyrinthLevels.length,
+    );
+  });
+
   test('all levels are solvable', () {
     for (final l in labyrinthLevels) {
       expect(levelSolvable(l), isTrue, reason: l.name);

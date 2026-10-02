@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/net/room.dart';
+import '../../core/shake.dart';
 import '../../ui/play_setup.dart';
 import 'yahtzee_logic.dart';
 
@@ -29,10 +31,28 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     super.initState();
     game = KniffelGame(players);
     _sub = widget.setup.listen((m) => _onMessage(m.data));
+    _shake = ShakeDetector.listen(() {
+      if (mounted && myTurn && game.canRoll) {
+        HapticFeedback.mediumImpact();
+        _roll();
+      }
+    });
+  }
+
+  StreamSubscription<Object?>? _shake;
+
+  /// Rotation counters per die; rolled dice spin.
+  final List<int> _spins = List.filled(5, 0);
+
+  void _spin(List<bool> heldBefore, bool firstRoll) {
+    for (var i = 0; i < 5; i++) {
+      if (firstRoll || !heldBefore[i]) _spins[i]++;
+    }
   }
 
   @override
   void dispose() {
+    _shake?.cancel();
     _sub?.cancel();
     super.dispose();
   }
@@ -53,7 +73,10 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     setState(() {
       switch (m['t']) {
         case 'roll':
+          final heldBefore = List<bool>.from(game.held);
+          final first = !game.hasRolled;
           game.applyRoll([for (final d in m['dice'] as List) d as int]);
+          _spin(heldBefore, first);
         case 'hold':
           game.held = [for (final h in m['held'] as List) h as bool];
         case 'score':
@@ -67,7 +90,12 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
 
   void _roll() {
     if (!myTurn || !game.canRoll) return;
-    setState(game.roll);
+    final heldBefore = List<bool>.from(game.held);
+    final first = !game.hasRolled;
+    setState(() {
+      game.roll();
+      _spin(heldBefore, first);
+    });
     widget.setup.send({'t': 'roll', 'dice': game.dice});
   }
 
@@ -140,6 +168,14 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
               ],
             ),
           ),
+          if (myTurn && game.canRoll)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '📳 oder Handy schütteln',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           const SizedBox(height: 8),
           Expanded(child: _sheet()),
         ],
@@ -181,7 +217,15 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
                       ],
                     ),
                     child: game.hasRolled
-                        ? CustomPaint(painter: _DiePainter(game.dice[i]))
+                        ? AnimatedRotation(
+                            turns: _spins[i].toDouble(),
+                            duration: const Duration(milliseconds: 450),
+                            curve: Curves.easeOutBack,
+                            child: CustomPaint(
+                              painter: _DiePainter(game.dice[i]),
+                              size: Size.infinite,
+                            ),
+                          )
                         : null,
                   ),
                 ),

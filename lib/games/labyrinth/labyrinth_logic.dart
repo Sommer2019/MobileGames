@@ -42,7 +42,7 @@ List<Wall> _frame() => const [
 Wall _h(double x1, double x2, double y) => Wall(x1, y - _t / 2, x2, y + _t / 2);
 Wall _v(double x, double y1, double y2) => Wall(x - _t / 2, y1, x + _t / 2, y2);
 
-final List<LabyrinthLevel> labyrinthLevels = [
+final List<LabyrinthLevel> _handmadeLevels = [
   LabyrinthLevel(
     name: 'Aufwärmen',
     start: (0.15, 0.12),
@@ -133,6 +133,120 @@ final List<LabyrinthLevel> labyrinthLevels = [
     ],
   ),
 ];
+
+/// All levels: five hand made ones, then generated mazes that get bigger
+/// and have more holes.
+final List<LabyrinthLevel> labyrinthLevels = [
+  ..._handmadeLevels,
+  for (var i = 0; i < _mazeSpecs.length; i++)
+    generateMazeLevel(
+      name: _mazeSpecs[i].$1,
+      cols: _mazeSpecs[i].$2,
+      rows: _mazeSpecs[i].$3,
+      holeShare: _mazeSpecs[i].$4,
+      seed: 1000 + i * 37,
+    ),
+];
+
+/// (name, columns, rows, share of side cells with a hole)
+const _mazeSpecs = [
+  ('Irrgarten', 4, 6, 0.0),
+  ('Sackgassen', 4, 7, 0.35),
+  ('Wendeltreppe', 5, 7, 0.4),
+  ('Fallenstellerei', 5, 8, 0.55),
+  ('Holzwurm', 5, 9, 0.6),
+  ('Engpass', 6, 9, 0.6),
+  ('Lochfraß', 6, 10, 0.7),
+  ('Schweizer Käse', 6, 10, 0.85),
+  ('Geduldsprobe', 7, 11, 0.7),
+  ('Nervenkitzel', 7, 11, 0.85),
+  ('Zitterpartie', 7, 11, 1.0),
+  ('Großmeister', 7, 11, 1.0),
+];
+
+/// Builds a maze level with a recursive backtracker. Holes are only put
+/// into cells off the solution path (side passages and dead ends), so every
+/// level is solvable; the many dead ends with holes make it tricky.
+LabyrinthLevel generateMazeLevel({
+  required String name,
+  required int cols,
+  required int rows,
+  required double holeShare,
+  required int seed,
+}) {
+  final r = Random(seed);
+  const inner = _t; // frame thickness
+  final cw = (boardWidth - 2 * inner) / cols;
+  final ch = (boardHeight - 2 * inner) / rows;
+  // Open passages: right[c][r] = wall to the right is open, down likewise.
+  final right = List.generate(cols, (_) => List.filled(rows, false));
+  final down = List.generate(cols, (_) => List.filled(rows, false));
+  final visited = List.generate(cols, (_) => List.filled(rows, false));
+  final parent = <(int, int), (int, int)>{};
+  final stack = <(int, int)>[(0, 0)];
+  visited[0][0] = true;
+  while (stack.isNotEmpty) {
+    final (c, row) = stack.last;
+    final options = <(int, int)>[
+      if (c > 0 && !visited[c - 1][row]) (c - 1, row),
+      if (c < cols - 1 && !visited[c + 1][row]) (c + 1, row),
+      if (row > 0 && !visited[c][row - 1]) (c, row - 1),
+      if (row < rows - 1 && !visited[c][row + 1]) (c, row + 1),
+    ];
+    if (options.isEmpty) {
+      stack.removeLast();
+      continue;
+    }
+    final (nc, nr) = options[r.nextInt(options.length)];
+    if (nc > c) right[c][row] = true;
+    if (nc < c) right[nc][row] = true;
+    if (nr > row) down[c][row] = true;
+    if (nr < row) down[c][nr] = true;
+    visited[nc][nr] = true;
+    parent[(nc, nr)] = (c, row);
+    stack.add((nc, nr));
+  }
+  // Goal in the far corner; the solution path is the tree path to it.
+  final goalCell = (cols - 1, rows - 1);
+  final path = <(int, int)>{goalCell};
+  var cur = goalCell;
+  while (parent.containsKey(cur)) {
+    cur = parent[cur]!;
+    path.add(cur);
+  }
+  double cx(int c) => inner + (c + 0.5) * cw;
+  double cy(int row) => inner + (row + 0.5) * ch;
+  final walls = <Wall>[..._frame()];
+  for (var c = 0; c < cols; c++) {
+    for (var row = 0; row < rows; row++) {
+      final x1 = inner + c * cw, y1 = inner + row * ch;
+      // Segments are extended by half a thickness so corners are closed.
+      if (c < cols - 1 && !right[c][row]) {
+        walls.add(_v(x1 + cw, y1 - _t / 2, y1 + ch + _t / 2));
+      }
+      if (row < rows - 1 && !down[c][row]) {
+        walls.add(_h(x1 - _t / 2, x1 + cw + _t / 2, y1 + ch));
+      }
+    }
+  }
+  final holeRadius = min(0.042, min(cw, ch) * 0.3);
+  final holes = <Hole>[];
+  for (var c = 0; c < cols; c++) {
+    for (var row = 0; row < rows; row++) {
+      if (path.contains((c, row))) continue;
+      if (r.nextDouble() < holeShare) {
+        holes.add(Hole(cx(c), cy(row), radius: holeRadius));
+      }
+    }
+  }
+  return LabyrinthLevel(
+    name: name,
+    start: (cx(0), cy(0)),
+    goal: Hole(cx(goalCell.$1), cy(goalCell.$2), radius: holeRadius),
+    walls: walls,
+    holes: holes,
+  );
+}
 
 enum BallState { rolling, fell, won }
 

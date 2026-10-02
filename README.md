@@ -4,12 +4,12 @@ Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit elf Spielen:
 
 | Mehrspieler (online P2P und an einem Gerät) | Spieler | Einzelspieler |
 | --- | --- | --- |
-| ♟️ Schach (+ Computer) | 2 | 🟤 Kugellabyrinth (Bewegungssensor, 5 Level) |
+| ♟️ Schach (+ Computer) | 2 | 🟤 Kugellabyrinth (Bewegungssensor, 17 Level) |
 | ⚪ Dame (+ Computer) | 2 | 🀄 Mahjong (immer lösbar) |
 | ⭕ Mühle (+ Computer) | 2 | 🐍 Snake |
 | 🚢 Schiffe versenken (+ Computer, Pass & Play) | 2 | 🎯 Darts allein (501/301/Rund um die Uhr) |
 | 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (Tisch abräumen) |
-| 🎲 Kniffel | 1–4 | |
+| 🎲 Kniffel (Handy schütteln zum Würfeln) | 1–4 | |
 | 🎯 Darts | 2–4 | |
 | 🎱 Billard 8-Ball | 2 | |
 
