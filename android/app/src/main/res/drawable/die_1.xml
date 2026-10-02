@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Die face 1 for the dice widget. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="#FFFFFF" android:strokeColor="#33000000" android:strokeWidth="2"
+        android:pathData="M18,2 L82,2 Q98,2 98,18 L98,82 Q98,98 82,98 L18,98 Q2,98 2,82 L2,18 Q2,2 18,2 Z"/>
+    <path android:fillColor="#212121" android:pathData="M41,50 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0"/>
+</vector>

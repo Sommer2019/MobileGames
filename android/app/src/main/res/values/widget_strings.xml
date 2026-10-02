@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_dice_description">Würfel für Brettspiele: 1–6 Würfel, antippen zum Würfeln</string>
+    <string name="widget_game_night_description">Nachrichten, Freunde online und deine letzten Spiele</string>
+</resources>
