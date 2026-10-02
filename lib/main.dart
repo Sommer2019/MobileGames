@@ -241,7 +241,42 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
+      builder: (context, child) => SystemBarInsets(child: child!),
       home: const HomeScreen(),
+    );
+  }
+}
+
+/// Since Android 15 apps are drawn edge to edge: the navigation bar lies on
+/// top of the app. Instead of handling that on every screen, the whole app
+/// is kept clear of the bottom and side system bars. The status bar is
+/// left to the app bars.
+class SystemBarInsets extends StatelessWidget {
+  const SystemBarInsets({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final pad = mq.viewPadding;
+    // An open keyboard already covers the navigation bar.
+    final bottom = mq.viewInsets.bottom > 0 ? 0.0 : pad.bottom;
+    return ColoredBox(
+      color: Colors.black,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: pad.left,
+          right: pad.right,
+          bottom: bottom,
+        ),
+        child: MediaQuery(
+          data: mq.copyWith(
+            padding: mq.padding.copyWith(left: 0, right: 0, bottom: 0),
+            viewPadding: pad.copyWith(left: 0, right: 0, bottom: 0),
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }
