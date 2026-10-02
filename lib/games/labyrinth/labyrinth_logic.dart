@@ -1,4 +1,6 @@
+import 'dart:collection';
 import 'dart:math';
+import 'dart:typed_data';
 
 /// Axis aligned wall rectangle in board units.
 class Wall {
@@ -139,38 +141,57 @@ final List<LabyrinthLevel> _handmadeLevels = [
 
 /// All levels: five hand made ones, then generated mazes that get bigger
 /// and have more holes.
-final List<LabyrinthLevel> labyrinthLevels = [
-  ..._handmadeLevels,
+/// All levels. Generated levels are built lazily when first used, because
+/// checking every trap hole for solvability takes a moment.
+final List<LabyrinthLevel> labyrinthLevels = _LazyLevels([
+  for (final l in _handmadeLevels) () => l,
   for (var i = 0; i < _mazeSpecs.length; i++)
-    generateMazeLevel(
+    () => generateMazeLevel(
       name: _mazeSpecs[i].$1,
       cols: _mazeSpecs[i].$2,
       rows: _mazeSpecs[i].$3,
       holeShare: _mazeSpecs[i].$4,
+      pathTraps: _mazeSpecs[i].$5,
       seed: 1000 + i * 37,
     ),
-  ..._edgeLevels,
+  for (final l in _edgeLevels) () => l,
   for (var i = 0; i < _holeFieldSpecs.length; i++)
-    generateMazeLevel(
+    () => generateMazeLevel(
       name: _holeFieldSpecs[i].$1,
       cols: _holeFieldSpecs[i].$2,
       rows: _holeFieldSpecs[i].$3,
       holeShare: 1.0,
+      pathTraps: _holeFieldSpecs[i].$5,
       seed: 5000 + i * 53,
       mazeWalls: false,
       frame: _holeFieldSpecs[i].$4,
     ),
-];
+]);
+
+class _LazyLevels extends ListBase<LabyrinthLevel> {
+  _LazyLevels(this._builders) : _cache = List.filled(_builders.length, null);
+  final List<LabyrinthLevel Function()> _builders;
+  final List<LabyrinthLevel?> _cache;
+
+  @override
+  int get length => _builders.length;
+  @override
+  set length(int _) => throw UnsupportedError('fixed');
+  @override
+  LabyrinthLevel operator [](int i) => _cache[i] ??= _builders[i]();
+  @override
+  void operator []=(int i, LabyrinthLevel v) => throw UnsupportedError('fixed');
+}
 
 /// Hole fields: no walls at all, only a winding path between holes.
-/// (name, columns, rows, with frame)
+/// (name, columns, rows, with frame, share of path cells with a trap hole)
 const _holeFieldSpecs = [
-  ('Lochfeld', 4, 6, true),
-  ('Pfad der Löcher', 5, 7, true),
-  ('Freier Fall', 4, 7, false),
-  ('Drahtseil', 5, 8, false),
-  ('Abgrund', 6, 9, false),
-  ('Meister ohne Netz', 7, 11, false),
+  ('Lochfeld', 4, 6, true, 0.6),
+  ('Pfad der Löcher', 5, 7, true, 0.8),
+  ('Freier Fall', 4, 7, false, 0.8),
+  ('Drahtseil', 5, 8, false, 1.0),
+  ('Abgrund', 6, 9, false, 1.0),
+  ('Meister ohne Netz', 7, 11, false, 1.0),
 ];
 
 /// Levels without a solid border: the ball can roll off the board.
@@ -212,20 +233,21 @@ final List<LabyrinthLevel> _edgeLevels = [
   ),
 ];
 
-/// (name, columns, rows, share of side cells with a hole)
+/// (name, columns, rows, share of side cells with a hole,
+///  share of path cells with a trap hole right next to the way)
 const _mazeSpecs = [
-  ('Irrgarten', 4, 6, 0.0),
-  ('Sackgassen', 4, 7, 0.35),
-  ('Wendeltreppe', 5, 7, 0.4),
-  ('Fallenstellerei', 5, 8, 0.55),
-  ('Holzwurm', 5, 9, 0.6),
-  ('Engpass', 6, 9, 0.6),
-  ('Lochfraß', 6, 10, 0.7),
-  ('Schweizer Käse', 6, 10, 0.85),
-  ('Geduldsprobe', 7, 11, 0.7),
-  ('Nervenkitzel', 7, 11, 0.85),
-  ('Zitterpartie', 7, 11, 1.0),
-  ('Großmeister', 7, 11, 1.0),
+  ('Irrgarten', 4, 6, 0.0, 0.0),
+  ('Sackgassen', 4, 7, 0.35, 0.45),
+  ('Wendeltreppe', 5, 7, 0.4, 0.6),
+  ('Fallenstellerei', 5, 8, 0.55, 0.75),
+  ('Holzwurm', 5, 9, 0.6, 0.85),
+  ('Engpass', 6, 9, 0.6, 0.9),
+  ('Lochfraß', 6, 10, 0.7, 0.95),
+  ('Schweizer Käse', 6, 10, 0.85, 1.0),
+  ('Geduldsprobe', 7, 11, 0.7, 1.0),
+  ('Nervenkitzel', 7, 11, 0.85, 1.0),
+  ('Zitterpartie', 7, 11, 1.0, 1.0),
+  ('Großmeister', 7, 11, 1.0, 1.0),
 ];
 
 /// Builds a maze level with a recursive backtracker. Holes are only put
@@ -237,6 +259,7 @@ LabyrinthLevel generateMazeLevel({
   required int rows,
   required double holeShare,
   required int seed,
+  double pathTraps = 0,
   bool mazeWalls = true,
   bool frame = true,
 }) {
@@ -274,12 +297,14 @@ LabyrinthLevel generateMazeLevel({
   }
   // Goal in the far corner; the solution path is the tree path to it.
   final goalCell = (cols - 1, rows - 1);
-  final path = <(int, int)>{goalCell};
+  final pathList = <(int, int)>[goalCell];
   var cur = goalCell;
   while (parent.containsKey(cur)) {
     cur = parent[cur]!;
-    path.add(cur);
+    pathList.add(cur);
   }
+  final path = pathList.toSet();
+  final ordered = pathList.reversed.toList(); // start -> goal
   double cx(int c) => inner + (c + 0.5) * cw;
   double cy(int row) => inner + (row + 0.5) * ch;
   final walls = <Wall>[if (frame) ..._frame()];
@@ -301,18 +326,155 @@ LabyrinthLevel generateMazeLevel({
     for (var row = 0; row < rows; row++) {
       if (path.contains((c, row))) continue;
       if (r.nextDouble() < holeShare) {
-        holes.add(Hole(cx(c), cy(row), radius: holeRadius));
+        // Without walls the holes must almost touch, so the only way
+        // through is the path.
+        final radius = mazeWalls ? holeRadius : min(cw, ch) * 0.42;
+        holes.add(Hole(cx(c), cy(row), radius: radius));
+      }
+    }
+  }
+  final start = (cx(0), cy(0));
+  final goal = Hole(cx(goalCell.$1), cy(goalCell.$2), radius: holeRadius);
+  // Trap holes on the way itself: beside straight passages and in the outer
+  // corner of bends (where the ball overshoots). Every trap is only kept if
+  // the goal stays reachable.
+  final reach = _Reachability(walls, holes);
+  for (var i = 2; i < ordered.length - 2; i++) {
+    if (r.nextDouble() >= pathTraps) continue;
+    final (x0, y0) = ordered[i];
+    final (px, py) = ordered[i - 1];
+    final (nx, ny) = ordered[i + 1];
+    final d1 = (px - x0, py - y0), d2 = (nx - x0, ny - y0);
+    double ox, oy;
+    if (d1.$1 == -d2.$1 && d1.$2 == -d2.$2) {
+      // Straight: put the hole to one side of the lane.
+      final side = r.nextBool() ? 1.0 : -1.0;
+      ox = d1.$2 != 0 ? side : 0;
+      oy = d1.$1 != 0 ? side : 0;
+    } else {
+      // Bend: outer corner.
+      ox = -(d1.$1 + d2.$1).toDouble();
+      oy = -(d1.$2 + d2.$2).toDouble();
+    }
+    // Biggest trap that still leaves a way past it.
+    for (final (offset, scale) in const [
+      (0.22, 1.0),
+      (0.27, 0.85),
+      (0.3, 0.7),
+      (0.33, 0.55),
+    ]) {
+      final trap = Hole(
+        cx(x0) + ox * cw * offset,
+        cy(y0) + oy * ch * offset,
+        radius: holeRadius * scale,
+      );
+      if (reach.tryAdd(trap, start, goal)) {
+        holes.add(trap);
+        break;
       }
     }
   }
   return LabyrinthLevel(
     name: name,
-    start: (cx(0), cy(0)),
-    goal: Hole(cx(goalCell.$1), cy(goalCell.$2), radius: holeRadius),
+    start: start,
+    goal: goal,
     walls: walls,
     holes: holes,
     frame: frame,
   );
+}
+
+/// Grid of positions the ball centre can occupy, used to check that the
+/// goal stays reachable when adding holes.
+class _Reachability {
+  _Reachability(List<Wall> walls, List<Hole> holes) {
+    for (var j = 0; j < h; j++) {
+      for (var i = 0; i < w; i++) {
+        final x = i * step, y = j * step;
+        for (final wall in walls) {
+          final cx = x.clamp(wall.left, wall.right);
+          final cy = y.clamp(wall.top, wall.bottom);
+          final dx = x - cx, dy = y - cy;
+          if (dx * dx + dy * dy < _r2) {
+            blocked[j * w + i] = 1;
+            break;
+          }
+        }
+      }
+    }
+    for (final hole in holes) {
+      _mark(hole, 1);
+    }
+  }
+
+  static const step = 0.01;
+  static const _ball = LabyrinthGame.radius;
+  static const _r2 = _ball * _ball;
+  static const margin = 0.012;
+  final int w = (boardWidth / step).round() + 1;
+  final int h = (boardHeight / step).round() + 1;
+  late final Uint8List blocked = Uint8List(w * h);
+
+  List<int> _disk(Hole hole) {
+    final rr = hole.radius + margin;
+    final cells = <int>[];
+    final i0 = max(0, ((hole.x - rr) / step).floor());
+    final i1 = min(w - 1, ((hole.x + rr) / step).ceil());
+    final j0 = max(0, ((hole.y - rr) / step).floor());
+    final j1 = min(h - 1, ((hole.y + rr) / step).ceil());
+    for (var j = j0; j <= j1; j++) {
+      for (var i = i0; i <= i1; i++) {
+        final dx = i * step - hole.x, dy = j * step - hole.y;
+        if (dx * dx + dy * dy < rr * rr) cells.add(j * w + i);
+      }
+    }
+    return cells;
+  }
+
+  void _mark(Hole hole, int v) {
+    for (final c in _disk(hole)) {
+      blocked[c] = v;
+    }
+  }
+
+  /// Adds [hole] if the goal remains reachable from [start].
+  bool tryAdd(Hole hole, (double, double) start, Hole goal) {
+    final cells = _disk(hole).where((c) => blocked[c] == 0).toList();
+    for (final c in cells) {
+      blocked[c] = 1;
+    }
+    if (_reachable(start, goal)) return true;
+    for (final c in cells) {
+      blocked[c] = 0;
+    }
+    return false;
+  }
+
+  bool _reachable((double, double) start, Hole goal) {
+    final s = (start.$2 / step).round() * w + (start.$1 / step).round();
+    if (blocked[s] == 1) return false;
+    final seen = Uint8List(w * h)..[s] = 1;
+    final queue = <int>[s];
+    final gr2 = goal.radius * goal.radius;
+    for (var q = 0; q < queue.length; q++) {
+      final c = queue[q];
+      final i = c % w, j = c ~/ w;
+      final dx = i * step - goal.x, dy = j * step - goal.y;
+      if (dx * dx + dy * dy < gr2) return true;
+      for (final n in [
+        if (i > 0) c - 1,
+        if (i < w - 1) c + 1,
+        if (j > 0) c - w,
+        if (j < h - 1) c + w,
+      ]) {
+        if (seen[n] == 0 && blocked[n] == 0) {
+          seen[n] = 1;
+          queue.add(n);
+        }
+      }
+    }
+    return false;
+  }
 }
 
 enum BallState { rolling, fell, won }

@@ -4,11 +4,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
+import 'motion_throw.dart';
 
 class DartsScreen extends StatefulWidget {
   const DartsScreen({super.key, required this.setup});
@@ -23,6 +25,18 @@ class _DartsScreenState extends State<DartsScreen>
   DartsGame? game;
   DartsMode mode = DartsMode.x501;
   bool doubleOut = true;
+
+  // Motion control: phone at the cheek, turn to aim, swing to throw.
+  bool motion = false;
+  bool invertX = false, invertY = false;
+  _MotionPhase _phase = _MotionPhase.idle;
+  int _countdown = 0;
+  MotionAim? _motionAim;
+  final List<StreamSubscription<Object?>> _sensorSubs = [];
+  (double, double, double)? _gravity;
+  DateTime? _lastGyro;
+  Timer? _hapticTimer;
+  int _hapticTick = 0;
   late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
   late final Ticker _ticker;
@@ -63,6 +77,7 @@ class _DartsScreenState extends State<DartsScreen>
 
   @override
   void dispose() {
+    _stopSensors();
     _ticker.dispose();
     _sub?.cancel();
     super.dispose();
@@ -131,6 +146,106 @@ class _DartsScreenState extends State<DartsScreen>
   double _gauss() {
     final u1 = max(1e-9, _random.nextDouble()), u2 = _random.nextDouble();
     return sqrt(-2 * log(u1)) * cos(2 * pi * u2);
+  }
+
+  // ------------------------------------------------------- motion control
+
+  void _startSensors() {
+    if (_sensorSubs.isNotEmpty) return;
+    try {
+      _sensorSubs.add(
+        accelerometerEventStream(samplingPeriod: SensorInterval.gameInterval)
+            .listen((e) => _gravity = (e.x, e.y, e.z), onError: (_) {}),
+      );
+      _sensorSubs.add(
+        gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
+            .listen((e) {
+              final now = DateTime.now();
+              final last = _lastGyro;
+              _lastGyro = now;
+              if (last == null || _phase != _MotionPhase.aiming) return;
+              final dt = now.difference(last).inMicroseconds / 1e6;
+              _motionAim?.addGyro(e.x, e.y, e.z, min(dt, 0.1));
+            }, onError: (_) {}),
+      );
+      _sensorSubs.add(
+        userAccelerometerEventStream(
+          samplingPeriod: SensorInterval.gameInterval,
+        ).listen((e) {
+          if (_phase != _MotionPhase.aiming) return;
+          final t = _motionAim?.addAcceleration(e.x, e.y, e.z);
+          if (t != null) _motionThrow(t);
+        }, onError: (_) {}),
+      );
+    } catch (_) {
+      // No sensors (emulator): motion control is not available.
+    }
+  }
+
+  void _stopSensors() {
+    for (final s in _sensorSubs) {
+      s.cancel();
+    }
+    _sensorSubs.clear();
+    _hapticTimer?.cancel();
+  }
+
+  Future<void> _prepareMotionThrow() async {
+    if (!_canThrow || _phase != _MotionPhase.idle) return;
+    _startSensors();
+    for (var i = 3; i > 0; i--) {
+      if (!mounted) return;
+      setState(() {
+        _phase = _MotionPhase.countdown;
+        _countdown = i;
+      });
+      HapticFeedback.mediumImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+    }
+    if (!mounted) return;
+    final g = _gravity ?? (0.0, 9.81, 0.0);
+    final aim = MotionAim(invertX: invertX, invertY: invertY)
+      ..calibrate(g.$1, g.$2, g.$3);
+    setState(() {
+      _motionAim = aim;
+      _phase = _MotionPhase.aiming;
+      _lastGyro = null;
+    });
+    HapticFeedback.heavyImpact();
+    // Vibration tells how close to the bull you aim, without looking.
+    _hapticTimer?.cancel();
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 110), (_) {
+      if (!mounted || _phase != _MotionPhase.aiming) return;
+      setState(() {});
+      final (x, y) = aim.aim;
+      final d = sqrt(x * x + y * y);
+      _hapticTick++;
+      if (d < 20) {
+        HapticFeedback.mediumImpact();
+      } else if (d < 60 && _hapticTick.isEven) {
+        HapticFeedback.lightImpact();
+      } else if (d < 120 && _hapticTick % 4 == 0) {
+        HapticFeedback.selectionClick();
+      }
+    });
+  }
+
+  void _motionThrow((double, double, double) t) {
+    _hapticTimer?.cancel();
+    final (x, y, strength) = t;
+    final landing = Offset(
+      x + _gauss() * 5,
+      y + MotionAim.heightError(strength) + _gauss() * 5,
+    );
+    setState(() => _phase = _MotionPhase.idle);
+    HapticFeedback.heavyImpact();
+    widget.setup.send({'t': 'throw', 'x': landing.dx, 'y': landing.dy});
+    _apply(landing);
+  }
+
+  void _cancelMotion() {
+    _hapticTimer?.cancel();
+    setState(() => _phase = _MotionPhase.idle);
   }
 
   void _release() {
@@ -272,6 +387,46 @@ class _DartsScreenState extends State<DartsScreen>
             value: doubleOut,
             onChanged: (v) => setState(() => doubleOut = v),
           ),
+        const SizedBox(height: 16),
+        Text('Steuerung', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(
+              value: false,
+              icon: Icon(Icons.touch_app),
+              label: Text('Touch'),
+            ),
+            ButtonSegment(
+              value: true,
+              icon: Icon(Icons.vibration),
+              label: Text('Bewegung'),
+            ),
+          ],
+          selected: {motion},
+          onSelectionChanged: (v) => setState(() => motion = v.first),
+        ),
+        if (motion) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Handy wie einen Dart an die Wange halten (Bildschirm zum '
+              'Gesicht). Nach dem Countdown durch Drehen und Kippen zielen – '
+              'je näher am Bull, desto öfter vibriert es. Dann kräftig nach '
+              'vorne ausholen. Zu schwach fällt tief, zu stark fliegt hoch.',
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Links/rechts umkehren'),
+            value: invertX,
+            onChanged: (v) => setState(() => invertX = v),
+          ),
+          SwitchListTile(
+            title: const Text('Oben/unten umkehren'),
+            value: invertY,
+            onChanged: (v) => setState(() => invertY = v),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           players == 1
@@ -307,6 +462,24 @@ class _DartsScreenState extends State<DartsScreen>
               final center = Offset(box.maxWidth / 2, box.maxHeight / 2);
               Offset toMm(Offset local) =>
                   (local - center - const Offset(0, 70)) / scale;
+              if (motion) {
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _BoardPainter(
+                          scale: scale,
+                          darts: _shown,
+                          aim: _phase == _MotionPhase.aiming
+                              ? Offset(_motionAim!.aim.$1, _motionAim!.aim.$2)
+                              : null,
+                        ),
+                      ),
+                    ),
+                    Center(child: _motionOverlay()),
+                  ],
+                );
+              }
               return GestureDetector(
                 key: const ValueKey('dartBoard'),
                 onPanStart: (d) {
@@ -334,6 +507,50 @@ class _DartsScreenState extends State<DartsScreen>
         ),
       ),
     );
+  }
+
+  Widget _motionOverlay() {
+    switch (_phase) {
+      case _MotionPhase.idle:
+        if (!_canThrow) return const SizedBox.shrink();
+        return FilledButton.icon(
+          key: const ValueKey('prepareThrow'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+          ),
+          onPressed: _prepareMotionThrow,
+          icon: const Icon(Icons.sports_handball),
+          label: const Text('Wurf vorbereiten'),
+        );
+      case _MotionPhase.countdown:
+        return Text(
+          '$_countdown',
+          style: const TextStyle(
+            fontSize: 96,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [Shadow(blurRadius: 12)],
+          ),
+        );
+      case _MotionPhase.aiming:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Zielen … und werfen!',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                shadows: [Shadow(blurRadius: 8)],
+              ),
+            ),
+            TextButton(
+              onPressed: _cancelMotion,
+              child: const Text('Abbrechen'),
+            ),
+          ],
+        );
+    }
   }
 
   Widget _infoPanel(DartsGame g) {
@@ -395,6 +612,8 @@ class _DartsScreenState extends State<DartsScreen>
     );
   }
 }
+
+enum _MotionPhase { idle, countdown, aiming }
 
 class _BoardPainter extends CustomPainter {
   _BoardPainter({required this.scale, required this.darts, required this.aim});

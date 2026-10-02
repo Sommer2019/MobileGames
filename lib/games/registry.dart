@@ -161,7 +161,8 @@ final List<GameInfo> games = [
   GameInfo(
     id: 'darts',
     title: 'Darts',
-    description: '501, 301 oder Rund um die Uhr – allein oder bis zu 4 Spieler',
+    description:
+        'Allein üben oder mit bis zu 4 Spielern – 501, 301, Rund um die Uhr',
     icon: Icons.adjust,
     color: const Color(0xFFC62828),
     offlineModes: const [
@@ -180,7 +181,6 @@ final List<GameInfo> games = [
     ],
     multiplayerBuilder: (s) => DartsScreen(setup: s),
     maxOnlinePlayers: 4,
-    alsoSingleplayer: true,
   ),
   GameInfo(
     id: 'labyrinth',
@@ -217,7 +217,7 @@ final List<GameInfo> games = [
   GameInfo(
     id: 'billiard',
     title: 'Billard',
-    description: 'Allein alle Kugeln versenken oder 8-Ball zu zweit',
+    description: 'Allein den Tisch abräumen oder 8-Ball zu zweit',
     icon: Icons.sports_baseball,
     color: const Color(0xFF1B5E20),
     offlineModes: const [
@@ -234,7 +234,6 @@ final List<GameInfo> games = [
     ],
     multiplayerBuilder: (s) =>
         s.players == 1 ? const BilliardScreen() : EightBallScreen(setup: s),
-    alsoSingleplayer: true,
   ),
 ];
 

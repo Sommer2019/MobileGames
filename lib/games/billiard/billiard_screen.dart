@@ -5,21 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'billiard_controls.dart';
 import 'billiard_logic.dart';
-
-const _ballColors = {
-  1: Color(0xFFFDD835),
-  2: Color(0xFF1E88E5),
-  3: Color(0xFFE53935),
-  4: Color(0xFF8E24AA),
-  5: Color(0xFFFB8C00),
-  6: Color(0xFF43A047),
-  7: Color(0xFF6D4C41),
-  8: Color(0xFF212121),
-};
-
-Color ballColor(int n) =>
-    n == 0 ? Colors.white : _ballColors[n > 8 ? n - 8 : n]!;
 
 class BilliardScreen extends StatefulWidget {
   const BilliardScreen({super.key});
@@ -33,7 +20,8 @@ class _BilliardScreenState extends State<BilliardScreen>
   final BilliardGame game = BilliardGame();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
-  Offset? _aimPoint; // in table units
+  double aimAngle = 0; // pointing at the rack from the head spot
+  double power = 0;
   int? best;
   bool _wonShown = false;
   SoloMode mode = SoloMode.eightLast;
@@ -161,17 +149,7 @@ class _BilliardScreenState extends State<BilliardScreen>
     rules = SoloRules(mode);
     _wonShown = false;
     _shotRunning = false;
-    _aimPoint = null;
   });
-
-  (double angle, double power)? get _shot {
-    final p = _aimPoint;
-    if (p == null) return null;
-    final dx = game.cue.x - p.dx, dy = game.cue.y - p.dy;
-    final dist = sqrt(dx * dx + dy * dy);
-    final power = ((dist - BilliardGame.radius * 2) / 0.6).clamp(0.0, 1.0);
-    return (atan2(dy, dx), power);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,52 +159,14 @@ class _BilliardScreenState extends State<BilliardScreen>
         child: Row(
           children: [
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, c) {
-                  const rail = 0.06;
-                  final scale = min(
-                    c.maxWidth / (BilliardGame.width + rail * 2),
-                    c.maxHeight / (BilliardGame.height + rail * 2),
-                  );
-                  Offset toTable(Offset local) =>
-                      Offset(local.dx / scale - rail, local.dy / scale - rail);
-                  return Center(
-                    child: SizedBox(
-                      width: (BilliardGame.width + rail * 2) * scale,
-                      height: (BilliardGame.height + rail * 2) * scale,
-                      child: GestureDetector(
-                        onPanStart: (d) {
-                          if (!game.moving) {
-                            setState(
-                              () => _aimPoint = toTable(d.localPosition),
-                            );
-                          }
-                        },
-                        onPanUpdate: (d) {
-                          if (!game.moving) {
-                            setState(
-                              () => _aimPoint = toTable(d.localPosition),
-                            );
-                          }
-                        },
-                        onPanEnd: (_) {
-                          final s = _shot;
-                          setState(() => _aimPoint = null);
-                          if (s != null && s.$2 > 0.02) _shoot(s.$1, s.$2);
-                        },
-                        child: CustomPaint(
-                          painter: TablePainter(
-                            game,
-                            scale,
-                            rail,
-                            _shot,
-                            highlight: rules.target(game),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              child: PoolTable(
+                game: game,
+                aimAngle: aimAngle,
+                power: power,
+                enabled: !game.moving && !rules.lost && !game.won,
+                highlight: rules.target(game),
+                onAim: (a) => setState(() => aimAngle = a),
+                onPlaceCue: (x, y) => setState(() => game.placeCue(x, y)),
               ),
             ),
             SizedBox(
@@ -285,17 +225,16 @@ class _BilliardScreenState extends State<BilliardScreen>
                       ),
                     _stat('Übrig', '${game.remaining}'),
                     if (best != null) _stat('Bestwert', '$best'),
-                    const SizedBox(height: 12),
-                    if (_shot != null)
-                      LinearProgressIndicator(
-                        value: _shot!.$2,
-                        minHeight: 10,
-                        color: Colors.orange,
-                      ),
+
                     const SizedBox(height: 8),
-                    const Text(
-                      'Ziehen zum Zielen,\nloslassen zum Stoßen',
-                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    Text(
+                      game.cueInHand
+                          ? 'Weiße verschieben: Kugel ziehen'
+                          : 'Tisch antippen zum Zielen',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
@@ -306,6 +245,20 @@ class _BilliardScreenState extends State<BilliardScreen>
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 96,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: CueControls(
+                    enabled: !game.moving && !rules.lost && !game.won,
+                    onPower: (p) => setState(() => power = p),
+                    onShoot: (p) => _shoot(aimAngle, p),
+                    onRotate: (d) => setState(() => aimAngle += d),
+                  ),
                 ),
               ),
             ),
@@ -332,132 +285,4 @@ class _BilliardScreenState extends State<BilliardScreen>
       ],
     ),
   );
-}
-
-class TablePainter extends CustomPainter {
-  TablePainter(this.game, this.scale, this.rail, this.shot, {this.highlight});
-  final BilliardGame game;
-
-  /// Ball to mark (the one that has to be hit first).
-  final int? highlight;
-  final double scale;
-  final double rail;
-  final (double, double)? shot;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(rail * scale),
-      ),
-      Paint()..color = const Color(0xFF5D4037),
-    );
-    canvas.translate(rail * scale, rail * scale);
-    final felt = Rect.fromLTWH(
-      0,
-      0,
-      BilliardGame.width * scale,
-      BilliardGame.height * scale,
-    );
-    canvas.drawRect(felt, Paint()..color = const Color(0xFF1B7A3E));
-    Offset p(double x, double y) => Offset(x * scale, y * scale);
-    canvas.drawCircle(
-      p(BilliardGame.width * 0.25, BilliardGame.height / 2),
-      2,
-      Paint()..color = Colors.white38,
-    );
-    canvas.drawLine(
-      p(BilliardGame.width * 0.25, 0),
-      p(BilliardGame.width * 0.25, BilliardGame.height),
-      Paint()..color = Colors.white12,
-    );
-    for (final (x, y) in BilliardGame.pockets) {
-      canvas.drawCircle(
-        p(x, y),
-        BilliardGame.pocketRadius * scale,
-        Paint()..color = Colors.black,
-      );
-    }
-    final r = BilliardGame.radius * scale;
-    final s = shot;
-    if (s != null && !game.moving && !game.cue.pocketed) {
-      final (angle, power) = s;
-      final c = p(game.cue.x, game.cue.y);
-      final dir = Offset(cos(angle), sin(angle));
-      canvas.drawLine(
-        c,
-        c + dir * (scale * 0.8),
-        Paint()
-          ..color = Colors.white54
-          ..strokeWidth = 1.5,
-      );
-      final back = r + 6 + power * 60;
-      canvas.drawLine(
-        c - dir * back,
-        c - dir * (back + scale * 0.9),
-        Paint()
-          ..color = const Color(0xFFD7B377)
-          ..strokeWidth = 5
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-    for (final b in game.balls) {
-      if (b.pocketed) continue;
-      final c = p(b.x, b.y);
-      if (b.number == highlight) {
-        canvas.drawCircle(
-          c,
-          BilliardGame.radius * scale * 1.6,
-          Paint()
-            ..color = Colors.yellowAccent
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.5,
-        );
-      }
-      canvas.drawCircle(
-        c + const Offset(1.5, 2),
-        r,
-        Paint()..color = Colors.black38,
-      );
-      final color = ballColor(b.number);
-      canvas.drawCircle(
-        c,
-        r,
-        Paint()..color = b.number > 8 ? Colors.white : color,
-      );
-      if (b.number > 8) {
-        canvas.save();
-        canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)));
-        canvas.drawRect(
-          Rect.fromCenter(center: c, width: r * 2, height: r * 1.1),
-          Paint()..color = color,
-        );
-        canvas.restore();
-      }
-      if (b.number != 0) {
-        canvas.drawCircle(c, r * 0.48, Paint()..color = Colors.white);
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '${b.number}',
-            style: TextStyle(
-              fontSize: r * 0.62,
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
-      }
-      canvas.drawCircle(
-        c - Offset(r * 0.35, r * 0.35),
-        r * 0.25,
-        Paint()..color = Colors.white38,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(TablePainter old) => true;
 }

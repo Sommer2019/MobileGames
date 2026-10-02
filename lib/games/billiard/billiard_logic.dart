@@ -72,11 +72,14 @@ class BilliardGame {
     }
     shots = 0;
     fouls = 0;
+    // The break is played from anywhere the player likes.
+    cueInHand = true;
   }
 
   /// Shoots the cue ball. [angle] in radians, [power] 0..1.
   bool shoot(double angle, double power) {
     if (moving || cue.pocketed || won) return false;
+    cueInHand = false;
     final speed = power.clamp(0.0, 1.0) * maxSpeed;
     cue.vx = cos(angle) * speed;
     cue.vy = sin(angle) * speed;
@@ -216,7 +219,81 @@ class BilliardGame {
       ..y = y
       ..vx = 0
       ..vy = 0;
+    cueInHand = true;
   }
+
+  /// After a scratch the cue ball may be placed freely ("ball in hand").
+  bool cueInHand = false;
+
+  /// Moves the cue ball to (x, y) if it is in hand and the spot is free.
+  bool placeCue(double x, double y) {
+    if (!cueInHand || moving) return false;
+    final px = x.clamp(radius, width - radius);
+    final py = y.clamp(radius, height - radius);
+    final free = balls.every(
+      (b) =>
+          b == cue ||
+          b.pocketed ||
+          pow(b.x - px, 2) + pow(b.y - py, 2) >= pow(radius * 2.05, 2),
+    );
+    if (!free) return false;
+    cue
+      ..x = px
+      ..y = py;
+    return true;
+  }
+
+  /// Where a shot in direction [angle] would go: the first ball the cue
+  /// ball touches (ghost ball position) or the cushion it hits.
+  AimPreview preview(double angle) {
+    final dx = cos(angle), dy = sin(angle);
+    var best = double.infinity;
+    Ball? hit;
+    for (final b in balls) {
+      if (b == cue || b.pocketed) continue;
+      // Distance along the ray where the cue ball touches b.
+      final ox = b.x - cue.x, oy = b.y - cue.y;
+      final along = ox * dx + oy * dy;
+      if (along <= 0) continue;
+      final perp2 = ox * ox + oy * oy - along * along;
+      const r2 = 4 * radius * radius;
+      if (perp2 > r2) continue;
+      final t = along - sqrt(r2 - perp2);
+      if (t < best) {
+        best = t;
+        hit = b;
+      }
+    }
+    // Cushion distance.
+    double wall = double.infinity;
+    if (dx > 0) wall = min(wall, (width - radius - cue.x) / dx);
+    if (dx < 0) wall = min(wall, (radius - cue.x) / dx);
+    if (dy > 0) wall = min(wall, (height - radius - cue.y) / dy);
+    if (dy < 0) wall = min(wall, (radius - cue.y) / dy);
+    if (hit != null && best <= wall) {
+      final gx = cue.x + dx * best, gy = cue.y + dy * best;
+      final nx = hit.x - gx, ny = hit.y - gy;
+      final len = sqrt(nx * nx + ny * ny);
+      return AimPreview(gx, gy, hit, nx / len, ny / len);
+    }
+    final t = wall.isFinite ? max(0.0, wall) : 0.0;
+    return AimPreview(cue.x + dx * t, cue.y + dy * t, null, 0, 0);
+  }
+}
+
+/// Result of [BilliardGame.preview].
+class AimPreview {
+  const AimPreview(this.x, this.y, this.ball, this.dirX, this.dirY);
+
+  /// Position of the cue ball at the moment of contact (ghost ball), or the
+  /// point at the cushion.
+  final double x, y;
+
+  /// Ball that would be hit first, or null.
+  final Ball? ball;
+
+  /// Direction the hit ball will roll.
+  final double dirX, dirY;
 }
 
 enum BallGroup { solids, stripes }

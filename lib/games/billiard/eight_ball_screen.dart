@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'billiard_logic.dart';
-import 'billiard_screen.dart';
+import 'billiard_controls.dart';
 
 /// 8-ball for two players, on one device or online.
 ///
@@ -30,7 +30,8 @@ class _EightBallScreenState extends State<EightBallScreen>
   late int round = widget.setup.firstRound;
   late final Ticker _ticker;
   Duration _last = Duration.zero;
-  Offset? _aimPoint;
+  double aimAngle = 0;
+  double power = 0;
   StreamSubscription<RoomMessage>? _sub;
 
   bool _myShotRunning = false;
@@ -64,11 +65,21 @@ class _EightBallScreenState extends State<EightBallScreen>
     switch (m['t']) {
       case 'cue':
         setState(() {
+          final cx = m['cx'], cy = m['cy'];
+          if (cx is num && cy is num) {
+            game.cue
+              ..x = cx.toDouble()
+              ..y = cy.toDouble();
+          }
           game.shoot(
             (m['angle'] as num).toDouble(),
             (m['power'] as num).toDouble(),
           );
           _remoteShotRunning = true;
+        });
+      case 'place':
+        setState(() {
+          game.placeCue((m['x'] as num).toDouble(), (m['y'] as num).toDouble());
         });
       case 'settle':
         _pendingSettle = m;
@@ -135,25 +146,29 @@ class _EightBallScreenState extends State<EightBallScreen>
       _pendingSettle == null &&
       (!widget.setup.online || rules.current == myIndex);
 
-  (double, double)? get _shot {
-    final p = _aimPoint;
-    if (p == null) return null;
-    final dx = game.cue.x - p.dx, dy = game.cue.y - p.dy;
-    final dist = sqrt(dx * dx + dy * dy);
-    final power = ((dist - BilliardGame.radius * 2) / 0.6).clamp(0.0, 1.0);
-    return (atan2(dy, dx), power);
-  }
-
-  void _shoot() {
-    final s = _shot;
-    setState(() => _aimPoint = null);
-    if (s == null || s.$2 <= 0.02 || !_canShoot) return;
+  void _shoot(double p) {
+    if (!_canShoot || p <= 0.02) return;
     final group = rules.groups[rules.current];
     _clearedBefore =
         group != null && rules.remainingOf(game, rules.current) == 0;
-    if (game.shoot(s.$1, s.$2)) {
+    final cx = game.cue.x, cy = game.cue.y;
+    if (game.shoot(aimAngle, p)) {
       _myShotRunning = true;
-      widget.setup.send({'t': 'cue', 'angle': s.$1, 'power': s.$2});
+      widget.setup.send({
+        't': 'cue',
+        'angle': aimAngle,
+        'power': p,
+        'cx': cx,
+        'cy': cy,
+      });
+    }
+  }
+
+  void _placeCue(double x, double y) {
+    if (!_canShoot) return;
+    if (game.placeCue(x, y)) {
+      setState(() {});
+      widget.setup.send({'t': 'place', 'x': x, 'y': y});
     }
   }
 
@@ -198,48 +213,17 @@ class _EightBallScreenState extends State<EightBallScreen>
       child: Row(
         children: [
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, c) {
-                const rail = 0.06;
-                final scale = min(
-                  c.maxWidth / (BilliardGame.width + rail * 2),
-                  c.maxHeight / (BilliardGame.height + rail * 2),
-                );
-                Offset toTable(Offset local) =>
-                    Offset(local.dx / scale - rail, local.dy / scale - rail);
-                return Center(
-                  child: SizedBox(
-                    width: (BilliardGame.width + rail * 2) * scale,
-                    height: (BilliardGame.height + rail * 2) * scale,
-                    child: GestureDetector(
-                      key: const ValueKey('poolTable'),
-                      onPanStart: (d) {
-                        if (_canShoot) {
-                          setState(() => _aimPoint = toTable(d.localPosition));
-                        }
-                      },
-                      onPanUpdate: (d) {
-                        if (_canShoot) {
-                          setState(() => _aimPoint = toTable(d.localPosition));
-                        }
-                      },
-                      onPanEnd: (_) => _shoot(),
-                      child: CustomPaint(
-                        painter: TablePainter(
-                          game,
-                          scale,
-                          rail,
-                          _canShoot ? _shot : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+            child: PoolTable(
+              game: game,
+              aimAngle: aimAngle,
+              power: power,
+              enabled: _canShoot,
+              onAim: (a) => setState(() => aimAngle = a),
+              onPlaceCue: _placeCue,
             ),
           ),
           SizedBox(
-            width: 170,
+            width: 150,
             child: ListView(
               padding: const EdgeInsets.all(8),
               children: [
@@ -276,19 +260,28 @@ class _EightBallScreenState extends State<EightBallScreen>
                       ),
                     ),
                   ),
-                if (_shot != null && _canShoot)
-                  LinearProgressIndicator(
-                    value: _shot!.$2,
-                    minHeight: 8,
-                    color: Colors.orange,
-                  ),
-                if (rules.isOver)
-                  GameOverActions(
-                    setup: widget.setup,
-                    winnerSeats: [(rules.winner! + round) % 2],
-                    onRematch: _reset,
-                  ),
+                if (!rules.isOver)
+                  if (rules.isOver)
+                    GameOverActions(
+                      setup: widget.setup,
+                      winnerSeats: [(rules.winner! + round) % 2],
+                      onRematch: _reset,
+                    ),
               ],
+            ),
+          ),
+          SizedBox(
+            width: 96,
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: CueControls(
+                  enabled: _canShoot,
+                  onPower: (p) => setState(() => power = p),
+                  onShoot: _shoot,
+                  onRotate: (d) => setState(() => aimAngle += d),
+                ),
+              ),
             ),
           ),
         ],

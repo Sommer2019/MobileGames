@@ -79,6 +79,7 @@ void main() {
 
   eightBallTests();
   soloTests();
+  controlTests();
 }
 
 void eightBallTests() {
@@ -235,5 +236,49 @@ void soloTests() {
     );
     expect(r.penalties, 1);
     expect(SoloRules.othersLeft(g), 13);
+  });
+}
+
+void controlTests() {
+  test('aim preview finds the ghost ball and the object ball direction', () {
+    final g = BilliardGame();
+    for (final b in g.balls.skip(1)) {
+      b.pocketed = true;
+    }
+    final target = g.balls[1]..pocketed = false;
+    target
+      ..x = 1.0
+      ..y = 0.5;
+    g.cue
+      ..x = 0.5
+      ..y = 0.5;
+    final p = g.preview(0);
+    expect(p.ball, target);
+    expect(p.x, closeTo(1.0 - BilliardGame.radius * 2, 1e-9));
+    expect(p.dirX, closeTo(1, 1e-9));
+    final miss = g.preview(pi / 2);
+    expect(miss.ball, isNull);
+    expect(miss.y, closeTo(BilliardGame.height - BilliardGame.radius, 1e-9));
+  });
+
+  test('ball in hand after a scratch', () {
+    final g = BilliardGame();
+    expect(g.cueInHand, isTrue, reason: 'free placement for the break');
+    expect(g.placeCue(0.3, 0.3), isTrue);
+    g.shoot(0, 0.01);
+    simulate(g);
+    expect(g.placeCue(0.3, 0.4), isFalse, reason: 'no longer in hand');
+    g.cue
+      ..x = 0.1
+      ..y = 0.1;
+    g.shoot(atan2(-0.1, -0.1), 0.5);
+    simulate(g);
+    expect(g.cueInHand, isTrue);
+    expect(g.placeCue(0.4, 0.2), isTrue);
+    expect((g.cue.x, g.cue.y), (0.4, 0.2));
+    final rackBall = g.balls[5];
+    expect(g.placeCue(rackBall.x, rackBall.y), isFalse, reason: 'occupied');
+    g.shoot(0, 0.3);
+    expect(g.cueInHand, isFalse);
   });
 }

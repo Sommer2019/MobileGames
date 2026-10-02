@@ -18,6 +18,7 @@ class LobbyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final multi = game.maxOnlinePlayers > 2;
+    final soloFirst = game.offlineModes.any((m) => m.setup.players == 1);
     return Scaffold(
       appBar: AppBar(title: Text(game.title)),
       body: Center(
@@ -34,6 +35,25 @@ class LobbyScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
+              // Games that can be played alone show that option first.
+              if (soloFirst) ...[
+                if (game.offlineModes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const _Section('Offline'),
+                  for (final m in game.offlineModes)
+                    _OptionTile(
+                      icon: m.icon,
+                      title: m.label,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => game.multiplayerBuilder!(m.setup),
+                        ),
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 16),
+              ],
               const _Section('Online (Peer-to-Peer)'),
               _OptionTile(
                 key: const ValueKey('randomButton'),
@@ -57,7 +77,7 @@ class LobbyScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              if (game.offlineModes.isNotEmpty) ...[
+              if (!soloFirst && game.offlineModes.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const _Section('Offline'),
                 for (final m in game.offlineModes)

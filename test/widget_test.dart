@@ -374,7 +374,8 @@ void main() {
       find.descendant(of: b, matching: find.text('Anna ist am Stoß')),
       findsOneWidget,
     );
-    // Anna drags away from the cue ball (left of it) and releases: break shot.
+    // Anna aims at the rack (tap right of the cue ball) and pulls the power
+    // bar down: break shot.
     final table = find.descendant(
       of: a,
       matching: find.byKey(const ValueKey('poolTable')),
@@ -384,8 +385,13 @@ void main() {
       rect.left + rect.width * (0.06 + 0.5) / 2.12,
       rect.center.dy,
     );
-    await tester.dragFrom(cue - const Offset(60, 0), const Offset(-120, 0));
-    for (var i = 0; i < 80; i++) {
+    await tester.tapAt(cue + const Offset(200, 0));
+    await tester.pump();
+    await tester.drag(
+      find.descendant(of: a, matching: find.byKey(const ValueKey('powerBar'))),
+      const Offset(0, 100),
+    );
+    for (var i = 0; i < 160; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
