@@ -348,4 +348,19 @@ void controlTests() {
       expect(yAfterBounce(-0.7), lessThan(-0.05));
     });
   });
+
+  test('balls roll: the top turns forward, a full turn returns', () {
+    final b = Ball(3, 0.5, 0.5);
+    const r = BilliardGame.radius;
+    b.roll(pi / 2 * r, 0);
+    expect(b.qx, closeTo(1, 1e-9));
+    expect(b.qz, closeTo(0, 1e-9));
+    b.roll(pi / 2 * r, 0);
+    b.roll(pi * r, 0);
+    expect(b.qz, closeTo(1, 1e-9));
+    b.roll(0, pi / 2 * r);
+    expect(b.qy, closeTo(1, 1e-9));
+    // Stays a unit vector perpendicular to the stripe axis.
+    expect(b.qx * b.ax + b.qy * b.ay + b.qz * b.az, closeTo(0, 1e-9));
+  });
 }

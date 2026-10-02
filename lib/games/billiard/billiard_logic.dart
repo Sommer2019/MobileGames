@@ -1,13 +1,52 @@
 import 'dart:math';
 
 class Ball {
-  Ball(this.number, this.x, this.y);
+  Ball(this.number, this.x, this.y) {
+    // Stripes lie in different directions so the rack looks natural.
+    final t = number * 0.7;
+    ax = cos(t);
+    ay = sin(t);
+  }
   final int number; // 0 = cue ball
   double x, y;
   double vx = 0, vy = 0;
   bool pocketed = false;
 
+  /// Orientation of the ball (only for drawing): [qx], [qy], [qz] is where
+  /// the number sits, [ax], [ay], [az] the axis of the stripe. Unit vectors,
+  /// x/y like the table, z pointing up towards the viewer.
+  double qx = 0, qy = 0, qz = 1;
+  double ax = 1, ay = 0, az = 0;
+
   bool get moving => vx * vx + vy * vy > 1e-8;
+
+  /// Rolls the ball over the distance (dx, dy) without slipping.
+  void roll(double dx, double dy) {
+    final d = sqrt(dx * dx + dy * dy);
+    if (d == 0) return;
+    // Axis lies on the table, perpendicular to the motion.
+    final kx = -dy / d, ky = dx / d;
+    final angle = d / BilliardGame.radius;
+    final c = cos(angle), s = sin(angle);
+    (double, double, double) rot(double px, double py, double pz) {
+      // Rodrigues' rotation with k = (kx, ky, 0).
+      final cx = ky * pz, cy = -kx * pz, cz = kx * py - ky * px;
+      final dot = kx * px + ky * py;
+      final rx = px * c + cx * s + kx * dot * (1 - c);
+      final ry = py * c + cy * s + ky * dot * (1 - c);
+      final rz = pz * c + cz * s;
+      final n = sqrt(rx * rx + ry * ry + rz * rz);
+      return (rx / n, ry / n, rz / n);
+    }
+
+    final q = rot(qx, qy, qz), a = rot(ax, ay, az);
+    qx = q.$1;
+    qy = q.$2;
+    qz = q.$3;
+    ax = a.$1;
+    ay = a.$2;
+    az = a.$3;
+  }
 }
 
 /// Single player pool: pocket all 15 balls with as few shots as possible.
@@ -135,6 +174,7 @@ class BilliardGame {
       }
       b.x += b.vx * h;
       b.y += b.vy * h;
+      b.roll(b.vx * h, b.vy * h);
       if (b.number == 0 && _spinY != 0) {
         // Sliding wears the spin off.
         _spinY *= exp(-spinDecay * sqrt(b.vx * b.vx + b.vy * b.vy) * h);
