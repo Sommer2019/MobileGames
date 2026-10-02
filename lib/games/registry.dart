@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../ui/play_setup.dart';
 import 'battleship/battleship_screen.dart';
 import 'billiard/billiard_screen.dart';
+import 'checkers/checkers_screen.dart';
 import 'chess/chess_screen.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
+import 'mill/mill_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
 /// An offline way to play a multiplayer game.
@@ -91,6 +93,30 @@ final List<GameInfo> games = [
     ],
     maxOnlinePlayers: 4,
     multiplayerBuilder: (s) => ConnectFourScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'checkers',
+    title: 'Dame',
+    description: 'Schlagen ist Pflicht – mit fliegenden Damen',
+    icon: Icons.blur_on,
+    color: const Color(0xFF5D4037),
+    offlineModes: const [
+      OfflineMode('Gegen Computer', Icons.smart_toy, PlaySetup.ai()),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    multiplayerBuilder: (s) => CheckersScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'mill',
+    title: 'Mühle',
+    description: 'Drei in einer Reihe – und dem Gegner einen Stein nehmen',
+    icon: Icons.crop_square,
+    color: const Color(0xFFEF6C00),
+    offlineModes: const [
+      OfflineMode('Gegen Computer', Icons.smart_toy, PlaySetup.ai()),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    multiplayerBuilder: (s) => MillScreen(setup: s),
   ),
   GameInfo(
     id: 'yahtzee',

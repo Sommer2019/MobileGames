@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/billiard/billiard_screen.dart';
+import 'package:mobile_games/games/checkers/checkers_screen.dart';
 import 'package:mobile_games/games/chess/chess_screen.dart';
+import 'package:mobile_games/games/mill/mill_screen.dart';
 import 'package:mobile_games/games/connect_four/connect_four_screen.dart';
 import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:mobile_games/games/mahjong/mahjong_screen.dart';
@@ -57,6 +59,24 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sqe4')));
     await tester.pump();
     expect(find.text('Schwarz ist am Zug'), findsOneWidget);
+  });
+
+  testWidgets('dame: move a stone', (tester) async {
+    await tester.pumpWidget(app(const CheckersScreen(setup: PlaySetup.local())));
+    expect(find.textContaining('Weiß ist am Zug'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('ck5-0')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ck4-1')));
+    await tester.pump();
+    expect(find.textContaining('Schwarz ist am Zug'), findsOneWidget);
+  });
+
+  testWidgets('mühle: place stones', (tester) async {
+    await tester.pumpWidget(app(const MillScreen(setup: PlaySetup.local())));
+    expect(find.text('Weiß setzt (noch 9)'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('mill0')));
+    await tester.pump();
+    expect(find.text('Schwarz setzt (noch 9)'), findsOneWidget);
   });
 
   testWidgets('kniffel solo: roll and score', (tester) async {
@@ -153,7 +173,10 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: b, matching: find.textContaining('Anna (Rot) ist am Zug')),
+      find.descendant(
+        of: b,
+        matching: find.textContaining('Anna (Rot) ist am Zug'),
+      ),
       findsOneWidget,
     );
 
@@ -163,7 +186,10 @@ void main() {
     );
     await settle();
     expect(
-      find.descendant(of: b, matching: find.textContaining('Anna (Rot) ist am Zug')),
+      find.descendant(
+        of: b,
+        matching: find.textContaining('Anna (Rot) ist am Zug'),
+      ),
       findsOneWidget,
     );
 
@@ -176,7 +202,10 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: a, matching: find.textContaining('Ben (Gelb) ist am Zug')),
+      find.descendant(
+        of: a,
+        matching: find.textContaining('Ben (Gelb) ist am Zug'),
+      ),
       findsOneWidget,
     );
 
