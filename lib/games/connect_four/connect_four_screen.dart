@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'connect_four_logic.dart';
 
@@ -16,7 +17,7 @@ class ConnectFourScreen extends StatefulWidget {
 class _ConnectFourScreenState extends State<ConnectFourScreen> {
   ConnectFourGame game = ConnectFourGame();
   int round = 0;
-  StreamSubscription<Map<String, dynamic>>? _sub;
+  StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
 
   static const colors = [
@@ -39,7 +40,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
   @override
   void initState() {
     super.initState();
-    _sub = widget.setup.session?.messages.listen(_onMessage);
+    _sub = widget.setup.listen((m) => _onMessage(m.data));
     _maybeAi();
   }
 
@@ -75,7 +76,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
   void _tap(int col) {
     if (!_myTurn || !game.canDrop(col)) return;
     setState(() => game.drop(col));
-    widget.setup.session?.send({'t': 'drop', 'col': col});
+    widget.setup.send({'t': 'drop', 'col': col});
     _maybeAi();
   }
 
@@ -100,7 +101,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
       game = ConnectFourGame();
       round++;
     });
-    if (send) widget.setup.session?.send({'t': 'rematch'});
+    if (send) widget.setup.send({'t': 'rematch'});
     _maybeAi();
   }
 

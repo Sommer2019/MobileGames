@@ -1,20 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../core/net/matchmaker.dart';
-import '../core/services.dart';
 import '../games/registry.dart';
-import 'friends_screen.dart';
-import 'play_setup.dart';
+import 'room_screens.dart';
 
-/// Starts an online match: creates the session and opens the game.
-void openOnlineGame(BuildContext context, MatchInfo match) {
-  final game = gameById(match.gameId);
-  if (game == null || !game.isMultiplayer) return;
-  final session = Services.I.createSession(match);
+/// Opens the waiting screen after accepting an invite.
+void openInvitedGame(BuildContext context, MatchInfo match) {
   Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => game.multiplayerBuilder!(PlaySetup.online(session)),
-    ),
+    MaterialPageRoute<void>(builder: (_) => GuestWaitScreen(match: match)),
   );
 }
 
@@ -24,140 +17,94 @@ class LobbyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final multi = game.maxOnlinePlayers > 2;
     return Scaffold(
       appBar: AppBar(title: Text(game.title)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Icon(game.icon, size: 72, color: game.color),
-          const SizedBox(height: 8),
-          Text(
-            game.description,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 24),
-          _Section('Online (Peer-to-Peer)'),
-          _OptionTile(
-            key: const ValueKey('randomButton'),
-            icon: Icons.shuffle,
-            title: 'Zufälliger Gegner',
-            subtitle: 'Mit jemandem spielen, der gerade auch sucht',
-            onTap: () => _findRandom(context),
-          ),
-          _OptionTile(
-            icon: Icons.person_add_alt_1,
-            title: 'Freund einladen',
-            subtitle: 'Aus deiner Freundesliste',
-            onTap: () => _inviteFriend(context),
-          ),
-          const SizedBox(height: 16),
-          _Section('Offline'),
-          for (final m in game.offlineModes)
-            _OptionTile(
-              icon: m.icon,
-              title: m.label,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => game.multiplayerBuilder!(m.setup),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Icon(game.icon, size: 72, color: game.color),
+              const SizedBox(height: 8),
+              Text(
+                game.description,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 24),
+              const _Section('Online (Peer-to-Peer)'),
+              _OptionTile(
+                key: const ValueKey('randomButton'),
+                icon: Icons.shuffle,
+                title: multi ? 'Zufällige Gegner' : 'Zufälliger Gegner',
+                subtitle: multi
+                    ? '2 bis ${game.maxOnlinePlayers} Spieler'
+                    : 'Mit jemandem spielen, der gerade auch sucht',
+                onTap: () => _random(context),
+              ),
+              _OptionTile(
+                icon: Icons.group_add,
+                title: 'Mit Freunden spielen',
+                subtitle: multi
+                    ? 'Bis zu ${game.maxOnlinePlayers - 1} Freunde einladen'
+                    : 'Einen Freund einladen',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => FriendsRoomScreen(game: game),
+                  ),
                 ),
               ),
-            ),
-        ],
+              if (game.offlineModes.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const _Section('Offline'),
+                for (final m in game.offlineModes)
+                  _OptionTile(
+                    icon: m.icon,
+                    title: m.label,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => game.multiplayerBuilder!(m.setup),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _findRandom(BuildContext context) async {
-    final mm = Services.I.matchmaker;
-    final future = mm.findRandom(game.id);
-    final match = await showDialog<MatchInfo>(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) {
-        future
-            .then((m) {
-              if (c.mounted) Navigator.pop(c, m);
-            })
-            .catchError((_) {});
-        return AlertDialog(
-          title: const Text('Suche Gegner …'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LinearProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                'Sobald jemand anderes ebenfalls ein Spiel sucht, geht es los.',
+  Future<void> _random(BuildContext context) async {
+    var size = 2;
+    if (game.maxOnlinePlayers > 2) {
+      final chosen = await showDialog<int>(
+        context: context,
+        builder: (c) => SimpleDialog(
+          title: const Text('Wie viele Spieler?'),
+          children: [
+            for (var n = 2; n <= game.maxOnlinePlayers; n++)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(c, n),
+                child: Text('$n Spieler', style: const TextStyle(fontSize: 18)),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                mm.cancelRandom();
-                Navigator.pop(c);
-              },
-              child: const Text('Abbrechen'),
-            ),
           ],
-        );
-      },
-    );
-    if (match != null && context.mounted) openOnlineGame(context, match);
-  }
-
-  Future<void> _inviteFriend(BuildContext context) async {
-    final services = Services.I;
-    final friend = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const FriendsScreen(pickMode: true)),
-    );
-    if (friend == null || !context.mounted) return;
-    final f = services.account.friend(friend);
-    final name = f?.name ?? 'Freund';
-    final mm = services.matchmaker;
-    String? matchId;
-    final future = mm.inviteFriend(friend, name, game.id);
-    // The match id is needed to cancel; it is the last invite we sent.
-    final result = await showDialog<MatchInfo?>(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) {
-        future.then((m) {
-          if (c.mounted) Navigator.pop(c, m);
-        });
-        return AlertDialog(
-          title: Text('Einladung an $name'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LinearProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Warte auf Antwort …'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                matchId = mm.lastInviteId;
-                if (matchId != null) mm.cancelInvite(matchId!);
-              },
-              child: const Text('Abbrechen'),
-            ),
-          ],
-        );
-      },
-    );
-    if (!context.mounted) return;
-    if (result != null) {
-      openOnlineGame(context, result);
-    } else if (matchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$name hat abgelehnt oder ist nicht online.')),
+        ),
       );
+      if (chosen == null) return;
+      size = chosen;
     }
+    if (!context.mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => RandomMatchScreen(game: game, size: size),
+      ),
+    );
   }
 }
 

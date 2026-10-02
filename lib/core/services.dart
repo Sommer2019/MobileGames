@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'account.dart';
+import 'chat.dart';
+import 'notifications.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
 import 'net/messenger.dart';
@@ -17,6 +21,7 @@ class Services {
     messenger.start();
     matchmaker = Matchmaker(messenger, nameProvider: () => account.name);
     presence = Presence(client, account)..start();
+    chat = ChatService(client, account.keys);
   }
 
   static Services? _instance;
@@ -28,6 +33,8 @@ class Services {
     final account = await Account.load();
     final s = Services(account: account, client: RelayPool());
     _instance = s;
+    await s.chat.start();
+    unawaited(Notifications.I.init());
     return s;
   }
 
@@ -37,6 +44,7 @@ class Services {
   final P2pTransport Function() p2pFactory;
   late final Matchmaker matchmaker;
   late final Presence presence;
+  late final ChatService chat;
 
   GameSession createSession(MatchInfo match) =>
       GameSession(match, messenger, p2p: p2pFactory());

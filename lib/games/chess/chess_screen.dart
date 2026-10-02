@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'chess_logic.dart';
 
@@ -20,7 +21,7 @@ class _ChessScreenState extends State<ChessScreen> {
   int round = 0;
   String? selected;
   List<String> targets = const [];
-  StreamSubscription<Map<String, dynamic>>? _sub;
+  StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
 
   /// The side this device plays. Colors swap every round.
@@ -36,7 +37,7 @@ class _ChessScreenState extends State<ChessScreen> {
   @override
   void initState() {
     super.initState();
-    _sub = widget.setup.session?.messages.listen(_onMessage);
+    _sub = widget.setup.listen((m) => _onMessage(m.data));
     _maybeAi();
   }
 
@@ -90,12 +91,7 @@ class _ChessScreenState extends State<ChessScreen> {
         selected = null;
         targets = const [];
       });
-      widget.setup.session?.send({
-        't': 'move',
-        'from': from,
-        'to': sq,
-        'promo': promo,
-      });
+      widget.setup.send({'t': 'move', 'from': from, 'to': sq, 'promo': promo});
       _maybeAi();
       return;
     }
@@ -158,7 +154,7 @@ class _ChessScreenState extends State<ChessScreen> {
       targets = const [];
       _resigned = null;
     });
-    if (send) widget.setup.session?.send({'t': 'rematch'});
+    if (send) widget.setup.send({'t': 'rematch'});
     _maybeAi();
   }
 
@@ -181,7 +177,7 @@ class _ChessScreenState extends State<ChessScreen> {
     );
     if (ok != true) return;
     setState(() => _resigned = 'me');
-    widget.setup.session?.send({'t': 'resign'});
+    widget.setup.send({'t': 'resign'});
   }
 
   String _status() {

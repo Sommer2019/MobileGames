@@ -18,7 +18,10 @@ class HomeScreen extends StatelessWidget {
         actions: [
           if (Services.isReady)
             ListenableBuilder(
-              listenable: Services.I.account,
+              listenable: Listenable.merge([
+                Services.I.account,
+                Services.I.chat,
+              ]),
               builder: (context, _) => TextButton.icon(
                 onPressed: () => Navigator.push(
                   context,
@@ -26,7 +29,11 @@ class HomeScreen extends StatelessWidget {
                     builder: (_) => const FriendsScreen(),
                   ),
                 ),
-                icon: const Icon(Icons.people),
+                icon: Badge(
+                  isLabelVisible: Services.I.chat.totalUnread > 0,
+                  label: Text('${Services.I.chat.totalUnread}'),
+                  child: const Icon(Icons.people),
+                ),
                 label: Text(
                   Services.I.account.name,
                   overflow: TextOverflow.ellipsis,

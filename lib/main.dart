@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core/chat.dart';
 import 'core/net/matchmaker.dart';
+import 'core/notifications.dart';
 import 'core/services.dart';
 import 'games/registry.dart';
+import 'ui/friends_screen.dart';
 import 'ui/home_screen.dart';
 import 'ui/lobby_screen.dart';
 
@@ -23,20 +26,60 @@ class MobileGamesApp extends StatefulWidget {
 
 class _MobileGamesAppState extends State<MobileGamesApp> {
   final _navigator = GlobalKey<NavigatorState>();
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<IncomingInvite>? _invites;
+  StreamSubscription<IncomingChat>? _chats;
 
   @override
   void initState() {
     super.initState();
     if (Services.isReady) {
       _invites = Services.I.matchmaker.invites.listen(_onInvite);
+      _chats = Services.I.chat.incoming.listen(_onChat);
+      Notifications.I.onTap = (payload) {
+        if (payload.startsWith('chat:')) _openChat(payload.substring(5));
+      };
     }
   }
 
   @override
   void dispose() {
     _invites?.cancel();
+    _chats?.cancel();
     super.dispose();
+  }
+
+  String _senderName(String pubkey, String? fallback) =>
+      Services.I.account.friend(pubkey)?.name ?? fallback ?? 'Jemand';
+
+  void _openChat(String pubkey) {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(builder: (_) => FriendChatScreen(pubkey: pubkey)),
+    );
+  }
+
+  void _onChat(IncomingChat c) {
+    // Old messages fetched after a restart do not trigger popups.
+    if (DateTime.now().difference(c.message.time) >
+        const Duration(minutes: 10)) {
+      return;
+    }
+    final name = _senderName(c.from, c.senderName);
+    if (!Notifications.I.inForeground) {
+      Notifications.I.show(name, c.message.text, payload: 'chat:${c.from}');
+      return;
+    }
+    if (Services.I.chat.openConversation == c.from) return;
+    _messenger.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('💬 $name: ${c.message.text}'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Öffnen',
+          onPressed: () => _openChat(c.from),
+        ),
+      ),
+    );
   }
 
   Future<void> _onInvite(IncomingInvite invite) async {
@@ -44,6 +87,13 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     final game = gameById(invite.gameId);
     if (ctx == null || game == null) return;
     final mm = Services.I.matchmaker;
+    if (!Notifications.I.inForeground) {
+      Notifications.I.show(
+        'Einladung zu ${game.title}',
+        '${invite.fromName} möchte mit dir spielen – tippe zum Öffnen.',
+        payload: 'invite',
+      );
+    }
     final dialogCtx = Completer<BuildContext>();
     final cancelled = mm.cancelledInvites
         .where((id) => id == invite.matchId)
@@ -84,11 +134,11 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     final c = _navigator.currentContext;
     if (c == null || !c.mounted) return;
     if (match == null) {
-      ScaffoldMessenger.of(c).showSnackBar(
+      _messenger.currentState?.showSnackBar(
         const SnackBar(content: Text('Die Einladung ist nicht mehr gültig.')),
       );
     } else {
-      openOnlineGame(c, match);
+      openInvitedGame(c, match);
     }
   }
 
@@ -97,6 +147,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     return MaterialApp(
       title: 'Mobile Games',
       navigatorKey: _navigator,
+      scaffoldMessengerKey: _messenger,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF3F51B5),

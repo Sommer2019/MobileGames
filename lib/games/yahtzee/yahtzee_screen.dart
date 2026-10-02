@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'yahtzee_logic.dart';
 
@@ -16,7 +17,7 @@ class YahtzeeScreen extends StatefulWidget {
 class _YahtzeeScreenState extends State<YahtzeeScreen> {
   late KniffelGame game;
   int round = 0;
-  StreamSubscription<Map<String, dynamic>>? _sub;
+  StreamSubscription<RoomMessage>? _sub;
 
   int get players => widget.setup.online ? 2 : widget.setup.players;
 
@@ -27,7 +28,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
   void initState() {
     super.initState();
     game = KniffelGame(players);
-    _sub = widget.setup.session?.messages.listen(_onMessage);
+    _sub = widget.setup.listen((m) => _onMessage(m.data));
   }
 
   @override
@@ -64,19 +65,19 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
   void _roll() {
     if (!myTurn || !game.canRoll) return;
     setState(game.roll);
-    widget.setup.session?.send({'t': 'roll', 'dice': game.dice});
+    widget.setup.send({'t': 'roll', 'dice': game.dice});
   }
 
   void _hold(int i) {
     if (!myTurn) return;
     setState(() => game.toggleHold(i));
-    widget.setup.session?.send({'t': 'hold', 'held': game.held});
+    widget.setup.send({'t': 'hold', 'held': game.held});
   }
 
   void _score(KniffelCategory c) {
     if (!myTurn || !game.canScore(c)) return;
     setState(() => game.score(c));
-    widget.setup.session?.send({'t': 'score', 'cat': c.name});
+    widget.setup.send({'t': 'score', 'cat': c.name});
   }
 
   void _rematch() {
@@ -84,7 +85,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
       round++;
       game = KniffelGame(players);
     });
-    widget.setup.session?.send({'t': 'rematch'});
+    widget.setup.send({'t': 'rematch'});
   }
 
   String _status() {

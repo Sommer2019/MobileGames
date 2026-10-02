@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_games/core/net/game_session.dart';
-import 'package:mobile_games/core/net/matchmaker.dart';
-import 'package:mobile_games/core/net/messenger.dart';
-import 'package:mobile_games/core/nostr/keys.dart';
 import 'package:mobile_games/games/billiard/billiard_screen.dart';
 import 'package:mobile_games/games/chess/chess_screen.dart';
 import 'package:mobile_games/games/connect_four/connect_four_screen.dart';
@@ -16,6 +12,7 @@ import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_nostr.dart';
+import 'room_util.dart';
 
 Widget app(Widget child) => MaterialApp(home: child);
 
@@ -112,32 +109,15 @@ void main() {
     tester.view.physicalSize = const Size(2400, 1600);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
-    final bus = FakeRelayBus();
-    final ma = Messenger(bus.client(), KeyPair.generate())..start();
-    final mb = Messenger(bus.client(), KeyPair.generate())..start();
-    const id = 'abc';
-    final sa = GameSession(
-      MatchInfo(
-        matchId: id,
+    final rooms = (await tester.runAsync(
+      () => buildRoom(
+        FakeRelayBus(),
+        1,
         gameId: 'connect_four',
-        opponent: mb.me,
-        opponentName: 'Ben',
-        isHost: true,
+        names: ['Anna', 'Ben'],
       ),
-      ma,
-      helloInterval: const Duration(milliseconds: 50),
-    );
-    final sb = GameSession(
-      MatchInfo(
-        matchId: id,
-        gameId: 'connect_four',
-        opponent: ma.me,
-        opponentName: 'Anna',
-        isHost: false,
-      ),
-      mb,
-      helloInterval: const Duration(milliseconds: 50),
-    );
+    ))!;
+    final sa = rooms[0], sb = rooms[1];
     await tester.pumpWidget(
       app(
         Row(
@@ -166,8 +146,6 @@ void main() {
     }
 
     await settle();
-    expect(sa.state, LinkState.connected);
-    expect(sb.state, LinkState.connected);
     final a = find.byKey(const ValueKey('A')),
         b = find.byKey(const ValueKey('B'));
     expect(

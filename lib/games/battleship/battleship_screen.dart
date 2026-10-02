@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/net/room.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
 
@@ -31,7 +32,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
   FleetBoard? aiFleet;
   BattleshipAi? ai;
 
-  StreamSubscription<Map<String, dynamic>>? _sub;
+  StreamSubscription<RoomMessage>? _sub;
 
   bool get iStart => round.isEven == widget.setup.isHost;
 
@@ -39,7 +40,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
   void initState() {
     super.initState();
     _newRound();
-    _sub = widget.setup.session?.messages.listen(_onMessage);
+    _sub = widget.setup.listen((m) => _onMessage(m.data));
   }
 
   @override
@@ -68,7 +69,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
         phase = _Phase.playing;
         myTurn = round.isEven;
       } else {
-        widget.setup.session?.send({'t': 'ready'});
+        widget.setup.send({'t': 'ready'});
         phase = opponentReady ? _Phase.playing : _Phase.waitingForOpponent;
         myTurn = iStart;
       }
@@ -86,12 +87,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
       case 'shot':
         final x = m['x'] as int, y = m['y'] as int;
         final o = fleet.receiveShot(x, y);
-        widget.setup.session?.send({
-          't': 'result',
-          'x': x,
-          'y': y,
-          ...o.toJson(),
-        });
+        widget.setup.send({'t': 'result', 'x': x, 'y': y, ...o.toJson()});
         setState(() {
           lastEvent = _describe(o, mine: false);
           if (o.fleetDestroyed) {
@@ -156,7 +152,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
       if (!myTurn && phase == _Phase.playing) _aiTurn();
     } else {
       setState(() => awaitingResult = true);
-      widget.setup.session?.send({'t': 'shot', 'x': x, 'y': y});
+      widget.setup.send({'t': 'shot', 'x': x, 'y': y});
     }
   }
 
@@ -184,7 +180,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
       round++;
       _newRound();
     });
-    widget.setup.session?.send({'t': 'rematch'});
+    widget.setup.send({'t': 'rematch'});
   }
 
   String _status() {

@@ -2,33 +2,54 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../core/net/game_session.dart';
+import '../core/net/room.dart';
+import 'chat_view.dart';
 
 enum PlayKind { local, ai, online }
 
 /// How a game is played: on one device, against the computer or online.
 class PlaySetup {
-  const PlaySetup.local({this.players = 2})
+  const PlaySetup.local({int players = 2})
     : kind = PlayKind.local,
-      session = null;
-  const PlaySetup.ai() : kind = PlayKind.ai, players = 2, session = null;
-  const PlaySetup.online(GameSession this.session)
+      _players = players,
+      room = null;
+  const PlaySetup.ai() : kind = PlayKind.ai, _players = 2, room = null;
+  const PlaySetup.online(GameRoom this.room)
     : kind = PlayKind.online,
-      players = 2;
+      _players = 0;
 
   final PlayKind kind;
-  final int players;
-  final GameSession? session;
+  final int _players;
+  final GameRoom? room;
 
   bool get online => kind == PlayKind.online;
 
+  /// Number of players taking part.
+  int get players => room?.size ?? _players;
+
+  /// Seat of this device online (0 = host). Offline always 0.
+  int get mySeat => room?.mySeat ?? 0;
+
   /// The host plays first / white.
-  bool get isHost => session?.match.isHost ?? true;
-  String get opponentName => session?.match.opponentName ?? 'Gegner';
+  bool get isHost => mySeat == 0;
+
+  /// For two player games: the other player's name.
+  String get opponentName {
+    final r = room;
+    if (r == null) return 'Gegner';
+    return r.names[r.mySeat == 0 ? 1 : 0];
+  }
+
+  /// Sends a game message to the other players (no-op offline).
+  void send(Map<String, dynamic> data) => room?.send(data);
+
+  /// Game messages of the other players.
+  StreamSubscription<RoomMessage>? listen(void Function(RoomMessage) onData) =>
+      room?.messages.listen(onData);
 }
 
-/// Wraps an online game: shows the connection state, handles the opponent
-/// leaving and closes the session when the screen is left.
+/// Wraps a game screen: online it shows the connection type, offers the
+/// in-game chat, handles players leaving and closes the room on exit.
 class OnlineGameFrame extends StatefulWidget {
   const OnlineGameFrame({
     super.key,
@@ -48,52 +69,111 @@ class OnlineGameFrame extends StatefulWidget {
 }
 
 class _OnlineGameFrameState extends State<OnlineGameFrame> {
-  StreamSubscription<LinkState>? _sub;
+  StreamSubscription<ChatLine>? _chatSub;
   bool _leftDialogShown = false;
+  bool _chatOpen = false;
+  int _unread = 0;
 
-  GameSession? get _session => widget.setup.session;
+  GameRoom? get _room => widget.setup.room;
 
   @override
   void initState() {
     super.initState();
-    final s = _session;
-    if (s != null) {
-      _sub = s.stateChanges.listen((state) {
-        if (!mounted) return;
-        setState(() {});
-        if (state == LinkState.opponentLeft && !_leftDialogShown) {
-          _leftDialogShown = true;
-          showDialog<void>(
-            context: context,
-            builder: (c) => AlertDialog(
-              title: const Text('Spiel beendet'),
-              content: Text(
-                '${widget.setup.opponentName} hat das Spiel verlassen.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(c),
-                  child: const Text('OK'),
-                ),
-              ],
+    final r = _room;
+    if (r != null) {
+      r.addListener(_onRoomChanged);
+      _chatSub = r.chatStream.listen((line) {
+        if (!mounted || line.seat == r.mySeat) return;
+        if (!_chatOpen) {
+          setState(() => _unread++);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${line.name}: ${line.text}'),
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(label: 'Chat', onPressed: _openChat),
             ),
           );
         }
       });
-      s.start();
+    }
+  }
+
+  void _onRoomChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final left = _room?.leftPlayer;
+    if (left != null && !_leftDialogShown) {
+      _leftDialogShown = true;
+      showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Spiel beendet'),
+          content: Text('$left hat das Spiel verlassen.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
-    _session?.close();
+    _chatSub?.cancel();
+    _room?.removeListener(_onRoomChanged);
+    _room?.close();
     super.dispose();
   }
 
+  Future<void> _openChat() async {
+    final r = _room;
+    if (r == null) return;
+    setState(() {
+      _chatOpen = true;
+      _unread = 0;
+    });
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (c) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(c).viewInsets.bottom),
+        child: SizedBox(
+          height: MediaQuery.of(c).size.height * 0.6,
+          child: ListenableBuilder(
+            listenable: r,
+            builder: (context, _) => ChatView(
+              lines: [
+                for (final l in r.chat)
+                  ChatEntry(
+                    mine: l.seat == r.mySeat,
+                    author: l.name,
+                    text: l.text,
+                    time: l.time,
+                  ),
+              ],
+              onSend: r.sendChat,
+              quickReplies: const [
+                'Gutes Spiel!',
+                'Nochmal?',
+                'Glückwunsch! 🎉',
+                'Oh nein 😅',
+                'Moment …',
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() => _chatOpen = false);
+  }
+
   Future<bool> _confirmLeave() async {
-    final s = _session;
-    if (s == null || s.state == LinkState.opponentLeft) return true;
+    final r = _room;
+    if (r == null || r.leftPlayer != null) return true;
     final leave = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -116,9 +196,9 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
 
   @override
   Widget build(BuildContext context) {
-    final s = _session;
+    final r = _room;
     return PopScope(
-      canPop: s == null || s.state == LinkState.opponentLeft,
+      canPop: r == null || r.leftPlayer != null,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final nav = Navigator.of(context);
@@ -128,38 +208,27 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
-            if (s != null) _ConnectionChip(session: s),
+            if (r != null) _ConnectionChip(room: r),
+            if (r != null)
+              IconButton(
+                tooltip: 'Chat',
+                onPressed: _openChat,
+                icon: Badge(
+                  isLabelVisible: _unread > 0,
+                  label: Text('$_unread'),
+                  child: const Icon(Icons.chat_bubble_outline),
+                ),
+              ),
             ...?widget.actions,
           ],
         ),
         body: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(child: widget.child),
-              if (s != null && s.state == LinkState.connecting)
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black54,
-                    child: Center(
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const CircularProgressIndicator(),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Verbinde mit ${widget.setup.opponentName} …',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          child: Center(
+            // Keeps boards at a pleasant size on tablets.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: widget.child,
+            ),
           ),
         ),
       ),
@@ -168,23 +237,20 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
 }
 
 class _ConnectionChip extends StatelessWidget {
-  const _ConnectionChip({required this.session});
-  final GameSession session;
+  const _ConnectionChip({required this.room});
+  final GameRoom room;
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color) = switch (session.state) {
-      LinkState.connecting => ('Verbinde', Icons.sync, Colors.orange),
-      LinkState.opponentLeft => ('Getrennt', Icons.link_off, Colors.red),
-      LinkState.connected =>
-        session.isDirect
-            ? ('P2P', Icons.bolt, Colors.green)
-            : ('Relay', Icons.cloud_sync, Colors.blueGrey),
-    };
+    final (label, icon, color) = room.leftPlayer != null
+        ? ('Getrennt', Icons.link_off, Colors.red)
+        : room.isDirect
+        ? ('P2P', Icons.bolt, Colors.green)
+        : ('Relay', Icons.cloud_sync, Colors.blueGrey);
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 4),
       child: Tooltip(
-        message: session.isDirect
+        message: room.isDirect
             ? 'Direkte Peer-to-Peer-Verbindung'
             : 'Verschlüsselt über öffentliche Relays (P2P wird versucht)',
         child: Chip(
@@ -228,6 +294,43 @@ class TurnBanner extends StatelessWidget {
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleMedium
             ?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// Full screen cover for pass-and-play games, so the next player does not
+/// see the previous player's secret information.
+class PassDeviceCover extends StatelessWidget {
+  const PassDeviceCover({
+    super.key,
+    required this.playerName,
+    required this.onReady,
+  });
+  final String playerName;
+  final VoidCallback onReady;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.phone_android, size: 64),
+            const SizedBox(height: 16),
+            Text(
+              'Gerät an $playerName übergeben',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: onReady,
+              child: const Text('Ich bin bereit'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -27,7 +27,11 @@ class GameInfo {
     this.offlineModes = const [],
     this.multiplayerBuilder,
     this.singleplayerBuilder,
+    this.maxOnlinePlayers = 2,
   });
+
+  /// Online games support 2..[maxOnlinePlayers] players.
+  final int maxOnlinePlayers;
 
   final String id;
   final String title;

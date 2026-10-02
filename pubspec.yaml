@@ -43,6 +43,7 @@ dependencies:
   chess: ^0.8.1
   pointycastle: ^4.0.0
   convert: ^3.1.2
+  flutter_local_notifications: ^22.3.1
 
 dev_dependencies:
   flutter_test:
