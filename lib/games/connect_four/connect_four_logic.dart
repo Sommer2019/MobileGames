@@ -1,13 +1,19 @@
-/// Pure game logic for "4 gewinnt" (Connect Four).
+/// Pure game logic for "4 gewinnt" (Connect Four) for 2–4 players.
+/// With more players the board grows so there is enough room.
 class ConnectFourGame {
-  static const int columns = 7;
-  static const int rows = 6;
+  ConnectFourGame({this.players = 2})
+    : assert(players >= 2 && players <= 4),
+      columns = const [7, 7, 9, 10][players - 1],
+      rows = const [6, 6, 7, 8][players - 1] {
+    board = List.generate(rows, (_) => List.filled(columns, 0));
+  }
 
-  /// board[row][col], row 0 is the top. 0 = empty, 1 = player one, 2 = player two.
-  final List<List<int>> board = List.generate(
-    rows,
-    (_) => List.filled(columns, 0),
-  );
+  final int players;
+  final int columns;
+  final int rows;
+
+  /// board[row][col], row 0 is the top. 0 = empty, otherwise player 1..4.
+  late final List<List<int>> board;
 
   int currentPlayer = 1;
   int winner = 0;
@@ -35,7 +41,7 @@ class ConnectFourGame {
     } else if (board[0].every((c) => c != 0)) {
       draw = true;
     } else {
-      currentPlayer = 3 - currentPlayer;
+      currentPlayer = currentPlayer % players + 1;
     }
     return row;
   }
@@ -63,7 +69,7 @@ class ConnectFourGame {
   }
 
   ConnectFourGame copy() {
-    final g = ConnectFourGame();
+    final g = ConnectFourGame(players: players);
     for (var r = 0; r < rows; r++) {
       g.board[r].setAll(0, board[r]);
     }
@@ -72,6 +78,13 @@ class ConnectFourGame {
     g.draw = draw;
     return g;
   }
+}
+
+/// Columns ordered from the center outwards (better pruning).
+List<int> _order(ConnectFourGame g) {
+  final center = g.columns ~/ 2;
+  return [for (var c = 0; c < g.columns; c++) c]
+    ..sort((a, b) => (a - center).abs().compareTo((b - center).abs()));
 }
 
 /// Simple minimax AI for single-device play against the computer.
@@ -83,7 +96,7 @@ class ConnectFourAi {
     final me = game.currentPlayer;
     var bestScore = -1 << 30;
     var best = -1;
-    for (final col in const [3, 2, 4, 1, 5, 0, 6]) {
+    for (final col in _order(game)) {
       if (!game.canDrop(col)) continue;
       final g = game.copy()..drop(col);
       final score = _minimax(g, depth - 1, -1 << 30, 1 << 30, me);
@@ -101,7 +114,7 @@ class ConnectFourAi {
     if (depth == 0) return _evaluate(g, me);
     final maximizing = g.currentPlayer == me;
     var value = maximizing ? -1 << 30 : 1 << 30;
-    for (final col in const [3, 2, 4, 1, 5, 0, 6]) {
+    for (final col in _order(g)) {
       if (!g.canDrop(col)) continue;
       final child = g.copy()..drop(col);
       final score = _minimax(child, depth - 1, alpha, beta, me);
@@ -120,18 +133,16 @@ class ConnectFourAi {
   int _evaluate(ConnectFourGame g, int me) {
     var score = 0;
     final b = g.board;
-    for (var r = 0; r < ConnectFourGame.rows; r++) {
-      if (b[r][3] == me) score += 3;
+    final center = g.columns ~/ 2;
+    for (var r = 0; r < g.rows; r++) {
+      if (b[r][center] == me) score += 3;
     }
     const dirs = [(0, 1), (1, 0), (1, 1), (1, -1)];
-    for (var r = 0; r < ConnectFourGame.rows; r++) {
-      for (var c = 0; c < ConnectFourGame.columns; c++) {
+    for (var r = 0; r < g.rows; r++) {
+      for (var c = 0; c < g.columns; c++) {
         for (final (dr, dc) in dirs) {
           final er = r + dr * 3, ec = c + dc * 3;
-          if (er < 0 ||
-              er >= ConnectFourGame.rows ||
-              ec < 0 ||
-              ec >= ConnectFourGame.columns) {
+          if (er < 0 || er >= g.rows || ec < 0 || ec >= g.columns) {
             continue;
           }
           var mine = 0, theirs = 0;

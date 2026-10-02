@@ -103,4 +103,38 @@ void main() {
     final move = ConnectFourAi(depth: 4).bestMove(w);
     expect([0, 4], contains(move));
   });
+
+  test('four players: bigger board, turns rotate through all players', () {
+    final g = ConnectFourGame(players: 4);
+    expect((g.columns, g.rows), (10, 8));
+    expect(g.currentPlayer, 1);
+    g.drop(0);
+    expect(g.currentPlayer, 2);
+    g.drop(1);
+    g.drop(2);
+    expect(g.currentPlayer, 4);
+    g.drop(3);
+    expect(g.currentPlayer, 1);
+    expect(g.board[7].sublist(0, 4), [1, 2, 3, 4]);
+  });
+
+  test('three players: player three can win', () {
+    final g = ConnectFourGame(players: 3);
+    expect((g.columns, g.rows), (9, 7));
+    for (var i = 0; i < 3; i++) {
+      g.drop(0);
+      g.drop(1);
+      g.drop(8);
+    }
+    g.drop(0); // player 1 wins vertically
+    expect(g.winner, 1);
+    final h = ConnectFourGame(players: 3);
+    for (var i = 0; i < 4; i++) {
+      h.drop(2 * i);
+      h.drop(2 * i + 1);
+      if (h.isOver) break;
+      h.drop(8);
+    }
+    expect(h.winner, 3);
+  });
 }

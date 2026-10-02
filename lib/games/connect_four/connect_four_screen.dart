@@ -15,7 +15,7 @@ class ConnectFourScreen extends StatefulWidget {
 }
 
 class _ConnectFourScreenState extends State<ConnectFourScreen> {
-  ConnectFourGame game = ConnectFourGame();
+  late ConnectFourGame game = ConnectFourGame(players: widget.setup.players);
   int round = 0;
   StreamSubscription<RoomMessage>? _sub;
   bool _aiThinking = false;
@@ -24,15 +24,20 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     Colors.transparent,
     Color(0xFFE53935),
     Color(0xFFFDD835),
+    Color(0xFF43A047),
+    Color(0xFF8E24AA),
   ];
+  static const colorNames = ['', 'Rot', 'Gelb', 'Grün', 'Lila'];
 
-  /// Which player (1 or 2) this device controls online. The starting player
-  /// alternates every round.
-  int get myPlayer {
-    final hostStarts = round.isEven;
-    final hostPlayer = hostStarts ? 1 : 2;
-    return widget.setup.isHost ? hostPlayer : 3 - hostPlayer;
-  }
+  int get players => widget.setup.players;
+
+  /// Seat that plays player number [p] (1-based). The starting seat moves on
+  /// every round.
+  int seatOf(int p) => (p - 1 + round) % players;
+
+  /// Which player number this device controls online.
+  int get myPlayer =>
+      (widget.setup.mySeat - round % players + players) % players + 1;
 
   /// In AI mode the human starts every even round.
   int get humanPlayer => round.isEven ? 1 : 2;
@@ -98,7 +103,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
 
   void _reset({bool send = true}) {
     setState(() {
-      game = ConnectFourGame();
+      game = ConnectFourGame(players: players);
       round++;
     });
     if (send) widget.setup.send({'t': 'rematch'});
@@ -109,11 +114,13 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     String name(int p) {
       switch (widget.setup.kind) {
         case PlayKind.local:
-          return p == 1 ? 'Rot' : 'Gelb';
+          return colorNames[p];
         case PlayKind.ai:
           return p == humanPlayer ? 'Du' : 'Computer';
         case PlayKind.online:
-          return p == myPlayer ? 'Du' : widget.setup.opponentName;
+          return p == myPlayer
+              ? 'Du'
+              : '${widget.setup.room!.names[seatOf(p)]} (${colorNames[p]})';
       }
     }
 
@@ -123,7 +130,10 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
       return n == 'Du' ? 'Du hast gewonnen! 🎉' : '$n gewinnt!';
     }
     final n = name(game.currentPlayer);
-    return n == 'Du' ? 'Du bist am Zug' : '$n ist am Zug';
+    final mine = widget.setup.online
+        ? ' – du bist ${colorNames[myPlayer]}'
+        : '';
+    return n == 'Du' ? 'Du bist am Zug$mine' : '$n ist am Zug$mine';
   }
 
   @override
@@ -145,7 +155,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
           Expanded(
             child: Center(
               child: AspectRatio(
-                aspectRatio: ConnectFourGame.columns / ConnectFourGame.rows,
+                aspectRatio: game.columns / game.rows,
                 child: Container(
                   margin: const EdgeInsets.all(12),
                   padding: const EdgeInsets.all(6),
@@ -155,7 +165,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
                   ),
                   child: Row(
                     children: [
-                      for (var c = 0; c < ConnectFourGame.columns; c++)
+                      for (var c = 0; c < game.columns; c++)
                         Expanded(
                           child: GestureDetector(
                             key: ValueKey('c4col$c'),
@@ -163,7 +173,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
                             onTap: () => _tap(c),
                             child: Column(
                               children: [
-                                for (var r = 0; r < ConnectFourGame.rows; r++)
+                                for (var r = 0; r < game.rows; r++)
                                   Expanded(child: _cell(r, c)),
                               ],
                             ),

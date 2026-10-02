@@ -19,10 +19,10 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
   int round = 0;
   StreamSubscription<RoomMessage>? _sub;
 
-  int get players => widget.setup.online ? 2 : widget.setup.players;
+  int get players => widget.setup.players;
 
   /// Online: index of this device's player. The starting player alternates.
-  int get me => (widget.setup.isHost == round.isEven) ? 0 : 1;
+  int get me => (widget.setup.mySeat - round % players + players) % players;
 
   @override
   void initState() {
@@ -40,7 +40,10 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
   bool get myTurn => !widget.setup.online || game.currentPlayer == me;
 
   String playerName(int i) {
-    if (widget.setup.online) return i == me ? 'Du' : widget.setup.opponentName;
+    final room = widget.setup.room;
+    if (room != null) {
+      return i == me ? 'Du' : room.names[(i + round) % players];
+    }
     if (players == 1) return 'Du';
     return 'Spieler ${i + 1}';
   }

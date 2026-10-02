@@ -149,11 +149,11 @@ void main() {
     final a = find.byKey(const ValueKey('A')),
         b = find.byKey(const ValueKey('B'));
     expect(
-      find.descendant(of: a, matching: find.text('Du bist am Zug')),
+      find.descendant(of: a, matching: find.textContaining('Du bist am Zug')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: b, matching: find.text('Anna ist am Zug')),
+      find.descendant(of: b, matching: find.textContaining('Anna (Rot) ist am Zug')),
       findsOneWidget,
     );
 
@@ -163,7 +163,7 @@ void main() {
     );
     await settle();
     expect(
-      find.descendant(of: b, matching: find.text('Anna ist am Zug')),
+      find.descendant(of: b, matching: find.textContaining('Anna (Rot) ist am Zug')),
       findsOneWidget,
     );
 
@@ -172,11 +172,11 @@ void main() {
     );
     await settle();
     expect(
-      find.descendant(of: b, matching: find.text('Du bist am Zug')),
+      find.descendant(of: b, matching: find.textContaining('Du bist am Zug')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: a, matching: find.text('Ben ist am Zug')),
+      find.descendant(of: a, matching: find.textContaining('Ben (Gelb) ist am Zug')),
       findsOneWidget,
     );
 

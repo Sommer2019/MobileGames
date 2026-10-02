@@ -72,13 +72,24 @@ final List<GameInfo> games = [
   GameInfo(
     id: 'connect_four',
     title: '4 gewinnt',
-    description: 'Vier in einer Reihe gewinnt',
+    description: 'Vier in einer Reihe gewinnt – 2 bis 4 Spieler',
     icon: Icons.grid_view_rounded,
     color: const Color(0xFFD32F2F),
     offlineModes: const [
       OfflineMode('Gegen Computer', Icons.smart_toy, PlaySetup.ai()),
       OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+      OfflineMode(
+        '3 Spieler, 1 Gerät',
+        Icons.groups,
+        PlaySetup.local(players: 3),
+      ),
+      OfflineMode(
+        '4 Spieler, 1 Gerät',
+        Icons.groups,
+        PlaySetup.local(players: 4),
+      ),
     ],
+    maxOnlinePlayers: 4,
     multiplayerBuilder: (s) => ConnectFourScreen(setup: s),
   ),
   GameInfo(
@@ -105,6 +116,7 @@ final List<GameInfo> games = [
         PlaySetup.local(players: 4),
       ),
     ],
+    maxOnlinePlayers: 4,
     multiplayerBuilder: (s) => YahtzeeScreen(setup: s),
   ),
   GameInfo(
