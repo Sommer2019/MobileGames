@@ -4,6 +4,7 @@ import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'chess_logic.dart';
 
@@ -63,6 +64,7 @@ class _ChessScreenState extends State<ChessScreen> {
     switch (m['t']) {
       case 'move':
         if (game.turn != mySide) {
+          Sound.play(Sfx.place);
           setState(
             () => game.move(
               m['from'] as String,
@@ -100,6 +102,7 @@ class _ChessScreenState extends State<ChessScreen> {
       }
       setState(() {
         game.move(from, sq, promotion: promo);
+        Sound.play(Sfx.place);
         selected = null;
         targets = const [];
       });
@@ -159,7 +162,10 @@ class _ChessScreenState extends State<ChessScreen> {
     final m = game.aiMove();
     if (!mounted) return;
     setState(() {
-      if (m != null) game.move(m.$1, m.$2, promotion: m.$3);
+      if (m != null) {
+        game.move(m.$1, m.$2, promotion: m.$3);
+        Sound.play(Sfx.place);
+      }
       _aiThinking = false;
     });
   }

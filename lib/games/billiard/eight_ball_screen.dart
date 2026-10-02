@@ -100,6 +100,7 @@ class _EightBallScreenState extends State<EightBallScreen>
     if (game.moving) {
       final before = game.balls.where((b) => b.pocketed).length;
       setState(() => game.step(min(dt, 0.05)));
+      playTableSounds(game);
       if (game.balls.where((b) => b.pocketed).length > before) {
         HapticFeedback.lightImpact();
       }

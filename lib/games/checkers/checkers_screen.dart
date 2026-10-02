@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'checkers_logic.dart';
 
@@ -45,6 +46,7 @@ class _CheckersScreenState extends State<CheckersScreen> {
     switch (m['t']) {
       case 'move':
         if (game.turn != mySide) {
+          Sound.play(Sfx.place);
           setState(
             () => game.playPath(
               CheckersMove.pathFromJson(m['path'] as List<dynamic>),
@@ -105,6 +107,7 @@ class _CheckersScreenState extends State<CheckersScreen> {
   void _play(CheckersMove m) {
     setState(() {
       game.playPath(m.path);
+      Sound.play(Sfx.place);
       _partial = [];
     });
     widget.setup.send({'t': 'move', 'path': m.toJson()});
@@ -122,7 +125,10 @@ class _CheckersScreenState extends State<CheckersScreen> {
     if (!mounted) return;
     final m = game.aiMove();
     setState(() {
-      if (m != null) game.playPath(m.path);
+      if (m != null) {
+        game.playPath(m.path);
+        Sound.play(Sfx.place);
+      }
       _aiThinking = false;
     });
   }

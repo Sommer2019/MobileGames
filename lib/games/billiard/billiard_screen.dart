@@ -67,6 +67,7 @@ class _BilliardScreenState extends State<BilliardScreen>
     if (dt <= 0 || !game.moving) return;
     final pocketedBefore = game.balls.where((b) => b.pocketed).length;
     setState(() => game.step(min(dt, 0.05)));
+    playTableSounds(game);
     if (game.balls.where((b) => b.pocketed).length > pocketedBefore) {
       HapticFeedback.lightImpact();
     }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
 import '../../core/shake.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'yahtzee_logic.dart';
 
@@ -58,6 +59,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     while (mounted && !game.isOver && game.currentPlayer != me) {
       final heldBefore = List<bool>.from(game.held);
       final first = !game.hasRolled;
+      Sound.play(Sfx.dice);
       setState(() {
         game.roll();
         _spin(heldBefore, first);
@@ -119,6 +121,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
           final heldBefore = List<bool>.from(game.held);
           final first = !game.hasRolled;
           game.applyRoll([for (final d in m['dice'] as List) d as int]);
+          Sound.play(Sfx.dice);
           _spin(heldBefore, first);
         case 'hold':
           game.held = [for (final h in m['held'] as List) h as bool];
@@ -135,6 +138,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     if (!myTurn || !game.canRoll) return;
     final heldBefore = List<bool>.from(game.held);
     final first = !game.hasRolled;
+    Sound.play(Sfx.dice);
     setState(() {
       game.roll();
       _spin(heldBefore, first);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'connect_four_logic.dart';
 
@@ -60,6 +61,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
       case 'drop':
         if (game.currentPlayer != myPlayer) {
           setState(() => game.drop(m['col'] as int));
+          Sound.play(Sfx.place);
         }
       case 'rematch':
         _reset(send: false);
@@ -81,6 +83,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
   void _tap(int col) {
     if (!_myTurn || !game.canDrop(col)) return;
     setState(() => game.drop(col));
+    Sound.play(Sfx.place);
     widget.setup.send({'t': 'drop', 'col': col});
     _maybeAi();
   }
@@ -97,6 +100,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     final col = ConnectFourAi().bestMove(game);
     setState(() {
       game.drop(col);
+      Sound.play(Sfx.place);
       _aiThinking = false;
     });
   }

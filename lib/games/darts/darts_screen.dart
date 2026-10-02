@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
 import 'motion_throw.dart';
@@ -263,6 +264,7 @@ class _DartsScreenState extends State<DartsScreen>
     final player = g.current;
     final hit = Board.score(landing.dx, landing.dy);
     HapticFeedback.lightImpact();
+    Sound.play(hit.isMiss ? Sfx.click : Sfx.thud);
     setState(() {
       if (_shownFor != player || _shown.length >= 3) {
         _shown.clear();

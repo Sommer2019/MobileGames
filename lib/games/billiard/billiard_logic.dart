@@ -57,6 +57,20 @@ class BilliardGame {
   /// Whether the cue ball was pocketed during the last shot.
   bool scratched = false;
 
+  /// Strongest ball/ball and cushion impact (speed) and pocketed balls
+  /// since the last [takeSounds], for the sound effects.
+  double ballImpact = 0, cushionImpact = 0;
+  int pocketedSound = 0;
+
+  /// Returns and clears the collected impacts.
+  (double, double, int) takeSounds() {
+    final r = (ballImpact, cushionImpact, pocketedSound);
+    ballImpact = 0;
+    cushionImpact = 0;
+    pocketedSound = 0;
+    return r;
+  }
+
   Ball get cue => balls.first;
   bool get moving => balls.any((b) => !b.pocketed && b.moving);
   int get remaining => balls.where((b) => b.number != 0 && !b.pocketed).length;
@@ -165,6 +179,7 @@ class BilliardGame {
           b.pocketed = true;
           b.vx = 0;
           b.vy = 0;
+          pocketedSound++;
           if (b.number == 0) {
             fouls++;
             scratched = true;
@@ -191,6 +206,10 @@ class BilliardGame {
         b.vy = -b.vy.abs() * cushion;
       }
       final bounced = b.vx != inX || b.vy != inY;
+      if (bounced) {
+        final dv = max((b.vx - inX).abs(), (b.vy - inY).abs());
+        cushionImpact = max(cushionImpact, dv);
+      }
       if (bounced && b.number == 0 && _spinX != 0) _sideSpin(b, inX, inY);
     }
   }
@@ -231,6 +250,7 @@ class BilliardGame {
     // Elastic collision of equal masses: exchange the normal components.
     final rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
     if (rel <= 0) return;
+    ballImpact = max(ballImpact, rel);
     const e = 0.95;
     final impulse = rel * (1 + e) / 2;
     final cueBall = a.number == 0 ? a : (b.number == 0 ? b : null);

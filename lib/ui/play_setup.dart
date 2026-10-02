@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/sound.dart';
 import '../core/net/room.dart';
 import 'chat_view.dart';
 
@@ -106,6 +107,11 @@ class _GameOverActionsState extends State<GameOverActions> {
   @override
   void initState() {
     super.initState();
+    final setup = widget.setup;
+    final won =
+        setup.kind == PlayKind.local ||
+        widget.winnerSeats.contains(setup.mySeat);
+    Sound.play(won ? Sfx.win : Sfx.lose);
     final report = widget.setup.onFinished;
     if (report != null) {
       final winners = widget.winnerSeats;

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'mahjong_logic.dart';
 
@@ -60,6 +61,7 @@ class _MahjongScreenState extends State<MahjongScreen> {
       }
       if (g.match(s, t)) {
         selected = null;
+        Sound.play(g.won ? Sfx.win : Sfx.click);
         if (g.won) {
           _clock.stop();
           Leaderboard.submit(

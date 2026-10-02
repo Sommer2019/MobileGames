@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'card_cascade.dart';
 import 'klondike_logic.dart';
@@ -144,6 +145,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     await Leaderboard.submit('klondike', total);
     if (!mounted) return;
     setState(() {});
+    Sound.play(Sfx.win);
     await _playCascade();
     if (!mounted) return;
     await showDialog<void>(
@@ -181,11 +183,13 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
       return;
     }
     setState(() => game.move(from, index, to));
+    Sound.play(Sfx.card);
     _after();
   }
 
   void _drop(_Drag d, PileRef to) {
     setState(() => game.move(d.from, d.index, to));
+    Sound.play(Sfx.card);
     _after();
   }
 
@@ -193,6 +197,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
     setState(() => _autoRunning = true);
     while (mounted && game.autoStep()) {
       setState(() {});
+      Sound.play(Sfx.card);
       await Future<void>.delayed(const Duration(milliseconds: 60));
     }
     if (mounted) setState(() => _autoRunning = false);
@@ -296,7 +301,12 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
         children: [
           GestureDetector(
             key: const ValueKey('stock'),
-            onTap: _autoRunning ? null : () => setState(game.draw),
+            onTap: _autoRunning
+                ? null
+                : () {
+                    setState(game.draw);
+                    Sound.play(Sfx.card);
+                  },
             child: game.stock.isEmpty
                 ? _emptySlot(w, h, Icons.refresh)
                 : _CardView(card: game.stock.last, width: w),

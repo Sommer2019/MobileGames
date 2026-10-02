@@ -9,6 +9,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/sound.dart';
 import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'konami.dart';
@@ -171,8 +172,17 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     if (dt <= 0) return;
     final before = game.state;
     game.step(min(dt, 0.05), tiltX, tiltY);
+    final hit = game.takeImpact();
+    if (hit > 0.08) {
+      Sound.play(
+        Sfx.thud,
+        volume: min(1, hit / 1.2),
+        minGap: const Duration(milliseconds: 80),
+      );
+    }
     if (before == BallState.rolling && game.state != BallState.rolling) {
       HapticFeedback.mediumImpact();
+      Sound.play(game.state == BallState.fell ? Sfx.fall : Sfx.win);
       if (game.state == BallState.fell) {
         falls++;
         Future<void>.delayed(const Duration(milliseconds: 700), () {

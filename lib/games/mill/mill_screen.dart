@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'mill_logic.dart';
 
@@ -62,6 +63,7 @@ class _MillScreenState extends State<MillScreen> {
       return;
     }
     if (game.turn == me) return;
+    Sound.play(Sfx.place);
     setState(() {
       switch (m['t']) {
         case 'place':
@@ -94,6 +96,7 @@ class _MillScreenState extends State<MillScreen> {
     }
     if (game.phaseOf(game.turn) == MillPhase.placing) {
       if (game.place(p)) {
+        Sound.play(Sfx.place);
         widget.setup.send({'t': 'place', 'p': p});
         _after();
       }
@@ -102,6 +105,7 @@ class _MillScreenState extends State<MillScreen> {
     final s = selected;
     if (s != null && game.targets(s).contains(p)) {
       game.move(s, p);
+      Sound.play(Sfx.place);
       widget.setup.send({'t': 'move', 'from': s, 'to': p});
       _after();
       return;
@@ -124,6 +128,7 @@ class _MillScreenState extends State<MillScreen> {
       if (!mounted) return;
       final a = game.aiAction();
       if (a == null) break;
+      Sound.play(Sfx.place);
       setState(() {
         switch (a.$1) {
           case 'place':

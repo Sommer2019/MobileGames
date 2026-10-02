@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/sound.dart';
 import '../../core/sphere.dart';
 import 'billiard_logic.dart';
 
@@ -18,6 +19,17 @@ const _ballColors = {
 
 Color ballColor(int n) =>
     n == 0 ? Colors.white : _ballColors[n > 8 ? n - 8 : n]!;
+
+/// Plays the clicks, cushion knocks and pocket sounds collected by [game]
+/// since the last call.
+void playTableSounds(BilliardGame game) {
+  final (ball, cushion, pockets) = game.takeSounds();
+  if (ball > 0.05) Sound.play(Sfx.clack, volume: min(1, ball / 2.5 + 0.15));
+  if (cushion > 0.2) {
+    Sound.play(Sfx.thud, volume: min(0.7, cushion / 4), minGap: Duration.zero);
+  }
+  if (pockets > 0) Sound.play(Sfx.pocket);
+}
 
 /// Rail width; wide enough to hold the pockets completely.
 const double _rail = 0.08;

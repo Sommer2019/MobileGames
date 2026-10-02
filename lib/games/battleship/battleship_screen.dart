@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
@@ -165,6 +166,7 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
         !enemy.canShoot(x, y)) {
       return;
     }
+    Sound.play(Sfx.thud);
     if (widget.setup.kind == PlayKind.ai) {
       final o = aiFleet!.receiveShot(x, y);
       setState(() {

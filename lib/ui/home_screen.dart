@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/services.dart';
+import '../core/sound.dart';
 import '../games/registry.dart';
 import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
@@ -20,6 +21,15 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mobile Games'),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: Sound.enabled,
+            builder: (context, on, _) => IconButton(
+              key: const ValueKey('soundToggle'),
+              tooltip: on ? 'Ton aus' : 'Ton an',
+              icon: Icon(on ? Icons.volume_up : Icons.volume_off),
+              onPressed: () => Sound.setEnabled(!on),
+            ),
+          ),
           IconButton(
             tooltip: 'Bestenliste',
             icon: const Icon(Icons.leaderboard),

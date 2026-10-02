@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
@@ -52,6 +53,7 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
       return;
     }
     final o = fleets[1 - current].receiveShot(x, y);
+    Sound.play(o.result == ShotResult.miss ? Sfx.click : Sfx.thud);
     setState(() {
       targets[current].apply(x, y, o);
       lastEvent = switch (o.result) {

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'snake_logic.dart';
 
@@ -57,7 +58,10 @@ class _SnakeScreenState extends State<SnakeScreen>
       _acc -= interval;
       final before = game.score;
       game.step();
-      if (game.score > before) HapticFeedback.selectionClick();
+      if (game.score > before) {
+        HapticFeedback.selectionClick();
+        Sound.play(Sfx.eat);
+      }
       changed = true;
     }
     if (game.dead) _gameOver();
@@ -67,6 +71,7 @@ class _SnakeScreenState extends State<SnakeScreen>
   Future<void> _gameOver() async {
     running = false;
     HapticFeedback.heavyImpact();
+    Sound.play(Sfx.fall);
     if (game.score > 0) await Leaderboard.submit('snake', game.score);
     if (game.score > best) best = game.score;
     if (mounted) setState(() {});

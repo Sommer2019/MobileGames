@@ -8,6 +8,7 @@ import 'core/net/matchmaker.dart';
 import 'core/nostr/relay_pool.dart';
 import 'core/notifications.dart';
 import 'core/services.dart';
+import 'core/sound.dart';
 import 'games/registry.dart';
 import 'ui/friends_screen.dart';
 import 'ui/home_screen.dart';
@@ -16,6 +17,7 @@ import 'ui/lobby_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Services.init();
+  await Sound.load();
   runApp(const MobileGamesApp());
 }
 

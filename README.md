@@ -19,6 +19,8 @@ Dazu: 🏆 **Turniermodus** (mehrere Spiele × mehrere Runden gegen Freunde, Pun
 🏅 **Bestenliste** für die Einzelspieler-Spiele (Snake, Solitär, Mahjong, Kugellabyrinth,
 Kniffel allein, Darts allein, Billard allein): eigene Top 10, Freunde und weltweit.
 Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
+🔊 **Sounds** (Kugelklacken, Würfel, Karten, Spielsteine, Sieg …) – selbst erzeugt mit
+`tool/make_sounds.py`, abschaltbar oben auf der Startseite.
 
 ## Download
 

@@ -497,6 +497,15 @@ class LabyrinthGame {
   double x = 0, y = 0, vx = 0, vy = 0;
   BallState state = BallState.rolling;
 
+  /// Strongest wall hit (change of speed) since the last [takeImpact].
+  double impact = 0;
+
+  double takeImpact() {
+    final i = impact;
+    impact = 0;
+    return i;
+  }
+
   /// How the ball has turned (only for drawing).
   final SphereOrientation orientation = SphereOrientation(axisAngle: 0.6);
   double elapsed = 0;
@@ -527,9 +536,11 @@ class LabyrinthGame {
       x += vx * h;
       y += vy * h;
       orientation.roll(vx * h, vy * h, radius);
+      final bx = vx, by = vy;
       for (final w in level.walls) {
         _collide(w);
       }
+      impact = max(impact, max((vx - bx).abs(), (vy - by).abs()));
       _checkHoles();
       if (state == BallState.rolling &&
           (x < 0 || y < 0 || x > boardWidth || y > boardHeight)) {
