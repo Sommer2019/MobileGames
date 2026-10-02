@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/labyrinth/konami.dart';
-import 'package:mobile_games/games/labyrinth/labyrinth_logic.dart';
 import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -62,22 +61,6 @@ void main() {
       k.add(KonamiInput.plugIn, now: t0.add(const Duration(minutes: 5))),
       isFalse,
     );
-  });
-
-  test('ghost ball rolls over holes and stays on borderless boards', () {
-    final level = labyrinthLevels.firstWhere((l) => l.holes.isNotEmpty);
-    final h = level.holes.first;
-    final g = LabyrinthGame(level)..ghost = true;
-    g.x = h.x;
-    g.y = h.y;
-    g.step(1 / 60, 0, 0);
-    expect(g.state, BallState.rolling);
-    g
-      ..x = 0.001
-      ..vx = -2;
-    g.step(1 / 60, -1, 0);
-    expect(g.state, BallState.rolling);
-    expect(g.x, greaterThanOrEqualTo(LabyrinthGame.radius));
   });
 
   testWidgets('swipes, volume keys and the charger unlock', (tester) async {

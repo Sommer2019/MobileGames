@@ -24,7 +24,7 @@ class LabyrinthLevelsScreen extends StatefulWidget {
 class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
   Map<int, double> best = {};
 
-  /// Secret cheat (Konami code): all levels, harmless holes.
+  /// Secret cheat (Konami code): all levels unlocked.
   bool cheat = false;
 
   @override
@@ -58,21 +58,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
         title: const Text('Kugellabyrinth'),
         actions: const [LeaderboardButton(game: 'labyrinth')],
       ),
-      body: KonamiDetector(
-        onUnlocked: () {
-          _setCheat(!cheat);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                cheat
-                    ? '🎮 Cheat aktiv: alle Level frei, Löcher harmlos'
-                    : 'Cheat aus',
-              ),
-            ),
-          );
-        },
-        child: _list(),
-      ),
+      body: KonamiDetector(onUnlocked: () => _setCheat(!cheat), child: _list()),
     );
   }
 
@@ -86,10 +72,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
             child: SwitchListTile(
               key: const ValueKey('cheatSwitch'),
               title: const Text('🎮 Cheat aktiv'),
-              subtitle: const Text(
-                'Alle Level frei, nur das Zielloch zählt. '
-                'Zeiten werden nicht gespeichert.',
-              ),
+              subtitle: const Text('Alle Level freigeschaltet.'),
               value: cheat,
               onChanged: _setCheat,
             ),
@@ -119,8 +102,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        LabyrinthScreen(levelIndex: i, cheat: cheat),
+                    builder: (_) => LabyrinthScreen(levelIndex: i),
                   ),
                 );
                 _load();
@@ -133,15 +115,8 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
 }
 
 class LabyrinthScreen extends StatefulWidget {
-  const LabyrinthScreen({
-    super.key,
-    required this.levelIndex,
-    this.cheat = false,
-  });
+  const LabyrinthScreen({super.key, required this.levelIndex});
   final int levelIndex;
-
-  /// Holes don't swallow the ball; results are not saved.
-  final bool cheat;
 
   @override
   State<LabyrinthScreen> createState() => _LabyrinthScreenState();
@@ -150,8 +125,7 @@ class LabyrinthScreen extends StatefulWidget {
 class _LabyrinthScreenState extends State<LabyrinthScreen>
     with SingleTickerProviderStateMixin {
   late int levelIndex = widget.levelIndex;
-  late LabyrinthGame game = LabyrinthGame(labyrinthLevels[levelIndex])
-    ..ghost = widget.cheat;
+  late LabyrinthGame game = LabyrinthGame(labyrinthLevels[levelIndex]);
   late final Ticker _ticker;
   StreamSubscription<AccelerometerEvent>? _accel;
   Duration _last = Duration.zero;
@@ -212,19 +186,17 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   }
 
   Future<void> _won() async {
-    if (!widget.cheat) {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'labyrinth.best.$levelIndex';
-      final prev = prefs.getDouble(key);
-      if (prev == null || game.elapsed < prev) {
-        await prefs.setDouble(key, game.elapsed);
-      }
-      final solved = [
-        for (var i = 0; i < labyrinthLevels.length; i++)
-          if (prefs.getDouble('labyrinth.best.$i') != null) i,
-      ].length;
-      await Leaderboard.submit('labyrinth', solved);
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'labyrinth.best.$levelIndex';
+    final prev = prefs.getDouble(key);
+    if (prev == null || game.elapsed < prev) {
+      await prefs.setDouble(key, game.elapsed);
     }
+    final solved = [
+      for (var i = 0; i < labyrinthLevels.length; i++)
+        if (prefs.getDouble('labyrinth.best.$i') != null) i,
+    ].length;
+    await Leaderboard.submit('labyrinth', solved);
     if (!mounted) return;
     final hasNext = levelIndex + 1 < labyrinthLevels.length;
     await showDialog<void>(
@@ -252,8 +224,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
                 Navigator.pop(c);
                 setState(() {
                   levelIndex++;
-                  game = LabyrinthGame(labyrinthLevels[levelIndex])
-                    ..ghost = widget.cheat;
+                  game = LabyrinthGame(labyrinthLevels[levelIndex]);
                   falls = 0;
                 });
               },
