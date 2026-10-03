@@ -2,13 +2,25 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
+/// 1–6 dice as a fixed choice: a picker instead of a number field, so no
+/// invalid count can be entered.
+enum DiceCount: Int, AppEnum {
+  case one = 1, two, three, four, five, six
+
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Anzahl Würfel"
+  static var caseDisplayRepresentations: [DiceCount: DisplayRepresentation] = [
+    .one: "1 Würfel", .two: "2 Würfel", .three: "3 Würfel",
+    .four: "4 Würfel", .five: "5 Würfel", .six: "6 Würfel",
+  ]
+}
+
 /// Number of dice, set via "Edit widget".
 struct DiceConfig: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "Würfel"
   static var description = IntentDescription("Wie viele Würfel sollen es sein?")
 
-  @Parameter(title: "Anzahl Würfel", default: 2, inclusiveRange: (1, 6))
-  var count: Int
+  @Parameter(title: "Anzahl Würfel", default: .two)
+  var count: DiceCount
 }
 
 /// Last roll, kept between taps.
@@ -58,7 +70,7 @@ struct DiceEntry: TimelineEntry {
 struct DiceProvider: AppIntentTimelineProvider {
   func entry(_ config: DiceConfig) -> DiceEntry {
     DiceEntry(
-      date: Date(), count: max(1, min(6, config.count)), values: DiceStore.values,
+      date: Date(), count: config.count.rawValue, values: DiceStore.values,
       rolled: DiceStore.rolled, rollId: DiceStore.rollId)
   }
 
