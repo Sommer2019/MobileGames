@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/leaderboard.dart';
-import '../core/secrets.dart';
 import '../core/services.dart';
 
 /// Opens the leaderboard, preselecting the first board of [game].
@@ -35,15 +34,9 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  /// Secret boards (easy mode) only after the Konami code.
-  List<ScoreBoard> get _boards => [
-    for (final b in boards)
-      if (!b.secret || Secrets.I.unlocked) b,
-  ];
-
-  late ScoreBoard board = _boards.firstWhere(
+  late ScoreBoard board = boards.firstWhere(
     (b) => b.game == widget.game,
-    orElse: () => _boards.first,
+    orElse: () => boards.first,
   );
   List<ScoreEntry> mine = [];
   List<RemoteScores>? everyone;
@@ -126,7 +119,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     children: [
-                      for (final b in _boards)
+                      for (final b in boards)
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,

@@ -21,11 +21,7 @@ class ScoreBoard {
     this.max = 1 << 30,
     this.legacyKey,
     this.time = false,
-    this.secret = false,
   });
-
-  /// Only shown after the Konami code was found.
-  final bool secret;
 
   final String id;
 
@@ -98,15 +94,6 @@ const boards = [
     'Level',
     min: 1,
     max: 200,
-  ),
-  ScoreBoard(
-    'labyrinth.easy',
-    'labyrinth',
-    'Kugellabyrinth Easy',
-    'Level',
-    min: 1,
-    max: 200,
-    secret: true,
   ),
   ScoreBoard(
     'darts.x501',
