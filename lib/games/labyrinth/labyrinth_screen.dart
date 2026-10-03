@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/konami.dart';
 import '../../core/leaderboard.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -44,11 +43,6 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
 
   void _changed() => setState(() {});
 
-  Future<void> _konami() async {
-    await Secrets.I.unlock();
-    await Secrets.I.set(Secret.labyrinthEasy, !easy);
-  }
-
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -67,7 +61,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
         title: const Text('Kugellabyrinth'),
         actions: const [LeaderboardButton(game: 'labyrinth')],
       ),
-      body: KonamiDetector(onUnlocked: _konami, child: _list()),
+      body: _list(),
     );
   }
 
