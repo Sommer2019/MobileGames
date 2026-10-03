@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'moderation.dart';
 import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/keys.dart';
@@ -170,7 +171,8 @@ class ChatService extends ChangeNotifier {
   }
 
   void _onEvent(NostrEvent e) {
-    if (e.pubkey == keys.publicKey || !_seenIds.add(e.id)) return;
+    if (e.pubkey == keys.publicKey || Moderation.I.isBlocked(e.pubkey)) return;
+    if (!_seenIds.add(e.id)) return;
     String text;
     String? name;
     try {

@@ -118,8 +118,8 @@ class _NotificationSettingsCardState extends State<NotificationSettingsCard> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
-                _isIos
-                    ? 'Hinweis: iOS hält Apps im Hintergrund nur kurz aktiv. '
+                _isIos || !bg.supported
+                    ? 'Hinweis: Apps im Hintergrund bleiben nur kurz aktiv. '
                           'Ohne eigenen Push-Server kommen Benachrichtigungen '
                           'daher nur, solange die App geöffnet ist oder gerade '
                           'erst verlassen wurde. Nachrichten werden beim nächsten '

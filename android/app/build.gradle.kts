@@ -13,6 +13,10 @@ val keystoreProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// Play Store build: `flutter build appbundle --android-project-arg=playStore=true`
+// (together with --dart-define=PLAY_STORE=true). See src/play/AndroidManifest.xml.
+val playStore = project.findProperty("playStore") == "true"
+
 android {
     namespace = "de.sommer2019.mobile_games"
     compileSdk = flutter.compileSdkVersion
@@ -49,6 +53,10 @@ android {
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
+    }
+
+    if (playStore) {
+        sourceSets.getByName("release").manifest.srcFile("src/play/AndroidManifest.xml")
     }
 
     buildTypes {

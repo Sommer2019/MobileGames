@@ -8,6 +8,7 @@ import 'core/chat.dart';
 import 'core/home_widgets.dart';
 import 'core/net/matchmaker.dart';
 import 'core/nostr/relay_pool.dart';
+import 'core/moderation.dart';
 import 'core/notifications.dart';
 import 'core/saved_games.dart';
 import 'core/secrets.dart';
@@ -181,6 +182,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     final ctx = _navigator.currentContext;
     final game = gameById(invite.gameId);
     if (ctx == null || game == null) return;
+    if (Moderation.I.isBlocked(invite.from)) return;
     final mm = Services.I.matchmaker;
     if (!Notifications.I.inForeground) {
       Notifications.I.show(

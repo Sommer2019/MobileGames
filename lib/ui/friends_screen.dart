@@ -6,6 +6,7 @@ import '../core/services.dart';
 import 'chat_view.dart';
 import 'connection_screen.dart';
 import 'friend_code_widgets.dart';
+import 'moderation_ui.dart';
 import 'notification_settings.dart';
 import 'widgets_sheet.dart';
 
@@ -274,6 +275,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
               if (!widget.pickMode) const NotificationSettingsCard(),
+              if (!widget.pickMode) const BlockedPlayersCard(),
               if (!widget.pickMode)
                 Card(
                   child: ListTile(
@@ -499,6 +501,49 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
               ),
           ],
         ),
+        actions: [
+          PopupMenuButton<String>(
+            key: const ValueKey('chatMenu'),
+            onSelected: (v) async {
+              if (v == 'report') {
+                await reportPlayer(
+                  context,
+                  name: name,
+                  pubkey: widget.pubkey,
+                  messages: [
+                    for (final m in services.chat.messages(widget.pubkey))
+                      if (!m.mine) '${m.time.toIso8601String()} ${m.text}',
+                  ].reversed.take(20).toList().reversed.toList(),
+                );
+              } else if (v == 'block') {
+                final nav = Navigator.of(context);
+                if (await blockPlayer(
+                  context,
+                  pubkey: widget.pubkey,
+                  name: name,
+                )) {
+                  nav.pop();
+                }
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  leading: Icon(Icons.flag_outlined),
+                  title: Text('Melden'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'block',
+                child: ListTile(
+                  leading: Icon(Icons.block),
+                  title: Text('Blockieren'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/leaderboard.dart';
+import '../core/moderation.dart';
 import '../core/sound.dart';
 import '../core/net/room.dart';
 import 'chat_view.dart';
+import 'moderation_ui.dart';
 
 enum PlayKind { local, ai, online }
 
@@ -257,6 +259,37 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
     super.dispose();
   }
 
+  /// Seats whose chat lines are hidden in this game.
+  final Set<int> _muted = {};
+
+  bool _hidden(GameRoom r, int seat) {
+    if (_muted.contains(seat)) return true;
+    final key = r.pubkeyOf(seat);
+    return key != null && Moderation.I.isBlocked(key);
+  }
+
+  Future<void> _moderate(GameRoom r, int seat, String action) async {
+    final name = r.names[seat];
+    final key = r.pubkeyOf(seat);
+    if (action == 'report') {
+      await reportPlayer(
+        context,
+        name: name,
+        pubkey: key,
+        messages: [
+          for (final l in r.chat)
+            if (l.seat == seat) '${l.time.toIso8601String()} ${l.text}',
+        ],
+      );
+    } else if (action == 'block' && key != null) {
+      if (await blockPlayer(context, pubkey: key, name: name)) {
+        setState(() => _muted.add(seat));
+      }
+    } else if (action == 'mute') {
+      setState(() => _muted.add(seat));
+    }
+  }
+
   Future<void> _openChat() async {
     final r = _room;
     if (r == null) return;
@@ -274,23 +307,59 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
           height: MediaQuery.of(c).size.height * 0.6,
           child: ListenableBuilder(
             listenable: r,
-            builder: (context, _) => ChatView(
-              lines: [
-                for (final l in r.chat)
-                  ChatEntry(
-                    mine: l.seat == r.mySeat,
-                    author: l.name,
-                    text: l.text,
-                    time: l.time,
+            builder: (context, _) => Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: PopupMenuButton<(int, String)>(
+                    key: const ValueKey('roomChatMenu'),
+                    tooltip: 'Melden / Blockieren',
+                    icon: const Icon(Icons.more_horiz),
+                    onSelected: (v) => _moderate(r, v.$1, v.$2),
+                    itemBuilder: (_) => [
+                      for (var seat = 0; seat < r.size; seat++)
+                        if (seat != r.mySeat) ...[
+                          PopupMenuItem(
+                            value: (seat, 'report'),
+                            child: Text('${r.names[seat]} melden'),
+                          ),
+                          PopupMenuItem(
+                            value: (
+                              seat,
+                              r.pubkeyOf(seat) == null ? 'mute' : 'block',
+                            ),
+                            child: Text(
+                              r.pubkeyOf(seat) == null
+                                  ? '${r.names[seat]} stummschalten'
+                                  : '${r.names[seat]} blockieren',
+                            ),
+                          ),
+                        ],
+                    ],
                   ),
-              ],
-              onSend: r.sendChat,
-              quickReplies: const [
-                'Gutes Spiel!',
-                'Nochmal?',
-                'Glückwunsch! 🎉',
-                'Oh nein 😅',
-                'Moment …',
+                ),
+                Expanded(
+                  child: ChatView(
+                    lines: [
+                      for (final l in r.chat)
+                        if (!_hidden(r, l.seat))
+                          ChatEntry(
+                            mine: l.seat == r.mySeat,
+                            author: l.name,
+                            text: l.text,
+                            time: l.time,
+                          ),
+                    ],
+                    onSend: r.sendChat,
+                    quickReplies: const [
+                      'Gutes Spiel!',
+                      'Nochmal?',
+                      'Glückwunsch! 🎉',
+                      'Oh nein 😅',
+                      'Moment …',
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

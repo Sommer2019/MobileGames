@@ -5,6 +5,7 @@ import 'chat.dart';
 import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'leaderboard.dart';
+import 'moderation.dart';
 import 'profile_backup.dart';
 import 'secrets.dart';
 import 'net/game_session.dart';
@@ -57,6 +58,7 @@ class Services {
   static set instance(Services s) => _instance = s;
 
   static Future<Services> init() async {
+    await Moderation.I.load();
     final account = await Account.load();
     final s = Services(account: account, client: RelayPool());
     _instance = s;

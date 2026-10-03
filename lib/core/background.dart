@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'build_info.dart';
+
 @pragma('vm:entry-point')
 void _startKeepAlive() {
   FlutterForegroundTask.setTaskHandler(_KeepAliveHandler());
@@ -34,7 +36,7 @@ class BackgroundService extends ChangeNotifier {
   bool _enabled = true;
   bool _initialised = false;
 
-  bool get supported => !kIsWeb && Platform.isAndroid;
+  bool get supported => !kIsWeb && Platform.isAndroid && !playStoreBuild;
   bool get enabled => supported && _enabled;
 
   Future<void> init() async {

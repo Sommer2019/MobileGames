@@ -100,6 +100,17 @@ class GameRoom extends ChangeNotifier {
 
   String nameOf(int seat) => seat == mySeat ? 'Du' : names[seat];
 
+  /// Public key of the player on [seat] if this device knows it: the host
+  /// knows all guests, a guest only the host.
+  String? pubkeyOf(int seat) {
+    if (seat == mySeat) return null;
+    if (isHost) {
+      final i = seat - 1;
+      return i >= 0 && i < _links.length ? _links[i].match.opponent : null;
+    }
+    return seat == 0 && _links.isNotEmpty ? _links[0].match.opponent : null;
+  }
+
   void _attach() {
     for (var i = 0; i < _links.length; i++) {
       final link = _links[i];

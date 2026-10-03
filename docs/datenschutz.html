@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Games – Datenschutzerklärung</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; line-height: 1.55; max-width: 760px;
+         margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.2rem; margin-top: 2rem; }
+  code { font-size: .95em; }
+</style>
+</head>
+<body>
+<h1>Datenschutzerklärung „Mobile Games“</h1>
+<p>Stand: Oktober 2026</p>
+
+<h2>Verantwortlich</h2>
+<p>
+  <!-- TODO: Name und Kontaktadresse eintragen -->
+  [Dein Name]<br>
+  E-Mail: [deine Kontaktadresse]
+</p>
+
+<h2>Kurz gesagt</h2>
+<ul>
+  <li>Kein Konto mit E-Mail oder Telefonnummer, keine Werbung, keine Analyse- oder Tracking-Dienste.</li>
+  <li>Es gibt keinen eigenen Server. Spiele, Bestenlisten und Einstellungen liegen auf deinem Gerät.</li>
+  <li>Für Online-Funktionen nutzt die App öffentliche <a href="https://nostr.com">Nostr</a>-Relays
+      und direkte Verbindungen zwischen den Geräten der Mitspieler.</li>
+</ul>
+
+<h2>Welche Daten die App verarbeitet</h2>
+
+<h3>Auf deinem Gerät</h3>
+<ul>
+  <li><strong>Spielerkennung:</strong> Die App erzeugt ein Schlüsselpaar. Der öffentliche Schlüssel ist
+      deine Spieler-ID bzw. dein Freundescode.</li>
+  <li><strong>Wiederherstellung nach Neuinstallation:</strong>
+      <ul>
+        <li>Android: Der Schlüssel wird aus der Android-Geräte-ID der App (<code>ANDROID_ID</code>)
+            abgeleitet. Die Geräte-ID selbst verlässt das Gerät nicht.</li>
+        <li>iOS: Der Schlüssel wird im Schlüsselbund (Keychain) des Geräts gespeichert.</li>
+      </ul></li>
+  <li>Spielername, Freundesliste, Chatverläufe, Spielstände, Bestwerte und Einstellungen.</li>
+  <li><strong>Kamera:</strong> Sie wird nur zum Scannen von Freundes-QR-Codes genutzt.
+      Bilder werden weder gespeichert noch übertragen.</li>
+</ul>
+
+<h3>Über öffentliche Nostr-Relays</h3>
+<p>Die App verbindet sich mit diesen Relays:</p>
+<ul>
+  <li><code>relay.damus.io</code></li>
+  <li><code>nos.lol</code></li>
+  <li><code>relay.primal.net</code></li>
+  <li><code>nostr.mom</code></li>
+  <li><code>relay.nostr.net</code></li>
+</ul>
+<p>Diese Relays werden von Dritten betrieben. Sie sehen deine IP-Adresse und speichern die
+   Nachrichten, die über sie laufen, je nach Betreiber dauerhaft.</p>
+<p><strong>Öffentlich und mit deiner Spieler-ID verknüpft</strong> sind:</p>
+<ul>
+  <li>Spielername</li>
+  <li>Online-Status</li>
+  <li>Freundescode</li>
+  <li>Bestwerte für die Bestenliste</li>
+  <li>Spielanfragen für zufällige Gegner</li>
+</ul>
+<p><strong>Verschlüsselt</strong> (NIP-04, nur Absender und Empfänger können sie lesen) sind:</p>
+<ul>
+  <li>Chatnachrichten</li>
+  <li>Freundschaftsanfragen</li>
+  <li>Einladungen</li>
+  <li>Spielzüge</li>
+  <li>die Sicherung deines Profils (Name und Freundesliste)</li>
+</ul>
+<p>Wer mit wem schreibt, also Absender, Empfänger und Zeitpunkt, ist für Relay-Betreiber sichtbar.</p>
+
+<h3>Direkte Verbindungen beim Spielen</h3>
+<p>Für schnelle Online-Spiele verbinden sich die Geräte der Mitspieler per WebRTC direkt miteinander.
+   Dabei sehen die Mitspieler deine IP-Adresse.</p>
+<p>Zum Herstellen der Verbindung werden öffentliche STUN-Server angefragt:</p>
+<ul>
+  <li>Google: <code>stun.l.google.com</code></li>
+  <li>Cloudflare: <code>stun.cloudflare.com</code></li>
+</ul>
+<p>Diese Server sehen ebenfalls deine IP-Adresse.</p>
+
+<h3>Melden von Spielern</h3>
+<p>Wenn du einen Spieler meldest, öffnet die App dein E-Mail-Programm oder einen GitHub-Issue.
+   Darin stehen der Name und die ID des Gemeldeten, die gemeldeten Nachrichten und dein optionaler Text.
+   Abgeschickt wird erst, wenn du es selbst bestätigst.</p>
+
+<h2>Zweck und Rechtsgrundlage</h2>
+<p>Die Daten werden nur verarbeitet, um die Spiele und Online-Funktionen bereitzustellen,
+   die du nutzt (Art. 6 Abs. 1 lit. b DSGVO). Meldungen dienen dem Schutz der Mitspieler
+   (Art. 6 Abs. 1 lit. f DSGVO).</p>
+
+<h2>Löschen</h2>
+<ul>
+  <li>Wenn du die App deinstallierst, werden alle Daten auf dem Gerät gelöscht.
+      Ausnahme: der Schlüssel im iOS-Schlüsselbund.</li>
+  <li>Was bereits auf öffentlichen Relays liegt, kann der Entwickler nicht löschen, weil diese
+      Server Dritten gehören.</li>
+  <li>Unverschlüsselte öffentliche Einträge wie Online-Status und Spielanfragen sind kurzlebig.
+      Bestenliste und Freundescode werden ersetzt, sobald du sie änderst.</li>
+</ul>
+
+<h2>Kinder</h2>
+<p>Die App richtet sich nicht gezielt an Kinder unter 13 Jahren.</p>
+<p>Nachrichten schicken können dir:</p>
+<ul>
+  <li>Mitspieler in Online-Spielen</li>
+  <li>alle, die deinen Freundescode kennen</li>
+</ul>
+<p>Spieler lassen sich blockieren und melden.</p>
+
+<h2>Deine Rechte</h2>
+<p>Du hast nach der DSGVO das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung,
+   Datenübertragbarkeit und Widerspruch sowie auf Beschwerde bei einer Datenschutz-Aufsichtsbehörde.
+   Da der Entwickler keine Daten auf eigenen Servern speichert, liegen fast alle Daten nur auf
+   deinem Gerät.</p>
+</body>
+</html>

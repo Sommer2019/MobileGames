@@ -69,13 +69,27 @@ jobs:
           fi
       - run: flutter pub get
       - name: Build APK
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: >-
+          flutter build apk --release --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}.apk
+      # Google Play: app bundle without the background service
+      # (see android/app/src/play/AndroidManifest.xml).
+      - name: Build Play Store bundle
+        run: >-
+          flutter build appbundle --release --build-number=${{ github.run_number }}
+          --dart-define=PLAY_STORE=true
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --android-project-arg=playStore=true
+      - name: Rename bundle
+        run: mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: MobileGames-android-apk
-          path: build/app/outputs/flutter-apk/MobileGames-*.apk
+          name: MobileGames-android
+          path: |
+            build/app/outputs/flutter-apk/MobileGames-*.apk
+            build/app/outputs/flutter-apk/MobileGames-*.aab
 
   ios:
     name: iOS (unsigned)
@@ -90,7 +104,9 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build iOS app without code signing
-        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+        run: >-
+          flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
@@ -128,6 +144,10 @@ jobs:
             **iPhone & iPad (iOS/iPadOS):** `MobileGames-${{ github.run_number }}-iOS-iPadOS-unsigned.ipa` ist eine
             universelle, aber **unsignierte** App. Sie muss vor der Installation signiert werden, z. B. mit
             AltStore, Sideloadly oder einem Apple-Developer-Account.
+
+            **Google Play:** `MobileGames-${{ github.run_number }}-PlayStore.aab` ist das App-Bundle zum
+            Hochladen in die Play Console (nicht direkt installierbar).
           files: |
             dist/*.apk
+            dist/*.aab
             dist/*.ipa
