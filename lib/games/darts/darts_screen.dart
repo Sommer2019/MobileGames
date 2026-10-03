@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
@@ -23,7 +24,7 @@ class DartsScreen extends StatefulWidget {
 }
 
 class _DartsScreenState extends State<DartsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SavedGameState {
   DartsGame? game;
   DartsMode mode = DartsMode.x501;
   bool doubleOut = true;
@@ -59,6 +60,26 @@ class _DartsScreenState extends State<DartsScreen>
       (widget.setup.mySeat - round % players + players) % players;
 
   bool get _waitingForConfig => game == null && !widget.setup.isHost;
+
+  @override
+  String? get saveKey => widget.setup.saveKey('darts');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    final g = game;
+    if (g == null || g.isOver || g.isFresh) return null;
+    return {'round': round, 'game': g.toJson()};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    final g = DartsGame.fromJson(data['game'] as Map<String, dynamic>);
+    if (g.players != players) throw const FormatException('players');
+    game = g;
+    mode = g.mode;
+    doubleOut = g.doubleOut;
+    round = data['round'] as int;
+  }
 
   @override
   void initState() {
@@ -333,6 +354,10 @@ class _DartsScreenState extends State<DartsScreen>
     return OnlineGameFrame(
       setup: widget.setup,
       title: 'Darts',
+      actions: [
+        if (saveKey != null && g != null)
+          RestartButton(onRestart: () => setState(() => game = null)),
+      ],
       child: g == null
           ? _setupPanel()
           : LayoutBuilder(

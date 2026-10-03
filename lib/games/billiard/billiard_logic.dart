@@ -77,6 +77,34 @@ class BilliardGame {
   bool get won => remaining == 0;
   int get score => shots + fouls;
 
+  /// The balls at rest and the counters (for saving the game).
+  Map<String, dynamic> toJson() => {
+    'balls': [
+      for (final b in balls) [b.number, b.x, b.y, if (b.pocketed) 1],
+    ],
+    'shots': shots,
+    'fouls': fouls,
+    'cueInHand': cueInHand,
+  };
+
+  /// Puts the balls as in a saved game (see [toJson]).
+  void load(Map<String, dynamic> j) {
+    final list = (j['balls'] as List).cast<List<dynamic>>();
+    if (list.isEmpty || list.first[0] != 0) {
+      throw const FormatException('no cue ball');
+    }
+    balls
+      ..clear()
+      ..addAll([
+        for (final b in list)
+          Ball(b[0] as int, (b[1] as num).toDouble(), (b[2] as num).toDouble())
+            ..pocketed = b.length > 3,
+      ]);
+    shots = j['shots'] as int;
+    fouls = j['fouls'] as int;
+    cueInHand = j['cueInHand'] as bool;
+  }
+
   void rack() {
     balls
       ..clear()
@@ -414,6 +442,27 @@ BallGroup? groupOf(int n) => n >= 1 && n <= 7
 /// ball or a wrong ball first) pass the turn. Pocketing the 8 wins only
 /// after all own balls are gone and without a foul, otherwise it loses.
 class EightBallRules {
+  EightBallRules();
+
+  factory EightBallRules.fromJson(Map<String, dynamic> j) {
+    final r = EightBallRules()
+      ..current = j['current'] as int
+      ..lastEvent = j['event'] as String;
+    final g = j['groups'] as List;
+    for (var i = 0; i < 2; i++) {
+      r.groups[i] = g[i] == null
+          ? null
+          : BallGroup.values.byName(g[i] as String);
+    }
+    return r;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'current': current,
+    'event': lastEvent,
+    'groups': [for (final g in groups) g?.name],
+  };
+
   int current = 0;
   final List<BallGroup?> groups = [null, null];
   int? winner;
@@ -505,6 +554,17 @@ extension SoloModeLabel on SoloMode {
 /// Fouls (scratch, no ball touched, wrong ball first) cost a penalty point.
 class SoloRules {
   SoloRules(this.mode);
+
+  factory SoloRules.fromJson(Map<String, dynamic> j) =>
+      SoloRules(SoloMode.values.byName(j['mode'] as String))
+        ..penalties = j['penalties'] as int
+        ..lastEvent = j['event'] as String;
+
+  Map<String, dynamic> toJson() => {
+    'mode': mode.name,
+    'penalties': penalties,
+    'event': lastEvent,
+  };
 
   final SoloMode mode;
   bool lost = false;

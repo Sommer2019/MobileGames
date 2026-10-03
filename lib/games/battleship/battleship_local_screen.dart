@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
@@ -16,7 +17,8 @@ class BattleshipLocalScreen extends StatefulWidget {
   State<BattleshipLocalScreen> createState() => _BattleshipLocalScreenState();
 }
 
-class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
+class _BattleshipLocalScreenState extends State<BattleshipLocalScreen>
+    with SavedGameState {
   final fleets = [FleetBoard.random(), FleetBoard.random()];
   final targets = [TargetBoard(), TargetBoard()];
   int current = 0;
@@ -27,6 +29,45 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
   bool _turnOver = false;
 
   String _name(int p) => 'Spieler ${p + 1}';
+
+  @override
+  String get saveKey => 'battleship.local2';
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (placing || winner != null) return null;
+    return {
+      // A finished turn continues with the other player.
+      'current': _turnOver ? 1 - current : current,
+      'fleets': [for (final f in fleets) f.toJson()],
+      'targets': [for (final t in targets) t.toJson()],
+    };
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    final f = data['fleets'] as List, t = data['targets'] as List;
+    for (var i = 0; i < 2; i++) {
+      fleets[i] = FleetBoard.fromJson(f[i] as Map<String, dynamic>);
+      targets[i].load(t[i] as List);
+    }
+    current = data['current'] as int;
+    placing = false;
+    covered = true;
+  }
+
+  void _restart() => setState(() {
+    for (var i = 0; i < 2; i++) {
+      fleets[i] = FleetBoard.random();
+      targets[i] = TargetBoard();
+    }
+    current = 0;
+    placing = true;
+    covered = true;
+    winner = null;
+    lastEvent = null;
+    _turnOver = false;
+  });
 
   void _ready() => setState(() {
     covered = false;
@@ -78,7 +119,10 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Schiffe versenken – 2 Spieler')),
+      appBar: AppBar(
+        title: const Text('Schiffe versenken – 2 Spieler'),
+        actions: [if (!placing) RestartButton(onRestart: _restart)],
+      ),
       body: SafeArea(
         child: covered && winner == null
             ? PassDeviceCover(playerName: _name(current), onReady: _ready)

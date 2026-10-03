@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'mill_logic.dart';
@@ -34,7 +35,7 @@ class MillScreen extends StatefulWidget {
   State<MillScreen> createState() => _MillScreenState();
 }
 
-class _MillScreenState extends State<MillScreen> {
+class _MillScreenState extends State<MillScreen> with SavedGameState {
   MillGame game = MillGame();
   late int round = widget.setup.firstRound;
   int? selected;
@@ -43,6 +44,21 @@ class _MillScreenState extends State<MillScreen> {
 
   /// Player number (1 = white) of this device; swaps every round.
   int get me => (widget.setup.isHost == round.isEven) ? 1 : 2;
+
+  @override
+  String? get saveKey => widget.setup.saveKey('mill');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.isOver || game.isFresh) return null;
+    return {'round': round, 'game': game.toJson()};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = MillGame.fromJson(data['game'] as Map<String, dynamic>);
+    round = data['round'] as int;
+  }
 
   @override
   void initState() {
@@ -143,13 +159,14 @@ class _MillScreenState extends State<MillScreen> {
     if (mounted) setState(() => _aiThinking = false);
   }
 
-  void _reset({bool send = true}) {
+  void _reset({bool send = true, bool swap = true}) {
     setState(() {
       game = MillGame();
-      round++;
+      if (swap) round++;
       selected = null;
     });
     if (send) widget.setup.send({'t': 'rematch'});
+    persistGame();
     _maybeAi();
   }
 
@@ -197,6 +214,10 @@ class _MillScreenState extends State<MillScreen> {
     return OnlineGameFrame(
       setup: widget.setup,
       title: 'Mühle',
+      actions: [
+        if (saveKey != null)
+          RestartButton(onRestart: () => _reset(send: false, swap: false)),
+      ],
       child: Column(
         children: [
           TurnBanner(text: _status(), highlight: _canAct || game.isOver),

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
@@ -19,7 +20,8 @@ class BattleshipScreen extends StatefulWidget {
   State<BattleshipScreen> createState() => _BattleshipScreenState();
 }
 
-class _BattleshipScreenState extends State<BattleshipScreen> {
+class _BattleshipScreenState extends State<BattleshipScreen>
+    with SavedGameState {
   late FleetBoard fleet;
   late TargetBoard enemy;
   _Phase phase = _Phase.placing;
@@ -38,11 +40,46 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
 
   bool get iStart => round.isEven == widget.setup.isHost;
 
+  /// Only games against the computer are kept (on one device the other
+  /// screen is used).
+  @override
+  String? get saveKey => widget.setup.kind == PlayKind.ai
+      ? widget.setup.saveKey('battleship')
+      : null;
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (phase != _Phase.playing) return null;
+    return {
+      'round': round,
+      'myTurn': myTurn,
+      'event': lastEvent,
+      'fleet': fleet.toJson(),
+      'enemy': enemy.toJson(),
+      'aiFleet': aiFleet!.toJson(),
+      'ai': ai!.knowledge.toJson(),
+    };
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    _newRound();
+    round = data['round'] as int;
+    myTurn = data['myTurn'] as bool;
+    lastEvent = data['event'] as String?;
+    fleet = FleetBoard.fromJson(data['fleet'] as Map<String, dynamic>);
+    enemy.load(data['enemy'] as List);
+    aiFleet = FleetBoard.fromJson(data['aiFleet'] as Map<String, dynamic>);
+    ai!.knowledge.load(data['ai'] as List);
+    phase = _Phase.playing;
+  }
+
   @override
   void initState() {
     super.initState();
-    _newRound();
+    if (!restoredGame) _newRound();
     _sub = widget.setup.listen((m) => _onMessage(m.data));
+    if (restoredGame && !myTurn) _aiTurn();
   }
 
   @override
@@ -203,12 +240,13 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
     }
   }
 
-  void _rematch() {
+  void _rematch({bool next = true}) {
     setState(() {
-      round++;
+      if (next) round++;
       _newRound();
     });
-    widget.setup.send({'t': 'rematch'});
+    if (next) widget.setup.send({'t': 'rematch'});
+    persistGame();
   }
 
   List<int> _winnerSeats() => [
@@ -236,6 +274,10 @@ class _BattleshipScreenState extends State<BattleshipScreen> {
     return OnlineGameFrame(
       setup: widget.setup,
       title: 'Schiffe versenken',
+      actions: [
+        if (saveKey != null && phase != _Phase.placing)
+          RestartButton(onRestart: () => _rematch(next: false)),
+      ],
       child: Column(
         children: [
           TurnBanner(

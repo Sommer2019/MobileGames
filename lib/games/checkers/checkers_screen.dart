@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -16,7 +17,7 @@ class CheckersScreen extends StatefulWidget {
   State<CheckersScreen> createState() => _CheckersScreenState();
 }
 
-class _CheckersScreenState extends State<CheckersScreen> {
+class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
   CheckersGame game = CheckersGame();
   late int round = widget.setup.firstRound;
   List<(int, int)> _partial = [];
@@ -29,6 +30,21 @@ class _CheckersScreenState extends State<CheckersScreen> {
 
   bool get flipped =>
       widget.setup.kind != PlayKind.local && mySide == Side.black;
+
+  @override
+  String? get saveKey => widget.setup.saveKey('checkers');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.isOver || game.history.isEmpty) return null;
+    return {'round': round, 'moves': game.history};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = CheckersGame.replay(data['moves'] as List);
+    round = data['round'] as int;
+  }
 
   @override
   void initState() {
@@ -134,13 +150,14 @@ class _CheckersScreenState extends State<CheckersScreen> {
     });
   }
 
-  void _reset({bool send = true}) {
+  void _reset({bool send = true, bool swap = true}) {
     setState(() {
       game = CheckersGame();
-      round++;
+      if (swap) round++;
       _partial = [];
     });
     if (send) widget.setup.send({'t': 'rematch'});
+    persistGame();
     _maybeAi();
   }
 
@@ -186,6 +203,10 @@ class _CheckersScreenState extends State<CheckersScreen> {
     return OnlineGameFrame(
       setup: widget.setup,
       title: 'Dame',
+      actions: [
+        if (saveKey != null)
+          RestartButton(onRestart: () => _reset(send: false, swap: false)),
+      ],
       child: Column(
         children: [
           TurnBanner(text: _status(), highlight: _canMove || game.isOver),

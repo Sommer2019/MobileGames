@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../ui/play_setup.dart';
 import 'billiard_logic.dart';
 import 'billiard_controls.dart';
@@ -24,7 +25,7 @@ class EightBallScreen extends StatefulWidget {
 }
 
 class _EightBallScreenState extends State<EightBallScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SavedGameState {
   BilliardGame game = BilliardGame();
   EightBallRules rules = EightBallRules();
   late int round = widget.setup.firstRound;
@@ -42,6 +43,33 @@ class _EightBallScreenState extends State<EightBallScreen>
 
   /// Player index p is played by seat (p + round) % 2.
   int get myIndex => (widget.setup.mySeat - round % 2 + 2) % 2;
+
+  /// The table right before the running shot (a shot left half-way is
+  /// taken back).
+  Map<String, dynamic>? _beforeShot;
+
+  Map<String, dynamic> get _state => {
+    'round': round,
+    'game': game.toJson(),
+    'rules': rules.toJson(),
+  };
+
+  @override
+  String? get saveKey => widget.setup.saveKey('eight_ball');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.moving && _beforeShot != null) return _beforeShot;
+    if (rules.isOver || game.shots == 0) return null;
+    return _state;
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    round = data['round'] as int;
+    rules = EightBallRules.fromJson(data['rules'] as Map<String, dynamic>);
+    game.load(data['game'] as Map<String, dynamic>);
+  }
 
   @override
   void initState() {
@@ -108,6 +136,7 @@ class _EightBallScreenState extends State<EightBallScreen>
     }
     if (_myShotRunning) {
       _myShotRunning = false;
+      _beforeShot = null;
       final pocketed = List<int>.from(game.pocketedThisShot);
       setState(() {
         rules.evaluate(
@@ -156,6 +185,7 @@ class _EightBallScreenState extends State<EightBallScreen>
     _clearedBefore =
         group != null && rules.remainingOf(game, rules.current) == 0;
     final cx = game.cue.x, cy = game.cue.y;
+    _beforeShot = _state;
     if (game.shoot(aimAngle, p, spinX: spin.dx, spinY: spin.dy)) {
       _myShotRunning = true;
       widget.setup.send({
@@ -178,16 +208,18 @@ class _EightBallScreenState extends State<EightBallScreen>
     }
   }
 
-  void _reset({bool send = true}) {
+  void _reset({bool send = true, bool swap = true}) {
     setState(() {
+      _beforeShot = null;
       game = BilliardGame();
       rules = EightBallRules();
-      round++;
+      if (swap) round++;
       _myShotRunning = false;
       _remoteShotRunning = false;
       _pendingSettle = null;
     });
     if (send) widget.setup.send({'t': 'rematch'});
+    persistGame();
   }
 
   String _name(int p) {
@@ -216,6 +248,10 @@ class _EightBallScreenState extends State<EightBallScreen>
     return OnlineGameFrame(
       setup: widget.setup,
       title: '8-Ball',
+      actions: [
+        if (saveKey != null)
+          RestartButton(onRestart: () => _reset(send: false, swap: false)),
+      ],
       child: Row(
         children: [
           Expanded(

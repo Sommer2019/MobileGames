@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
@@ -21,8 +22,8 @@ class YahtzeeScreen extends StatefulWidget {
   State<YahtzeeScreen> createState() => _YahtzeeScreenState();
 }
 
-class _YahtzeeScreenState extends State<YahtzeeScreen> {
-  late KniffelGame game;
+class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
+  late KniffelGame game = KniffelGame(widget.setup.players);
   late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
 
@@ -46,9 +47,36 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
       : (widget.setup.mySeat - round % players + players) % players;
 
   @override
+  String? get saveKey => widget.setup.saveKey('yahtzee');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.isOver || game.isFresh) return null;
+    return {
+      'round': round,
+      'game': game.toJson(),
+      'aiTurn': _aiTurn,
+      'lucky': _luckyTurn,
+    };
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    final g = KniffelGame.fromJson(data['game'] as Map<String, dynamic>);
+    if (g.playerCount != players) throw const FormatException('players');
+    game = g;
+    round = data['round'] as int;
+    _aiTurn = data['aiTurn'] as int;
+    _luckyTurn = data['lucky'] as int;
+    // The dice are shown as they were left.
+    for (var i = 0; i < 5; i++) {
+      _spins[i] = game.hasRolled ? 1 : 0;
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
-    game = KniffelGame(players);
     _sub = widget.setup.listen((m) => _onMessage(m.data));
     _shake = ShakeDetector.listen(() {
       if (mounted && myTurn && game.canRoll) {
@@ -186,15 +214,16 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     _maybeAi();
   }
 
-  void _rematch() {
+  void _rematch({bool next = true}) {
     if (_aiRunning) return;
     setState(() {
-      round++;
+      if (next) round++;
       game = KniffelGame(players);
       _aiTurn = 0;
       _luckyTurn = _pickLuckyTurn();
     });
-    widget.setup.send({'t': 'rematch'});
+    if (next) widget.setup.send({'t': 'rematch'});
+    persistGame();
     _maybeAi();
   }
 
@@ -220,6 +249,12 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
     return OnlineGameFrame(
       setup: widget.setup,
       title: 'Kniffel',
+      actions: [
+        if (saveKey != null)
+          RestartButton(
+            onRestart: _aiRunning ? null : () => _rematch(next: false),
+          ),
+      ],
       child: Column(
         children: [
           TurnBanner(text: _status(), highlight: myTurn || game.isOver),

@@ -12,7 +12,24 @@ class ChessGame {
   /// A position from FEN notation (for tests and puzzles).
   ChessGame.fromFen(String fen) : _c = ch.Chess.fromFEN(fen);
 
+  /// Replays saved [moves] (see [moveList]).
+  factory ChessGame.fromMoves(List<dynamic> moves) {
+    final g = ChessGame();
+    for (final m in moves.cast<List<dynamic>>()) {
+      if (!g.move(m[0] as String, m[1] as String, promotion: m[2] as String?)) {
+        throw FormatException('illegal move $m');
+      }
+    }
+    return g;
+  }
+
   final ch.Chess _c;
+
+  /// All moves so far as [from, to, promotion] (for saving the game).
+  List<List<String?>> get moveList => [
+    for (final m in _c.getHistory({'verbose': true}).cast<Map>())
+      [m['from'] as String, m['to'] as String, m['promotion'] as String?],
+  ];
 
   static const files = 'abcdefgh';
 

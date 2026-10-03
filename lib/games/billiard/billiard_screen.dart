@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/saved_games.dart';
 import 'billiard_controls.dart';
 import 'billiard_logic.dart';
 
@@ -17,7 +18,7 @@ class BilliardScreen extends StatefulWidget {
 }
 
 class _BilliardScreenState extends State<BilliardScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SavedGameState {
   final BilliardGame game = BilliardGame();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
@@ -37,6 +38,27 @@ class _BilliardScreenState extends State<BilliardScreen>
   /// A game is running: shots were played and it isn't decided yet.
   bool get _inGame => game.shots > 0 && !game.won && !rules.lost;
   String get _bestKey => 'billiard.best.${mode.name}';
+
+  /// The table right before the running shot (a shot left half-way is
+  /// taken back).
+  Map<String, dynamic>? _beforeShot;
+
+  @override
+  String get saveKey => 'billiard';
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.moving && _beforeShot != null) return _beforeShot;
+    if (!_inGame) return null;
+    return {'game': game.toJson(), 'rules': rules.toJson()};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    rules = SoloRules.fromJson(data['rules'] as Map<String, dynamic>);
+    mode = rules.mode;
+    game.load(data['game'] as Map<String, dynamic>);
+  }
 
   @override
   void initState() {
@@ -76,6 +98,7 @@ class _BilliardScreenState extends State<BilliardScreen>
     }
     if (!game.moving && _shotRunning) {
       _shotRunning = false;
+      _beforeShot = null;
       setState(() {
         rules.evaluate(
           pocketed: List<int>.from(game.pocketedThisShot),
@@ -96,6 +119,7 @@ class _BilliardScreenState extends State<BilliardScreen>
 
   void _shoot(double angle, double power) {
     if (rules.lost) return;
+    _beforeShot = {'game': game.toJson(), 'rules': rules.toJson()};
     _othersBefore = SoloRules.othersLeft(game);
     _targetBefore = rules.target(game);
     if (game.shoot(angle, power, spinX: spin.dx, spinY: spin.dy)) {
@@ -154,6 +178,7 @@ class _BilliardScreenState extends State<BilliardScreen>
   }
 
   void _restart() => setState(() {
+    _beforeShot = null;
     game.rack();
     rules = SoloRules(mode);
     _wonShown = false;
@@ -204,12 +229,7 @@ class _BilliardScreenState extends State<BilliardScreen>
                             style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Neu aufbauen',
-                          onPressed: _restart,
-                          icon: const Icon(Icons.replay, color: Colors.white),
-                        ),
+                        RestartButton(color: Colors.white, onRestart: _restart),
                       ],
                     ),
                     // During a game only the mode being played is shown.

@@ -313,6 +313,15 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
       appBar: AppBar(
         title: Text('Level ${levelIndex + 1}: ${game.level.name}'),
         actions: [
+          IconButton(
+            key: const ValueKey('restart'),
+            tooltip: 'Level neu starten',
+            icon: const Icon(Icons.restart_alt),
+            onPressed: () => setState(() {
+              game.reset();
+              falls = 0;
+            }),
+          ),
           PopupMenuButton<bool>(
             key: const ValueKey('calibrate'),
             tooltip: 'Kalibrieren',

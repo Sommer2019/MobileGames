@@ -8,6 +8,7 @@ import 'core/home_widgets.dart';
 import 'core/net/matchmaker.dart';
 import 'core/nostr/relay_pool.dart';
 import 'core/notifications.dart';
+import 'core/saved_games.dart';
 import 'core/secrets.dart';
 import 'core/services.dart';
 import 'core/sound.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
   await Services.init();
   await Sound.load();
   await Secrets.I.load();
+  await SavedGames.load();
   runApp(const MobileGamesApp());
 }
 

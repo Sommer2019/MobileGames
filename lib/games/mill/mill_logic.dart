@@ -10,6 +10,32 @@ enum MillPhase { placing, moving }
 class MillGame {
   MillGame();
 
+  /// A saved game (see [toJson]).
+  factory MillGame.fromJson(Map<String, dynamic> j) {
+    final g = MillGame();
+    g.board.setAll(0, (j['board'] as List).cast<int>());
+    g.toPlace.setAll(0, (j['toPlace'] as List).cast<int>());
+    final last = j['last'] as List?;
+    g
+      ..turn = j['turn'] as int
+      ..mustRemove = j['mustRemove'] as bool
+      ..movesWithoutRemoval = j['quiet'] as int
+      ..lastMove = last == null ? null : (last[0] as int, last[1] as int);
+    return g;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'board': board,
+    'toPlace': toPlace,
+    'turn': turn,
+    'mustRemove': mustRemove,
+    'quiet': movesWithoutRemoval,
+    if (lastMove case final m?) 'last': [m.$1, m.$2],
+  };
+
+  /// Nothing happened yet.
+  bool get isFresh => toPlace[1] == 9 && toPlace[2] == 9;
+
   static final List<List<int>> neighbours = _buildNeighbours();
   static final List<List<int>> mills = _buildMills();
 

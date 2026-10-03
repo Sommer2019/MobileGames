@@ -8,7 +8,19 @@ class ConnectFourGame {
     board = List.generate(rows, (_) => List.filled(columns, 0));
   }
 
+  /// Replays saved [moves].
+  factory ConnectFourGame.replay(int players, List<dynamic> moves) {
+    final g = ConnectFourGame(players: players);
+    for (final c in moves) {
+      if (g.drop(c as int) < 0) throw FormatException('illegal move $c');
+    }
+    return g;
+  }
+
   final int players;
+
+  /// Columns played so far (for saving the game).
+  final List<int> moves = [];
   final int columns;
   final int rows;
 
@@ -34,6 +46,7 @@ class ConnectFourGame {
       row--;
     }
     board[row][col] = currentPlayer;
+    moves.add(col);
     final line = _findLine(row, col);
     if (line != null) {
       winner = currentPlayer;

@@ -46,6 +46,20 @@ class CheckersGame {
     }
   }
 
+  /// Replays saved move paths (see [history]).
+  factory CheckersGame.replay(List<dynamic> paths) {
+    final g = CheckersGame();
+    for (final p in paths) {
+      if (!g.playPath(CheckersMove.pathFromJson(p as List<dynamic>))) {
+        throw FormatException('illegal move $p');
+      }
+    }
+    return g;
+  }
+
+  /// Paths of the moves played so far (for saving the game).
+  final List<List<List<int>>> history = [];
+
   /// International style: men may also capture backwards.
   final bool menCaptureBackwards;
 
@@ -179,6 +193,7 @@ class CheckersGame {
     board[tr][tc] = p;
     quietMoves = (m.isCapture || !movedKing) ? 0 : quietMoves + 1;
     lastMove = m;
+    history.add(m.toJson());
     turn = turn == Side.white ? Side.black : Side.white;
     if (legalMoves().isEmpty) {
       winner = turn == Side.white ? Side.black : Side.white;

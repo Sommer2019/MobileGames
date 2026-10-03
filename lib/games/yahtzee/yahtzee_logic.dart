@@ -90,6 +90,38 @@ class KniffelGame {
     : sheets = List.generate(playerCount, (_) => KniffelScoreSheet()),
       _random = random ?? Random();
 
+  /// A saved game (see [toJson]).
+  factory KniffelGame.fromJson(Map<String, dynamic> j) {
+    final sheets = j['sheets'] as List;
+    final g = KniffelGame(sheets.length);
+    for (var i = 0; i < sheets.length; i++) {
+      for (final e in (sheets[i] as Map<String, dynamic>).entries) {
+        g.sheets[i].entries[KniffelCategory.values.byName(e.key)] =
+            e.value as int;
+      }
+    }
+    g
+      ..dice = (j['dice'] as List).cast<int>().toList()
+      ..held = (j['held'] as List).cast<bool>().toList()
+      ..rollsLeft = j['rollsLeft'] as int
+      ..currentPlayer = j['current'] as int;
+    if (g.dice.length != 5 || g.held.length != 5) {
+      throw const FormatException('bad dice');
+    }
+    return g;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'sheets': [for (final s in sheets) s.toJson()],
+    'dice': dice,
+    'held': held,
+    'rollsLeft': rollsLeft,
+    'current': currentPlayer,
+  };
+
+  /// Nothing rolled or scored yet.
+  bool get isFresh => !hasRolled && sheets.every((s) => s.entries.isEmpty);
+
   final int playerCount;
   final List<KniffelScoreSheet> sheets;
   final Random _random;

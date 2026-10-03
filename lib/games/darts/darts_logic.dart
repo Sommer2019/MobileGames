@@ -112,6 +112,49 @@ class DartsGame {
         }),
       );
 
+  /// A saved game (see [toJson]).
+  factory DartsGame.fromJson(Map<String, dynamic> j) {
+    final states = (j['states'] as List).cast<List<dynamic>>();
+    final g = DartsGame(
+      players: states.length,
+      mode: DartsMode.values.byName(j['mode'] as String),
+      doubleOut: j['doubleOut'] as bool,
+    );
+    for (var i = 0; i < states.length; i++) {
+      g.states[i]
+        ..remaining = states[i][0] as int
+        ..darts = states[i][1] as int
+        ..scoredPoints = states[i][2] as int;
+    }
+    for (final d in (j['turn'] as List).cast<List<dynamic>>()) {
+      g.turnDarts.add(DartHit(d[0] as int, d[1] as int));
+    }
+    g
+      ..current = j['current'] as int
+      .._turnStart = j['turnStart'] as int
+      ..lastTurnBust = j['bust'] as bool
+      ..round = j['round'] as int;
+    return g;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'mode': mode.name,
+    'doubleOut': doubleOut,
+    'states': [
+      for (final s in states) [s.remaining, s.darts, s.scoredPoints],
+    ],
+    'turn': [
+      for (final d in turnDarts) [d.value, d.multiplier],
+    ],
+    'current': current,
+    'turnStart': _turnStart,
+    'bust': lastTurnBust,
+    'round': round,
+  };
+
+  /// No dart thrown yet.
+  bool get isFresh => states.every((s) => s.darts == 0);
+
   /// Targets for "Rund um die Uhr": 1..20, then the bull.
   static const clockTargets = [
     1,

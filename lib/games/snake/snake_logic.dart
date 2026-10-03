@@ -30,6 +30,32 @@ class SnakeGame {
     _placeFood();
   }
 
+  /// A saved game (see [toJson]).
+  factory SnakeGame.fromJson(Map<String, dynamic> j) {
+    final g = SnakeGame(wrap: j['wrap'] as bool);
+    final body = (j['body'] as List).cast<List<dynamic>>();
+    if (body.isEmpty) throw const FormatException('no snake');
+    final food = j['food'] as List;
+    g.body
+      ..clear()
+      ..addAll([for (final p in body) (p[0] as int, p[1] as int)]);
+    g
+      ..direction = Dir.values.byName(j['dir'] as String)
+      ..food = (food[0] as int, food[1] as int)
+      ..score = j['score'] as int;
+    return g;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'wrap': wrap,
+    'body': [
+      for (final (x, y) in body) [x, y],
+    ],
+    'dir': (_queued ?? direction).name,
+    'food': [food.$1, food.$2],
+    'score': score,
+  };
+
   final int width;
   final int height;
   final bool wrap;

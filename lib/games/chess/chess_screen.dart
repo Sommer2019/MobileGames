@@ -4,6 +4,7 @@ import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -30,7 +31,7 @@ class ChessScreen extends StatefulWidget {
   State<ChessScreen> createState() => _ChessScreenState();
 }
 
-class _ChessScreenState extends State<ChessScreen> {
+class _ChessScreenState extends State<ChessScreen> with SavedGameState {
   ChessGame game = ChessGame();
   late int round = widget.setup.firstRound;
   String? selected;
@@ -47,6 +48,22 @@ class _ChessScreenState extends State<ChessScreen> {
 
   bool get flipped =>
       widget.setup.kind != PlayKind.local && mySide == ChessSide.black;
+
+  @override
+  String? get saveKey => widget.setup.saveKey('chess');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    final moves = game.moveList;
+    if (game.isOver || _resigned != null || moves.isEmpty) return null;
+    return {'round': round, 'moves': moves};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = ChessGame.fromMoves(data['moves'] as List);
+    round = data['round'] as int;
+  }
 
   @override
   void initState() {
@@ -171,15 +188,16 @@ class _ChessScreenState extends State<ChessScreen> {
     });
   }
 
-  void _reset({bool send = true}) {
+  void _reset({bool send = true, bool swap = true}) {
     setState(() {
       game = ChessGame();
-      round++;
+      if (swap) round++;
       selected = null;
       targets = const [];
       _resigned = null;
     });
     if (send) widget.setup.send({'t': 'rematch'});
+    persistGame();
     _maybeAi();
   }
 
@@ -239,6 +257,8 @@ class _ChessScreenState extends State<ChessScreen> {
       setup: widget.setup,
       title: 'Schach',
       actions: [
+        if (saveKey != null)
+          RestartButton(onRestart: () => _reset(send: false, swap: false)),
         if (!over && widget.setup.kind != PlayKind.local)
           IconButton(
             onPressed: _resign,

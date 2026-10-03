@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'mahjong_logic.dart';
@@ -15,13 +16,39 @@ class MahjongScreen extends StatefulWidget {
   State<MahjongScreen> createState() => _MahjongScreenState();
 }
 
-class _MahjongScreenState extends State<MahjongScreen> {
+class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
   MahjongGame? game;
   MahjongTile? selected;
   (MahjongTile, MahjongTile)? hint;
   bool? _portrait;
   final Stopwatch _clock = Stopwatch();
   Timer? _timer;
+
+  /// Playing time before the round was saved.
+  int _offset = 0;
+  int get _seconds => _offset + _clock.elapsed.inSeconds;
+
+  @override
+  String get saveKey => 'mahjong';
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    final g = game;
+    if (g == null || g.won || g.history.isEmpty) return null;
+    return {'portrait': _portrait, 'game': g.toJson(), 'seconds': _seconds};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    final portrait = data['portrait'] as bool;
+    game = MahjongGame.fromJson(
+      portrait ? towerLayout() : pyramidLayout(),
+      data['game'] as Map<String, dynamic>,
+    );
+    _portrait = portrait;
+    _offset = data['seconds'] as int;
+    _clock.start();
+  }
 
   @override
   void initState() {
@@ -44,6 +71,7 @@ class _MahjongScreenState extends State<MahjongScreen> {
     );
     selected = null;
     hint = null;
+    _offset = 0;
     _clock
       ..reset()
       ..start();
@@ -66,7 +94,7 @@ class _MahjongScreenState extends State<MahjongScreen> {
           _clock.stop();
           Leaderboard.submit(
             _portrait ?? true ? 'mahjong.tower' : 'mahjong.pyramid',
-            _clock.elapsed.inSeconds,
+            _seconds,
           );
           _showWin();
         } else if (g.stuck) {
@@ -130,7 +158,7 @@ class _MahjongScreenState extends State<MahjongScreen> {
   }
 
   String _formatTime() {
-    final s = _clock.elapsed.inSeconds;
+    final s = _seconds;
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 

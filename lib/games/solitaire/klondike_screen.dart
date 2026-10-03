@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
@@ -25,10 +26,31 @@ class KlondikeScreen extends StatefulWidget {
   State<KlondikeScreen> createState() => _KlondikeScreenState();
 }
 
-class _KlondikeScreenState extends State<KlondikeScreen> {
+class _KlondikeScreenState extends State<KlondikeScreen> with SavedGameState {
   int drawCount = 1;
   late KlondikeGame game = KlondikeGame(drawCount: drawCount);
   final Stopwatch _clock = Stopwatch()..start();
+
+  /// Playing time before the round was saved.
+  int _offset = 0;
+  int get _seconds => _offset + _clock.elapsed.inSeconds;
+
+  @override
+  String get saveKey => 'klondike';
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.won || game.moves == 0) return null;
+    return {'game': game.toJson(), 'seconds': _seconds};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = KlondikeGame.fromJson(data['game'] as Map<String, dynamic>);
+    drawCount = game.drawCount;
+    _offset = data['seconds'] as int;
+  }
+
   Timer? _timer;
   bool _autoRunning = false;
   bool _wonShown = false;
@@ -62,6 +84,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
       game = KlondikeGame(drawCount: drawCount);
       _wonShown = false;
       bonus = 0;
+      _offset = 0;
       _clock
         ..reset()
         ..start();
@@ -143,7 +166,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   double _cardWidth = 60;
 
   Future<void> _celebrate() async {
-    bonus = KlondikeGame.timeBonus(_clock.elapsed.inSeconds);
+    bonus = KlondikeGame.timeBonus(_seconds);
     final total = game.score + bonus;
     final record = total > best;
     if (record) best = total;
@@ -180,7 +203,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> {
   }
 
   String _time() {
-    final s = _clock.elapsed.inSeconds;
+    final s = _seconds;
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 

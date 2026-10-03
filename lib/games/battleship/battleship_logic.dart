@@ -44,6 +44,34 @@ class ShotOutcome {
 /// A player's own board with ships. Ships may not touch each other
 /// (not even diagonally).
 class FleetBoard {
+  FleetBoard();
+
+  /// A saved board (see [toJson]).
+  factory FleetBoard.fromJson(Map<String, dynamic> j) {
+    List<(int, int)> cells(Object? raw) => [
+      for (final c in (raw as List).cast<List<dynamic>>())
+        (c[0] as int, c[1] as int),
+    ];
+    final b = FleetBoard();
+    for (final s in (j['ships'] as List).cast<Map<String, dynamic>>()) {
+      b.ships.add(Ship(cells(s['cells']))..hits.addAll(cells(s['hits'])));
+    }
+    b.shotsReceived.addAll(cells(j['shots']));
+    return b;
+  }
+
+  Map<String, dynamic> toJson() {
+    List<List<int>> cells(Iterable<(int, int)> c) => [
+      for (final (x, y) in c) [x, y],
+    ];
+    return {
+      'ships': [
+        for (final s in ships) {'cells': cells(s.cells), 'hits': cells(s.hits)},
+      ],
+      'shots': cells(shotsReceived),
+    };
+  }
+
   final List<Ship> ships = [];
   final Set<(int, int)> shotsReceived = {};
 
@@ -130,6 +158,20 @@ class TargetBoard {
   );
 
   bool canShoot(int x, int y) => cells[y][x] == TargetCell.unknown;
+
+  List<List<int>> toJson() => [
+    for (final row in cells) [for (final c in row) c.index],
+  ];
+
+  /// Loads a saved board (see [toJson]).
+  void load(List<dynamic> j) {
+    for (var y = 0; y < boardSize; y++) {
+      final row = (j[y] as List).cast<int>();
+      for (var x = 0; x < boardSize; x++) {
+        cells[y][x] = TargetCell.values[row[x]];
+      }
+    }
+  }
 
   void apply(int x, int y, ShotOutcome o) {
     switch (o.result) {

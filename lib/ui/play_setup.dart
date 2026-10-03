@@ -57,6 +57,9 @@ class PlaySetup {
   final VoidCallback? onLeave;
 
   bool get online => kind == PlayKind.online;
+
+  /// Where an offline round of [game] is kept when leaving (online: null).
+  String? saveKey(String game) => online ? null : '$game.${kind.name}$players';
   bool get inTournament => onFinished != null;
 
   /// Number of players taking part.

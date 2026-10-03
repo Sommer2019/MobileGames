@@ -129,6 +129,35 @@ class MahjongGame {
     }
   }
 
+  /// A saved game on [layout] (see [toJson]).
+  factory MahjongGame.fromJson(List<Slot> layout, Map<String, dynamic> j) {
+    final faces = (j['faces'] as List).cast<int>();
+    final removed = (j['removed'] as List).cast<int>().toSet();
+    if (faces.length != layout.length) {
+      throw const FormatException('layout changed');
+    }
+    final game = MahjongGame([
+      for (var i = 0; i < layout.length; i++)
+        MahjongTile(i, layout[i], allFaces[faces[i]])
+          ..removed = removed.contains(i),
+    ]);
+    for (final p in (j['history'] as List).cast<List<dynamic>>()) {
+      game.history.add((game.tiles[p[0] as int], game.tiles[p[1] as int]));
+    }
+    return game;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'faces': [for (final t in tiles) allFaces.indexOf(t.face)],
+    'removed': [
+      for (final t in tiles)
+        if (t.removed) t.id,
+    ],
+    'history': [
+      for (final (a, b) in history) [a.id, b.id],
+    ],
+  };
+
   final List<MahjongTile> tiles;
   final List<(MahjongTile, MahjongTile)> history = [];
 

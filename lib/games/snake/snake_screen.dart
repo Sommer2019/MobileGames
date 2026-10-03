@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
@@ -17,7 +18,7 @@ class SnakeScreen extends StatefulWidget {
 }
 
 class _SnakeScreenState extends State<SnakeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SavedGameState {
   SnakeGame game = SnakeGame();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
@@ -27,9 +28,50 @@ class _SnakeScreenState extends State<SnakeScreen>
   int best = 0;
   final _focus = FocusNode();
 
+  /// A round was interrupted (paused or left) and can be continued.
+  bool paused = false;
+
+  @override
+  String get saveKey => 'snake';
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.dead || game.won || (!running && !paused)) return null;
+    return game.toJson();
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = SnakeGame.fromJson(data);
+    wrap = game.wrap;
+    paused = true;
+  }
+
+  void _pause() => setState(() {
+    running = false;
+    paused = true;
+  });
+
+  void _resume() {
+    setState(() {
+      running = true;
+      paused = false;
+      _acc = 0;
+    });
+    _focus.requestFocus();
+  }
+
+  /// Leaving the app pauses the round.
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onHide: () {
+      if (running && mounted) _pause();
+    },
+  );
+
   @override
   void initState() {
     super.initState();
+    _lifecycle;
     _ticker = createTicker(_tick)..start();
     SharedPreferences.getInstance().then((p) {
       if (mounted) setState(() => best = p.getInt('snake.best') ?? 0);
@@ -41,6 +83,7 @@ class _SnakeScreenState extends State<SnakeScreen>
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _ticker.dispose();
     _focus.dispose();
     super.dispose();
@@ -81,6 +124,7 @@ class _SnakeScreenState extends State<SnakeScreen>
   void _start() {
     setState(() {
       game = SnakeGame(wrap: wrap);
+      paused = false;
       running = true;
       _acc = 0;
     });
@@ -124,6 +168,13 @@ class _SnakeScreenState extends State<SnakeScreen>
         title: const Text('Snake'),
         actions: [
           const LeaderboardButton(game: 'snake'),
+          if (running)
+            IconButton(
+              key: const ValueKey('snakePause'),
+              tooltip: 'Pause',
+              onPressed: _pause,
+              icon: const Icon(Icons.pause),
+            ),
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -201,21 +252,42 @@ class _SnakeScreenState extends State<SnakeScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            game.dead ? 'Game Over – ${game.score} Punkte' : 'Snake',
+            game.dead
+                ? 'Game Over – ${game.score} Punkte'
+                : paused
+                ? 'Pause – ${game.score} Punkte'
+                : 'Snake',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
+          if (paused) ...[
+            FilledButton.icon(
+              key: const ValueKey('snakeResume'),
+              onPressed: _resume,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Weiter'),
+            ),
+            const SizedBox(height: 8),
+          ],
           SwitchListTile(
             title: const Text('Durch Wände gehen'),
             value: wrap,
             onChanged: (v) => setState(() => wrap = v),
           ),
-          FilledButton.icon(
-            key: const ValueKey('snakeStart'),
-            onPressed: _start,
-            icon: const Icon(Icons.play_arrow),
-            label: Text(game.dead ? 'Nochmal' : 'Start'),
-          ),
+          if (paused)
+            OutlinedButton.icon(
+              key: const ValueKey('snakeStart'),
+              onPressed: _start,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Neu starten'),
+            )
+          else
+            FilledButton.icon(
+              key: const ValueKey('snakeStart'),
+              onPressed: _start,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(game.dead ? 'Nochmal' : 'Start'),
+            ),
         ],
       ),
     ),

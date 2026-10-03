@@ -63,6 +63,55 @@ class KlondikeGame {
     stock.addAll(deck);
   }
 
+  /// A saved game (see [toJson]); the undo history is not kept.
+  factory KlondikeGame.fromJson(Map<String, dynamic> j) {
+    final g = KlondikeGame(drawCount: j['draw'] as int);
+    List<PlayingCard> pile(Object? raw) => [
+      for (final v in (raw as List).cast<int>())
+        PlayingCard(v ~/ 100 % 10, v % 100, faceUp: v >= 1000),
+    ];
+    g.stock
+      ..clear()
+      ..addAll(pile(j['stock']));
+    g.waste
+      ..clear()
+      ..addAll(pile(j['waste']));
+    final f = j['foundations'] as List, t = j['tableau'] as List;
+    for (var i = 0; i < 4; i++) {
+      g.foundations[i]
+        ..clear()
+        ..addAll(pile(f[i]));
+    }
+    for (var i = 0; i < 7; i++) {
+      g.tableau[i]
+        ..clear()
+        ..addAll(pile(t[i]));
+    }
+    g
+      ..moves = j['moves'] as int
+      ..score = j['score'] as int;
+    final all = [g.stock, g.waste, ...g.foundations, ...g.tableau];
+    if (all.fold(0, (n, p) => n + p.length) != 52) {
+      throw const FormatException('cards missing');
+    }
+    return g;
+  }
+
+  Map<String, dynamic> toJson() {
+    List<int> pile(List<PlayingCard> p) => [
+      for (final c in p) (c.faceUp ? 1000 : 0) + c.suit * 100 + c.rank,
+    ];
+    return {
+      'draw': drawCount,
+      'stock': pile(stock),
+      'waste': pile(waste),
+      'foundations': [for (final p in foundations) pile(p)],
+      'tableau': [for (final p in tableau) pile(p)],
+      'moves': moves,
+      'score': score,
+    };
+  }
+
   final int drawCount;
   final List<PlayingCard> stock = [];
   final List<PlayingCard> waste = [];

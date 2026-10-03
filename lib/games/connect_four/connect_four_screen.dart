@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'connect_four_logic.dart';
@@ -15,7 +16,8 @@ class ConnectFourScreen extends StatefulWidget {
   State<ConnectFourScreen> createState() => _ConnectFourScreenState();
 }
 
-class _ConnectFourScreenState extends State<ConnectFourScreen> {
+class _ConnectFourScreenState extends State<ConnectFourScreen>
+    with SavedGameState {
   late ConnectFourGame game = ConnectFourGame(players: widget.setup.players);
   late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
@@ -42,6 +44,21 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
 
   /// In AI mode the human starts every even round.
   int get humanPlayer => round.isEven ? 1 : 2;
+
+  @override
+  String? get saveKey => widget.setup.saveKey('connect_four');
+
+  @override
+  Map<String, dynamic>? saveGame() {
+    if (game.isOver || game.moves.isEmpty) return null;
+    return {'round': round, 'moves': game.moves};
+  }
+
+  @override
+  void restoreGame(Map<String, dynamic> data) {
+    game = ConnectFourGame.replay(players, data['moves'] as List);
+    round = data['round'] as int;
+  }
 
   @override
   void initState() {
@@ -105,12 +122,13 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     });
   }
 
-  void _reset({bool send = true}) {
+  void _reset({bool send = true, bool swap = true}) {
     setState(() {
       game = ConnectFourGame(players: players);
-      round++;
+      if (swap) round++;
     });
     if (send) widget.setup.send({'t': 'rematch'});
+    persistGame();
     _maybeAi();
   }
 
@@ -149,6 +167,10 @@ class _ConnectFourScreenState extends State<ConnectFourScreen> {
     return OnlineGameFrame(
       setup: widget.setup,
       title: '4 gewinnt',
+      actions: [
+        if (saveKey != null)
+          RestartButton(onRestart: () => _reset(send: false, swap: false)),
+      ],
       child: Column(
         children: [
           TurnBanner(
