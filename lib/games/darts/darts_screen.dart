@@ -735,23 +735,39 @@ class _BoardPainter extends CustomPainter {
       final p = c + Offset(cos(a), sin(a)) * 195 * scale;
       tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
     }
+    // A dart stuck in the board: the tip (where it scores) is the small
+    // dot, barrel and flight stick out towards the bottom right.
     for (final (pos, _) in darts) {
       final p = c + pos * scale;
+      const dir = Offset(0.55, 0.83);
       canvas.drawLine(
         p,
-        p + const Offset(10, 14),
+        p + dir * 9,
         Paint()
-          ..color = Colors.blueGrey.shade200
-          ..strokeWidth = 3,
+          ..color = Colors.grey.shade300
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.round,
       );
-      canvas.drawCircle(p, 4, Paint()..color = Colors.amber);
-      canvas.drawCircle(
-        p,
-        4,
+      canvas.drawLine(
+        p + dir * 9,
+        p + dir * 18,
         Paint()
-          ..color = Colors.black
-          ..style = PaintingStyle.stroke,
+          ..color = Colors.blueGrey.shade700
+          ..strokeWidth = 2,
       );
+      final tail = p + dir * 24;
+      const side = Offset(-0.83, 0.55);
+      canvas.drawPath(
+        Path()
+          ..moveTo(p.dx + dir.dx * 16, p.dy + dir.dy * 16)
+          ..lineTo(tail.dx + side.dx * 5, tail.dy + side.dy * 5)
+          ..lineTo(tail.dx, tail.dy)
+          ..lineTo(tail.dx - side.dx * 5, tail.dy - side.dy * 5)
+          ..close(),
+        Paint()..color = Colors.amber,
+      );
+      canvas.drawCircle(p, 3, Paint()..color = Colors.white);
+      canvas.drawCircle(p, 1.8, Paint()..color = Colors.black);
     }
     final a = aim;
     if (a != null) {
