@@ -20,6 +20,27 @@ class HomeWidgets {
 
   static const appGroup = 'group.de.sommer2019.mobileGames';
   static const androidGameNight = 'de.sommer2019.mobile_games.GameNightWidget';
+  static const androidDice = 'de.sommer2019.mobile_games.DiceWidget';
+
+  /// Android: whether the launcher can add a widget on request.
+  static Future<bool> canPin() async {
+    if (!_supported || !Platform.isAndroid) return false;
+    try {
+      return await HomeWidget.isRequestPinWidgetSupported() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Asks the launcher to put a widget on the home screen (Android).
+  static Future<void> pin(String qualifiedAndroidName) async {
+    try {
+      await HomeWidget.requestPinWidget(
+        qualifiedAndroidName: qualifiedAndroidName,
+      );
+    } catch (_) {}
+  }
+
   static const iosGameNight = 'GameNightWidget';
   static const _recentKey = 'widget.recent';
 

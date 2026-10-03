@@ -2,6 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_game_night_description"
     android:initialLayout="@layout/widget_game_night"
+    android:previewImage="@drawable/widget_preview_game_night"
     android:previewLayout="@layout/widget_game_night"
     android:minWidth="250dp"
     android:minHeight="110dp"

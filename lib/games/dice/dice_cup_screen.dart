@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/dice.dart';
+import '../../ui/widgets_sheet.dart';
 
 /// Dice for board games: 1–6 dice, roll by tapping or shaking the phone.
 class DiceCupScreen extends StatefulWidget {
@@ -67,7 +68,16 @@ class _DiceCupScreenState extends State<DiceCupScreen> {
     final sum = values.take(count).fold(0, (a, b) => a + b);
     return Scaffold(
       backgroundColor: const Color(0xFF1B5E20),
-      appBar: AppBar(title: const Text('Würfelbecher')),
+      appBar: AppBar(
+        title: const Text('Würfelbecher'),
+        actions: [
+          IconButton(
+            tooltip: 'Als Widget auf den Startbildschirm',
+            icon: const Icon(Icons.widgets_outlined),
+            onPressed: () => showWidgetsSheet(context),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [

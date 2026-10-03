@@ -6,6 +6,7 @@ import '../core/services.dart';
 import 'chat_view.dart';
 import 'friend_code_widgets.dart';
 import 'notification_settings.dart';
+import 'widgets_sheet.dart';
 
 /// Account (name, friend code) and friend list. In [pickMode] tapping a
 /// friend returns their public key.
@@ -272,6 +273,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
               if (!widget.pickMode) const NotificationSettingsCard(),
+              if (!widget.pickMode)
+                Card(
+                  child: ListTile(
+                    key: const ValueKey('widgetsTile'),
+                    leading: const Icon(Icons.widgets_outlined),
+                    title: const Text('Widgets für den Startbildschirm'),
+                    subtitle: const Text('Würfel und Spieleabend'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showWidgetsSheet(context),
+                  ),
+                ),
               if (services.friendRequests.pending.isNotEmpty &&
                   !widget.pickMode) ...[
                 const SizedBox(height: 8),
