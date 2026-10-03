@@ -75,17 +75,6 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        if (Secrets.I.unlocked)
-          Card(
-            color: Colors.amber.shade100,
-            child: SwitchListTile(
-              key: const ValueKey('cheatSwitch'),
-              title: const Text('🎮 Easy Mode'),
-              subtitle: const Text('Alle Level freigeschaltet.'),
-              value: easy,
-              onChanged: (v) => Secrets.I.set(Secret.labyrinthEasy, v),
-            ),
-          ),
         const Padding(
           padding: EdgeInsets.all(8),
           child: Text(

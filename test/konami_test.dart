@@ -109,7 +109,8 @@ void main() {
     await Secrets.I.load();
     await tester.pumpWidget(const MaterialApp(home: LabyrinthLevelsScreen()));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('cheatSwitch')), findsOneWidget);
+    // No switch in the list; easy mode is in the secret menu.
+    expect(find.byKey(const ValueKey('cheatSwitch')), findsNothing);
     final tiles = tester.widgetList<ListTile>(find.byType(ListTile));
     expect(tiles.every((t) => t.enabled), isTrue);
   });
