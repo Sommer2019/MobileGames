@@ -15,6 +15,23 @@ import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'labyrinth_logic.dart';
 
+/// Levels solved without easy mode. Results from before the easy mode
+/// existed count as regular ones.
+Set<int> hardSolved(SharedPreferences prefs) {
+  if (!(prefs.getBool('labyrinth.hardInit') ?? false)) {
+    for (var i = 0; i < labyrinthLevels.length; i++) {
+      if (prefs.getDouble('labyrinth.best.$i') != null) {
+        prefs.setBool('labyrinth.hard.$i', true);
+      }
+    }
+    prefs.setBool('labyrinth.hardInit', true);
+  }
+  return {
+    for (var i = 0; i < labyrinthLevels.length; i++)
+      if (prefs.getBool('labyrinth.hard.$i') ?? false) i,
+  };
+}
+
 class LabyrinthLevelsScreen extends StatefulWidget {
   const LabyrinthLevelsScreen({super.key});
 
@@ -43,9 +60,14 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
 
   void _changed() => setState(() {});
 
+  /// Levels solved the regular way (not in easy mode).
+  Set<int> hard = {};
+
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final solved = hardSolved(prefs);
     setState(() {
+      hard = solved;
       best = {
         for (var i = 0; i < labyrinthLevels.length; i++)
           if (prefs.getDouble('labyrinth.best.$i') != null)
@@ -86,7 +108,7 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
                     ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
                     : 'Noch nicht geschafft',
               ),
-              enabled: easy || i == 0 || best.containsKey(i - 1),
+              enabled: easy || i == 0 || hard.contains(i - 1),
               trailing: Icon(
                 best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
               ),
@@ -242,11 +264,18 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     if (prev == null || game.elapsed < prev) {
       await prefs.setDouble(key, game.elapsed);
     }
-    final solved = [
-      for (var i = 0; i < labyrinthLevels.length; i++)
-        if (prefs.getDouble('labyrinth.best.$i') != null) i,
-    ].length;
-    await Leaderboard.submit('labyrinth', solved);
+    // Easy mode (all levels open) has its own ranking; the normal one only
+    // counts levels reached the regular way.
+    if (Secrets.on(Secret.labyrinthEasy)) {
+      final solved = [
+        for (var i = 0; i < labyrinthLevels.length; i++)
+          if (prefs.getDouble('labyrinth.best.$i') != null) i,
+      ].length;
+      await Leaderboard.submit('labyrinth.easy', solved);
+    } else {
+      await prefs.setBool('labyrinth.hard.$levelIndex', true);
+      await Leaderboard.submit('labyrinth', hardSolved(prefs).length);
+    }
     if (!mounted) return;
     final hasNext = levelIndex + 1 < labyrinthLevels.length;
     await showDialog<void>(

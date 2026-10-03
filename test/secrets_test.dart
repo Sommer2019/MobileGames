@@ -7,7 +7,9 @@ import 'package:mobile_games/core/konami.dart';
 import 'package:mobile_games/core/secrets.dart';
 import 'package:mobile_games/games/checkers/checkers_logic.dart';
 import 'package:mobile_games/games/chess/chess_logic.dart';
+import 'package:mobile_games/games/labyrinth/labyrinth_screen.dart';
 import 'package:mobile_games/ui/chat_view.dart';
+import 'package:mobile_games/ui/leaderboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_nostr.dart';
@@ -99,5 +101,38 @@ void main() {
       g.legalMoves().any((x) => x.from == move!.from && x.to == move.to),
       isTrue,
     );
+  });
+
+  testWidgets('the easy labyrinth ranking only shows after the code', (
+    tester,
+  ) async {
+    // Wide enough that all board chips are built.
+    tester.view.physicalSize = const Size(4000, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: LeaderboardScreen(game: 'labyrinth')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('board-labyrinth')), findsOneWidget);
+    expect(find.byKey(const ValueKey('board-labyrinth.easy')), findsNothing);
+    await Secrets.I.unlock();
+    await tester.pumpWidget(
+      const MaterialApp(home: LeaderboardScreen(key: ValueKey(2))),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('board-labyrinth.easy')), findsOneWidget);
+  });
+
+  test('old labyrinth results count as regular progress', () async {
+    SharedPreferences.setMockInitialValues({
+      'labyrinth.best.0': 12.0,
+      'labyrinth.best.1': 20.0,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    expect(hardSolved(prefs), {0, 1});
+    // Solved in easy mode later: a best time but no regular progress.
+    await prefs.setDouble('labyrinth.best.5', 30.0);
+    expect(hardSolved(prefs), {0, 1});
   });
 }

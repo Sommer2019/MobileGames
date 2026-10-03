@@ -70,9 +70,12 @@ class Sound {
   /// mute them). iOS: "ambient" – follows the silent switch, mixes with
   /// music that is playing.
   static final _context = AudioContext(
+    // "media" + "music" is the combination every vendor (incl. Xiaomi,
+    // where "game"/"sonification" ended up on the notification volume)
+    // plays on the media volume.
     android: const AudioContextAndroid(
-      usageType: AndroidUsageType.game,
-      contentType: AndroidContentType.sonification,
+      usageType: AndroidUsageType.media,
+      contentType: AndroidContentType.music,
       audioFocus: AndroidAudioFocus.none,
     ),
     iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
