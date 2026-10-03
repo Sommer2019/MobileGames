@@ -142,6 +142,8 @@ class HomeWidgets {
       'onlineCount': online.length,
       'online': online.take(4).join(', '),
       'recent': jsonEncode(recent),
+      // Seconds since 1970: lets the widget show how old its data is.
+      'updated': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     };
   }
 

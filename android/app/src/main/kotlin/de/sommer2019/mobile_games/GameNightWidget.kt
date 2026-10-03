@@ -8,6 +8,8 @@ import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
+import java.text.DateFormat
+import java.util.Date
 import org.json.JSONArray
 
 /**
@@ -40,10 +42,14 @@ class GameNightWidget : HomeWidgetProvider() {
     views.setTextViewText(R.id.gn_requests, "👋 ${number(data, "requests")}")
     val onlineCount = number(data, "onlineCount")
     val names = data.getString("online", "") ?: ""
+    val updated = number(data, "updated")
+    val stand =
+        if (updated == 0L) "Noch keine Daten – öffne die App einmal"
+        else "Stand: " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(updated * 1000))
     views.setTextViewText(
         R.id.gn_online,
-        if (onlineCount == 0L) "Gerade ist kein Freund online"
-        else "🟢 $onlineCount online: $names")
+        (if (onlineCount == 0L) "Kein Freund online" else "🟢 $onlineCount online: $names") +
+            "\n" + stand)
     views.setOnClickPendingIntent(R.id.gn_root, link(context, "mobilegames://home?homeWidget"))
 
     val buttons = intArrayOf(R.id.gn_game1, R.id.gn_game2, R.id.gn_game3)

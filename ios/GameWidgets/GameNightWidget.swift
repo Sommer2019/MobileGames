@@ -14,6 +14,10 @@ struct GameNightEntry: TimelineEntry {
   let online: String
   let recent: [RecentGame]
 
+  /// When the app last pushed data; nil if it never arrived (e.g. the app
+  /// group was lost when the app was signed).
+  let updated: Date?
+
   /// What the app last pushed (lib/core/home_widgets.dart).
   static func load() -> GameNightEntry {
     let d = sharedDefaults
@@ -22,15 +26,22 @@ struct GameNightEntry: TimelineEntry {
     return GameNightEntry(
       date: Date(), unread: d.integer(forKey: "unread"), requests: d.integer(forKey: "requests"),
       onlineCount: d.integer(forKey: "onlineCount"), online: d.string(forKey: "online") ?? "",
-      recent: recent)
+      recent: recent, updated: updatedDate(d))
   }
+}
+
+/// home_widget stores numbers as Int or Int64; 0 = never written.
+func updatedDate(_ d: UserDefaults) -> Date? {
+  let seconds = d.double(forKey: "updated")
+  return seconds > 0 ? Date(timeIntervalSince1970: seconds) : nil
 }
 
 struct GameNightProvider: TimelineProvider {
   func placeholder(in context: Context) -> GameNightEntry {
     GameNightEntry(
       date: Date(), unread: 2, requests: 1, onlineCount: 2, online: "Anna, Ben",
-      recent: [RecentGame(id: "chess", title: "Schach"), RecentGame(id: "yahtzee", title: "Kniffel")])
+      recent: [RecentGame(id: "chess", title: "Schach"), RecentGame(id: "yahtzee", title: "Kniffel")],
+      updated: Date())
   }
 
   func getSnapshot(in context: Context, completion: @escaping (GameNightEntry) -> Void) {
@@ -67,9 +78,17 @@ struct GameNightView: View {
       }
       Text(
         entry.onlineCount == 0
-          ? "Gerade ist kein Freund online" : "🟢 \(entry.onlineCount) online: \(entry.online)"
+          ? "Kein Freund online" : "🟢 \(entry.onlineCount) online: \(entry.online)"
       )
       .font(.caption).foregroundStyle(.white.opacity(0.9)).lineLimit(2)
+      Group {
+        if let updated = entry.updated {
+          Text("Stand: \(updated, style: .time)")
+        } else {
+          Text("Noch keine Daten – öffne die App einmal")
+        }
+      }
+      .font(.caption2).foregroundStyle(.white.opacity(0.6))
       Spacer(minLength: 0)
       if family != .systemSmall {
         HStack(spacing: 6) {
