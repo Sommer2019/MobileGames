@@ -27,15 +27,32 @@ const defaultRelays = [
 ];
 
 class RelayPool implements NostrClient {
-  RelayPool({List<String> urls = defaultRelays})
-    : _relays = [for (final u in urls) _Relay(u)] {
+  RelayPool({
+    List<String> urls = defaultRelays,
+    this.heartbeat = const Duration(seconds: 30),
+  }) : _relays = [for (final u in urls) _Relay(u, heartbeat)] {
     for (final r in _relays) {
       r.onEvent = _onEvent;
       r.connect();
     }
+    _heartbeat = Timer.periodic(heartbeat, (_) {
+      for (final r in _relays) {
+        r.heartbeat();
+      }
+    });
   }
 
+  /// How often silently dead connections are looked for (iOS cuts sockets
+  /// while the app is in the background without telling anybody).
+  final Duration heartbeat;
+  Timer? _heartbeat;
+
   final List<_Relay> _relays;
+
+  /// Connection state of every relay (for the connection screen).
+  List<RelayStatus> get status => [
+    for (final r in _relays) RelayStatus(r.url, r.isOpen, r.lastError),
+  ];
   final Map<String, _Sub> _subs = {};
   final Random _random = Random();
 
@@ -93,6 +110,7 @@ class RelayPool implements NostrClient {
   }
 
   void dispose() {
+    _heartbeat?.cancel();
     for (final r in _relays) {
       r.dispose();
     }
@@ -107,8 +125,50 @@ class _Sub {
   final Set<String> seen = <String>{};
 }
 
+class RelayStatus {
+  const RelayStatus(this.url, this.open, this.error);
+  final String url;
+  final bool open;
+
+  /// Why the last connection attempt failed, if it did.
+  final String? error;
+}
+
 class _Relay {
-  _Relay(this.url);
+  _Relay(this.url, this._heartbeat);
+
+  final Duration _heartbeat;
+
+  String? lastError;
+
+  /// Last time anything arrived from the relay.
+  DateTime _lastRx = DateTime.now();
+  bool _pinged = false;
+
+  /// Asks the relay for an answer; if the previous question stayed
+  /// unanswered the connection is dead and gets replaced.
+  void heartbeat() {
+    if (!isOpen || _connecting) return;
+    final quiet = DateTime.now().difference(_lastRx);
+    if (_pinged && quiet > _heartbeat * 2) {
+      lastError = 'keine Antwort mehr';
+      poke(force: true);
+      return;
+    }
+    if (quiet < _heartbeat) return;
+    _pinged = true;
+    // A request that can't match anything: the relay answers with EOSE.
+    _raw(
+      jsonEncode([
+        'REQ',
+        'ping',
+        {
+          'ids': ['0' * 64],
+          'limit': 1,
+        },
+      ]),
+    );
+  }
 
   final String url;
   WebSocketChannel? _channel;
@@ -148,6 +208,9 @@ class _Relay {
       await ch.ready.timeout(const Duration(seconds: 10));
       isOpen = true;
       _attempt = 0;
+      lastError = null;
+      _lastRx = DateTime.now();
+      _pinged = false;
       // Only the current channel may trigger a reconnect.
       ch.stream.listen(
         _onMessage,
@@ -164,7 +227,8 @@ class _Relay {
       final pending = List<String>.from(_queue);
       _queue.clear();
       pending.forEach(_raw);
-    } catch (_) {
+    } catch (e) {
+      lastError = e is TimeoutException ? 'Zeitüberschreitung' : '$e';
       _onClosed();
     } finally {
       _connecting = false;
@@ -182,6 +246,8 @@ class _Relay {
   }
 
   void _onMessage(dynamic data) {
+    _lastRx = DateTime.now();
+    _pinged = false;
     try {
       final msg = jsonDecode(data as String);
       if (msg is List && msg.length >= 3 && msg[0] == 'EVENT') {

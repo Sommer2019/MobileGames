@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -60,8 +61,11 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
               : DateTime.now().difference(_pausedAt!);
           final client = Services.I.client;
           if (client is RelayPool) {
-            // After a longer break sockets are often silently dead.
-            client.reconnectNow(force: away > const Duration(minutes: 1));
+            // After a longer break sockets are often silently dead; iOS
+            // cuts them as soon as the app is in the background.
+            client.reconnectNow(
+              force: Platform.isIOS || away > const Duration(minutes: 1),
+            );
           }
           Services.I.presence.announce();
         },

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/names.dart';
 import '../core/services.dart';
 import 'chat_view.dart';
+import 'connection_screen.dart';
 import 'friend_code_widgets.dart';
 import 'notification_settings.dart';
 import 'widgets_sheet.dart';
@@ -273,6 +274,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
               if (!widget.pickMode) const NotificationSettingsCard(),
+              if (!widget.pickMode)
+                Card(
+                  child: ListTile(
+                    key: const ValueKey('connectionTile'),
+                    leading: const Icon(Icons.network_check),
+                    title: const Text('Verbindung prüfen'),
+                    subtitle: const Text('Relays, Freunde online, Test'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ConnectionScreen(),
+                      ),
+                    ),
+                  ),
+                ),
               if (!widget.pickMode)
                 Card(
                   child: ListTile(

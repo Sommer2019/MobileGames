@@ -161,6 +161,9 @@ class Presence extends ChangeNotifier {
   /// Whether the friend found the Konami code (shows 🎮 next to the name).
   bool hasBadge(String pubkey) => _badges.contains(pubkey);
 
+  /// When the last presence of [pubkey] arrived (this session).
+  DateTime? lastSeen(String pubkey) => _lastSeen[pubkey];
+
   bool isOnline(String pubkey) {
     final t = _lastSeen[pubkey];
     return t != null && DateTime.now().difference(t) < interval * 2.5;
