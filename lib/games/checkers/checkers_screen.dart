@@ -230,6 +230,9 @@ class _CheckersScreenState extends State<CheckersScreen> {
           if (game.isOver)
             GameOverActions(
               setup: widget.setup,
+              aiWinBoard: Secrets.on(Secret.grandmaster)
+                  ? 'checkers.grandmaster'
+                  : null,
               winnerSeats: _winnerSeats(),
               onRematch: _reset,
             ),

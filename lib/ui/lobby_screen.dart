@@ -25,7 +25,7 @@ class LobbyScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(game.title),
         actions: [
-          if (boards.any((b) => b.game == game.id))
+          if (visibleBoards().any((b) => b.game == game.id))
             LeaderboardButton(game: game.id),
         ],
       ),

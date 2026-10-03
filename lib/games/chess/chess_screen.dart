@@ -263,6 +263,9 @@ class _ChessScreenState extends State<ChessScreen> {
           if (over)
             GameOverActions(
               setup: widget.setup,
+              aiWinBoard: Secrets.on(Secret.grandmaster)
+                  ? 'chess.grandmaster'
+                  : null,
               winnerSeats: _winnerSeats(),
               onRematch: _reset,
               rematchLabel: 'Revanche (Farben tauschen)',

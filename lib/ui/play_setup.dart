@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/leaderboard.dart';
 import '../core/sound.dart';
 import '../core/net/room.dart';
 import 'chat_view.dart';
@@ -92,7 +93,11 @@ class GameOverActions extends StatefulWidget {
     required this.winnerSeats,
     required this.onRematch,
     this.rematchLabel,
+    this.aiWinBoard,
   });
+
+  /// Board that counts wins against the computer (secret extras), or null.
+  final String? aiWinBoard;
 
   final PlaySetup setup;
   final List<int> winnerSeats;
@@ -112,6 +117,13 @@ class _GameOverActionsState extends State<GameOverActions> {
         setup.kind == PlayKind.local ||
         widget.winnerSeats.contains(setup.mySeat);
     Sound.play(won ? Sfx.win : Sfx.lose);
+    final board = widget.aiWinBoard;
+    if (board != null &&
+        setup.kind == PlayKind.ai &&
+        widget.winnerSeats.length == 1 &&
+        widget.winnerSeats.single == setup.mySeat) {
+      Leaderboard.recordWin(board);
+    }
     final report = widget.setup.onFinished;
     if (report != null) {
       final winners = widget.winnerSeats;

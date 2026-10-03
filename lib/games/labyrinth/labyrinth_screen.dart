@@ -247,6 +247,19 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
         if (prefs.getDouble('labyrinth.best.$i') != null) i,
     ].length;
     await Leaderboard.submit('labyrinth', solved);
+    // The harder Konami extras have their own rankings.
+    for (final (secret, id) in const [
+      (Secret.nightmare, 'labyrinth.nightmare'),
+      (Secret.rubberBall, 'labyrinth.rubber'),
+    ]) {
+      if (!Secrets.on(secret)) continue;
+      await prefs.setBool('$id.$levelIndex', true);
+      final count = [
+        for (var i = 0; i < labyrinthLevels.length; i++)
+          if (prefs.getBool('$id.$i') ?? false) i,
+      ].length;
+      await Leaderboard.submit(id, count);
+    }
     if (!mounted) return;
     final hasNext = levelIndex + 1 < labyrinthLevels.length;
     await showDialog<void>(

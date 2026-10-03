@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/core/account.dart';
 import 'package:mobile_games/core/konami.dart';
+import 'package:mobile_games/core/leaderboard.dart';
 import 'package:mobile_games/core/secrets.dart';
 import 'package:mobile_games/games/checkers/checkers_logic.dart';
 import 'package:mobile_games/games/chess/chess_logic.dart';
@@ -99,5 +100,24 @@ void main() {
       g.legalMoves().any((x) => x.from == move!.from && x.to == move.to),
       isTrue,
     );
+  });
+
+  test('hard rankings for the extras only after the code', () async {
+    expect(visibleBoards().any((b) => b.secret), isFalse);
+    await Secrets.I.unlock();
+    final ids = visibleBoards().map((b) => b.id);
+    expect(
+      ids,
+      containsAll([
+        'labyrinth.nightmare',
+        'labyrinth.rubber',
+        'chess.grandmaster',
+        'checkers.grandmaster',
+        'kniffel.lucky',
+      ]),
+    );
+    expect(await Leaderboard.recordWin('chess.grandmaster'), isTrue);
+    expect(await Leaderboard.recordWin('chess.grandmaster'), isTrue);
+    expect(await Leaderboard.best('chess.grandmaster'), 2);
   });
 }

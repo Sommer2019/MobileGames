@@ -242,6 +242,9 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> {
           if (game.isOver)
             GameOverActions(
               setup: widget.setup,
+              aiWinBoard: Secrets.on(Secret.luckyComputer)
+                  ? 'kniffel.lucky'
+                  : null,
               winnerSeats: [
                 for (final i in game.winners()) (i + round) % players,
               ],

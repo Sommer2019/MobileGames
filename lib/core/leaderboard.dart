@@ -21,7 +21,11 @@ class ScoreBoard {
     this.max = 1 << 30,
     this.legacyKey,
     this.time = false,
+    this.secret = false,
   });
+
+  /// Rankings for the Konami extras: only shown after the code was found.
+  final bool secret;
 
   final String id;
 
@@ -145,6 +149,58 @@ const boards = [
     max: 1000,
     legacyKey: 'billiard.best.rotation',
   ),
+  // The harder Konami extras get their own rankings.
+  ScoreBoard(
+    'labyrinth.nightmare',
+    'labyrinth',
+    'Labyrinth Albtraum 🎮',
+    'Level',
+    min: 1,
+    max: 200,
+    secret: true,
+  ),
+  ScoreBoard(
+    'labyrinth.rubber',
+    'labyrinth',
+    'Labyrinth Gummiball 🎮',
+    'Level',
+    min: 1,
+    max: 200,
+    secret: true,
+  ),
+  ScoreBoard(
+    'chess.grandmaster',
+    'chess',
+    'Schach vs. Großmeister 🎮',
+    'Siege',
+    min: 1,
+    max: 100000,
+    secret: true,
+  ),
+  ScoreBoard(
+    'checkers.grandmaster',
+    'checkers',
+    'Dame vs. Großmeister 🎮',
+    'Siege',
+    min: 1,
+    max: 100000,
+    secret: true,
+  ),
+  ScoreBoard(
+    'kniffel.lucky',
+    'yahtzee',
+    'Kniffel vs. Glückspilz 🎮',
+    'Siege',
+    min: 1,
+    max: 100000,
+    secret: true,
+  ),
+];
+
+/// Boards the player may see (secret ones only after the Konami code).
+List<ScoreBoard> visibleBoards() => [
+  for (final b in boards)
+    if (!b.secret || Secrets.I.unlocked) b,
 ];
 
 ScoreBoard boardById(String id) => boards.firstWhere((b) => b.id == id);
@@ -239,6 +295,14 @@ class Leaderboard {
         if (_history(prefs, b) case final h when h.isNotEmpty)
           b.id: h.first.value,
     };
+  }
+
+  /// Counts one more win for a "wins" board and records the total.
+  static Future<bool> recordWin(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final wins = (prefs.getInt('wins.$id') ?? 0) + 1;
+    await prefs.setInt('wins.$id', wins);
+    return submit(id, wins);
   }
 
   /// Records a finished game. Returns true for a new personal best.

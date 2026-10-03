@@ -34,9 +34,9 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  late ScoreBoard board = boards.firstWhere(
+  late ScoreBoard board = visibleBoards().firstWhere(
     (b) => b.game == widget.game,
-    orElse: () => boards.first,
+    orElse: () => visibleBoards().first,
   );
   List<ScoreEntry> mine = [];
   List<RemoteScores>? everyone;
@@ -119,7 +119,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     children: [
-                      for (final b in boards)
+                      for (final b in visibleBoards())
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,
