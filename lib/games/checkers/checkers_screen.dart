@@ -62,7 +62,7 @@ class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
   void _onMessage(Map<String, dynamic> m) {
     switch (m['t']) {
       case 'move':
-        if (game.turn != mySide) {
+        if (widget.setup.spectator || game.turn != mySide) {
           Sound.play(Sfx.place);
           setState(
             () => game.playPath(
@@ -76,6 +76,7 @@ class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
   }
 
   bool get _canMove {
+    if (widget.setup.spectator) return false;
     if (game.isOver) return false;
     return switch (widget.setup.kind) {
       PlayKind.local => true,

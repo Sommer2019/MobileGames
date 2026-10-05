@@ -78,7 +78,7 @@ class _MillScreenState extends State<MillScreen> with SavedGameState {
       _reset(send: false);
       return;
     }
-    if (game.turn == me) return;
+    if (game.turn == me && !widget.setup.spectator) return;
     Sound.play(Sfx.place);
     setState(() {
       switch (m['t']) {
@@ -93,6 +93,7 @@ class _MillScreenState extends State<MillScreen> with SavedGameState {
   }
 
   bool get _canAct {
+    if (widget.setup.spectator) return false;
     if (game.isOver) return false;
     return switch (widget.setup.kind) {
       PlayKind.local => true,

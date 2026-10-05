@@ -13,6 +13,7 @@ import 'secrets.dart';
 import 'net/game_session.dart';
 import 'net/matchmaker.dart';
 import 'net/messenger.dart';
+import 'net/spectate.dart';
 import 'net/webrtc_transport.dart';
 import 'nostr/relay_pool.dart';
 
@@ -27,7 +28,8 @@ class Services {
        p2pFactory = p2pFactory ?? WebRtcTransport.new {
     messenger.start();
     matchmaker = Matchmaker(messenger, nameProvider: () => account.name);
-    presence = Presence(client, account)..start();
+    spectators = SpectatorHub(messenger, account, createSession);
+    presence = Presence(client, account, playing: spectators.playing)..start();
     chat = ChatService(client, account.keys);
     friendCodes = FriendCodes(client, account.keys);
     friendRequests = FriendRequests(account, chat, codes: friendCodes);
@@ -87,6 +89,7 @@ class Services {
   final P2pTransport Function() p2pFactory;
   late final Matchmaker matchmaker;
   late final Presence presence;
+  late final SpectatorHub spectators;
   late final ChatService chat;
   late final FriendRequests friendRequests;
   late final FriendCodes friendCodes;

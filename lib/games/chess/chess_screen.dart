@@ -81,7 +81,7 @@ class _ChessScreenState extends State<ChessScreen> with SavedGameState {
   void _onMessage(Map<String, dynamic> m) {
     switch (m['t']) {
       case 'move':
-        if (game.turn != mySide) {
+        if (widget.setup.spectator || game.turn != mySide) {
           Sound.play(Sfx.place);
           setState(
             () => game.move(
@@ -101,6 +101,7 @@ class _ChessScreenState extends State<ChessScreen> with SavedGameState {
   String? _resigned;
 
   bool get _canMove {
+    if (widget.setup.spectator) return false;
     if (game.isOver || _resigned != null) return false;
     return switch (widget.setup.kind) {
       PlayKind.local => true,

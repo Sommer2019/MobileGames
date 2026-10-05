@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/names.dart';
 import '../core/services.dart';
 import 'account_transfer_screen.dart';
+import 'watch.dart';
 import 'chat_view.dart';
 import 'connection_screen.dart';
 import 'friend_code_widgets.dart';
@@ -405,7 +406,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           : f.name,
                     ),
                     subtitle: Text(
-                      chat.messages(f.pubkey).isNotEmpty
+                      services.presence.playingOf(f.pubkey) != null
+                          ? 'spielt ${gameTitle(services.presence.playingOf(f.pubkey)!)}'
+                          : chat.messages(f.pubkey).isNotEmpty
                           ? chat.messages(f.pubkey).last.text
                           : services.presence.isOnline(f.pubkey)
                           ? 'Online'
@@ -421,6 +424,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (services.presence.playingOf(f.pubkey) != null)
+                                IconButton(
+                                  key: ValueKey('watch${f.pubkey}'),
+                                  tooltip: 'Zuschauen',
+                                  onPressed: () => watchFriendGame(context, f),
+                                  icon: const Icon(Icons.visibility),
+                                ),
                               IconButton(
                                 tooltip: 'Chat',
                                 onPressed: () => _openChat(f.pubkey),

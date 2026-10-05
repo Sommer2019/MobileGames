@@ -76,7 +76,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   void _onMessage(Map<String, dynamic> m) {
     switch (m['t']) {
       case 'drop':
-        if (game.currentPlayer != myPlayer) {
+        if (widget.setup.spectator || game.currentPlayer != myPlayer) {
           setState(() => game.drop(m['col'] as int));
           Sound.play(Sfx.place);
         }
@@ -86,6 +86,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   }
 
   bool get _myTurn {
+    if (widget.setup.spectator) return false;
     if (game.isOver) return false;
     switch (widget.setup.kind) {
       case PlayKind.local:

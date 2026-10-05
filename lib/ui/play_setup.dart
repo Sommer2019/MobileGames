@@ -6,8 +6,10 @@ import '../core/leaderboard.dart';
 import '../core/moderation.dart';
 import '../core/sound.dart';
 import '../core/net/room.dart';
+import '../core/services.dart';
 import 'chat_view.dart';
 import 'moderation_ui.dart';
+import 'reactions.dart';
 
 enum PlayKind { local, ai, online }
 
@@ -59,6 +61,9 @@ class PlaySetup {
   final VoidCallback? onLeave;
 
   bool get online => kind == PlayKind.online;
+
+  /// Only watching a friend's game: no moves, no rematch.
+  bool get spectator => room?.spectator ?? false;
 
   /// Where an offline round of [game] is kept when leaving (online: null).
   String? saveKey(String game) => online ? null : '$game.${kind.name}$players';
@@ -118,6 +123,7 @@ class _GameOverActionsState extends State<GameOverActions> {
   void initState() {
     super.initState();
     final setup = widget.setup;
+    if (setup.spectator) return;
     final won =
         setup.kind == PlayKind.local ||
         widget.winnerSeats.contains(setup.mySeat);
@@ -139,6 +145,14 @@ class _GameOverActionsState extends State<GameOverActions> {
   @override
   Widget build(BuildContext context) {
     final setup = widget.setup;
+    if (setup.spectator) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text(
+          'Spiel vorbei – du schaust weiter zu, falls es eine Revanche gibt.',
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.all(12),
       child: setup.inTournament
@@ -208,6 +222,9 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   void initState() {
     super.initState();
     final r = _room;
+    if (r != null && !r.spectator && Services.isReady) {
+      Services.I.spectators.attach(r);
+    }
     if (r != null) {
       r.addListener(_onRoomChanged);
       _chatSub = r.chatStream.listen((line) {
@@ -254,6 +271,8 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   void dispose() {
     _chatSub?.cancel();
     _room?.removeListener(_onRoomChanged);
+    final r = _room;
+    if (r != null && Services.isReady) Services.I.spectators.detach(r);
     // In a tournament the room lives on for the next games.
     if (!widget.setup.inTournament) _room?.close();
     super.dispose();
@@ -401,8 +420,43 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   @override
   Widget build(BuildContext context) {
     final r = _room;
+    final watching = r?.spectator ?? false;
+    Widget body = Center(
+      // Keeps boards at a pleasant size on tablets.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: widget.child,
+      ),
+    );
+    if (r != null) {
+      body = Column(
+        children: [
+          if (watching)
+            Container(
+              key: const ValueKey('watchingBanner'),
+              width: double.infinity,
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              padding: const EdgeInsets.all(6),
+              child: Text(
+                '👁 Du schaust ${r.names[r.mySeat]} zu',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          Expanded(
+            child: ReactionOverlay(
+              room: r,
+              child: watching ? AbsorbPointer(child: body) : body,
+            ),
+          ),
+          ReactionBar(
+            onReact: (e) =>
+                r.react(Services.isReady ? Services.I.account.name : 'Ich', e),
+          ),
+        ],
+      );
+    }
     return PopScope(
-      canPop: r == null || r.leftPlayer != null || _finished,
+      canPop: r == null || watching || r.leftPlayer != null || _finished,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final nav = Navigator.of(context);
@@ -418,8 +472,15 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
+            if (r != null && !watching && Services.isReady)
+              ValueListenableBuilder<int>(
+                valueListenable: Services.I.spectators.watchers,
+                builder: (context, n, _) => n == 0
+                    ? const SizedBox.shrink()
+                    : Tooltip(message: '$n schauen zu', child: Text('👁 $n')),
+              ),
             if (r != null) _ConnectionChip(room: r),
-            if (r != null)
+            if (r != null && !watching)
               IconButton(
                 tooltip: 'Chat',
                 onPressed: _openChat,
@@ -429,18 +490,10 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
                   child: const Icon(Icons.chat_bubble_outline),
                 ),
               ),
-            ...?widget.actions,
+            if (!watching) ...?widget.actions,
           ],
         ),
-        body: SafeArea(
-          child: Center(
-            // Keeps boards at a pleasant size on tablets.
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: widget.child,
-            ),
-          ),
-        ),
+        body: SafeArea(child: body),
       ),
     );
   }

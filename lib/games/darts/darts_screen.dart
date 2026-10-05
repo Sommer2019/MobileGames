@@ -59,7 +59,8 @@ class _DartsScreenState extends State<DartsScreen>
   int get myIndex =>
       (widget.setup.mySeat - round % players + players) % players;
 
-  bool get _waitingForConfig => game == null && !widget.setup.isHost;
+  bool get _waitingForConfig =>
+      game == null && (!widget.setup.isHost || widget.setup.spectator);
 
   @override
   String? get saveKey => widget.setup.saveKey('darts');
@@ -117,7 +118,9 @@ class _DartsScreenState extends State<DartsScreen>
         });
       case 'throw':
         final g = game;
-        if (g == null || g.current == myIndex) return;
+        if (g == null || (g.current == myIndex && !widget.setup.spectator)) {
+          return;
+        }
         _apply(Offset((m['x'] as num).toDouble(), (m['y'] as num).toDouble()));
     }
   }
@@ -148,6 +151,7 @@ class _DartsScreenState extends State<DartsScreen>
   }
 
   bool get _canThrow {
+    if (widget.setup.spectator) return false;
     final g = game;
     if (g == null || g.isOver) return false;
     return !widget.setup.online || g.current == myIndex;

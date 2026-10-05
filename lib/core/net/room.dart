@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -23,6 +24,13 @@ class ChatLine {
 
 typedef SessionFactory = GameSession Function(MatchInfo match);
 
+/// A cheer from a player or spectator (an emoji flying over the board).
+class Reaction {
+  const Reaction(this.name, this.emoji);
+  final String name;
+  final String emoji;
+}
+
 /// A running online game with 2–4 players.
 ///
 /// The topology is a star: the host (seat 0) has one peer-to-peer
@@ -35,7 +43,100 @@ class GameRoom extends ChangeNotifier {
     required this.names,
     required List<GameSession> links,
     this.options = const {},
+    this.spectator = false,
   }) : _links = links;
+
+  /// A friend's game, watched through their device ([mySeat] is the
+  /// friend's seat, so the board is seen from their side). [log] holds the
+  /// moves so far; later ones arrive through [link]. Nothing is sent.
+  factory GameRoom.watching({
+    required String gameId,
+    required int seat,
+    required List<String> names,
+    required GameSession link,
+    Map<String, dynamic> options = const {},
+    List<Map<String, dynamic>> log = const [],
+  }) {
+    final r = GameRoom._(
+      gameId: gameId,
+      mySeat: seat,
+      names: names,
+      links: [link],
+      options: options,
+      spectator: true,
+    );
+    for (final e in log) {
+      final d = e['d'];
+      if (d is Map<String, dynamic>) {
+        r._dispatch(RoomMessage(e['s'] as int? ?? 0, d));
+      }
+    }
+    r._attach();
+    return r;
+  }
+
+  /// Only watching (see [GameRoom.watching]).
+  final bool spectator;
+
+  /// All game messages of this room in order (for spectators joining late).
+  final List<Map<String, dynamic>> log = [];
+  final _feed = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Every game message as it happens, as `{'s': seat, 'd': data}`.
+  Stream<Map<String, dynamic>> get feed => _feed.stream;
+
+  bool get isClosed => _closed;
+
+  /// Emojis that can be sent as cheers.
+  static const reactionEmojis = ['👏', '🎉', '🔥', '😮', '😂'];
+  final _reactions = StreamController<Reaction>.broadcast();
+  final Set<String> _seenReactions = {};
+  final Random _random = Random();
+
+  /// Cheers of everybody in the room (including our own).
+  Stream<Reaction> get reactions => _reactions.stream;
+
+  /// Sends a cheer to everybody (players and spectators).
+  void react(String name, String emoji) => receiveReaction({
+    'k': 'x',
+    'i': '${_random.nextInt(1 << 32)}',
+    'n': name,
+    'e': emoji,
+  });
+
+  /// A cheer from this device or from a spectator watching through it.
+  void receiveReaction(Map<String, dynamic> m) => _onReaction(m, -1);
+
+  /// Raw reaction messages, for forwarding to spectators.
+  final _reactionMessages = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get reactionMessages => _reactionMessages.stream;
+
+  void _onReaction(Map<String, dynamic> m, int fromLink) {
+    final id = m['i'], emoji = m['e'], name = m['n'];
+    if (_closed || id is! String || emoji is! String || name is! String) return;
+    if (!reactionEmojis.contains(emoji) || !_seenReactions.add(id)) return;
+    if (_seenReactions.length > 500) {
+      _seenReactions.remove(_seenReactions.first);
+    }
+    final clean = name.length > 24 ? name.substring(0, 24) : name;
+    final msg = {'k': 'x', 'i': id, 'n': clean, 'e': emoji};
+    _reactions.add(Reaction(clean, emoji));
+    _reactionMessages.add(msg);
+    for (var i = 0; i < _links.length; i++) {
+      if (i != fromLink) _links[i].send(msg);
+    }
+  }
+
+  /// A message from a link (spectator rooms get theirs from the watcher).
+  void receive(Map<String, dynamic> m) => _onLinkMessage(0, m);
+
+  void _record(int seat, Map<String, dynamic> d) {
+    if (spectator) return;
+    final e = {'s': seat, 'd': d};
+    log.add(e);
+    if (log.length > 5000) log.removeAt(0);
+    _feed.add(e);
+  }
 
   final String gameId;
   final int mySeat;
@@ -92,7 +193,7 @@ class GameRoom extends ChangeNotifier {
     }
     if (!claimed) {
       _unclaimed.add(m);
-      if (_unclaimed.length > 500) _unclaimed.removeAt(0);
+      if (_unclaimed.length > (spectator ? 5000 : 500)) _unclaimed.removeAt(0);
     }
   }
 
@@ -129,20 +230,27 @@ class GameRoom extends ChangeNotifier {
   void _onLinkMessage(int linkIndex, Map<String, dynamic> m) {
     if (_closed) return;
     // The host knows who sent a message, guests trust the host.
-    final seat = isHost ? linkIndex + 1 : (m['s'] as int? ?? 0);
+    final seat = isHost && !spectator ? linkIndex + 1 : (m['s'] as int? ?? 0);
     switch (m['k']) {
       case 'g':
         final d = m['d'];
         if (d is! Map<String, dynamic>) return;
         _dispatch(RoomMessage(seat, d));
-        if (isHost) _forward(linkIndex, {'k': 'g', 's': seat, 'd': d});
+        _record(seat, d);
+        if (isHost && !spectator) {
+          _forward(linkIndex, {'k': 'g', 's': seat, 'd': d});
+        }
       case 'c':
         final text = m['text'];
         if (text is! String || seat >= size) return;
         _addChat(ChatLine(seat, names[seat], text));
-        if (isHost) _forward(linkIndex, {'k': 'c', 's': seat, 'text': text});
+        if (isHost && !spectator) {
+          _forward(linkIndex, {'k': 'c', 's': seat, 'text': text});
+        }
       case 'l':
         _playerLeft(m['s'] as int? ?? 0);
+      case 'x':
+        _onReaction(m, linkIndex);
     }
   }
 
@@ -162,13 +270,14 @@ class GameRoom extends ChangeNotifier {
   void _playerLeft(int seat) {
     if (leftPlayer != null || _closed) return;
     leftPlayer = seat < size ? names[seat] : 'Ein Spieler';
-    if (isHost) _forward(seat - 1, {'k': 'l', 's': seat});
+    if (isHost && !spectator) _forward(seat - 1, {'k': 'l', 's': seat});
     notifyListeners();
   }
 
   /// Sends a game message to all other players.
   void send(Map<String, dynamic> data) {
-    if (_closed) return;
+    if (_closed || spectator) return;
+    _record(mySeat, data);
     for (final l in _links) {
       l.send({'k': 'g', 's': mySeat, 'd': data});
     }
@@ -176,7 +285,7 @@ class GameRoom extends ChangeNotifier {
 
   void sendChat(String text) {
     final t = text.trim();
-    if (t.isEmpty || _closed) return;
+    if (t.isEmpty || _closed || spectator) return;
     final msg = t.length > 500 ? t.substring(0, 500) : t;
     for (final l in _links) {
       l.send({'k': 'c', 's': mySeat, 'text': msg});
@@ -187,6 +296,9 @@ class GameRoom extends ChangeNotifier {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    await _feed.close();
+    await _reactions.close();
+    await _reactionMessages.close();
     for (final s in _subs) {
       await s.cancel();
     }

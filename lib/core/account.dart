@@ -146,7 +146,16 @@ class Presence extends ChangeNotifier {
     this.client,
     this.account, {
     this.interval = const Duration(seconds: 30),
+    this.playing,
   });
+
+  /// The online game friends could watch right now (sent along).
+  final ValueListenable<String?>? playing;
+  final Map<String, String> _playing = {};
+
+  /// The game [pubkey] is playing and can be watched, if online.
+  String? playingOf(String pubkey) =>
+      isOnline(pubkey) ? _playing[pubkey] : null;
 
   final NostrClient client;
   final Account account;
@@ -193,6 +202,7 @@ class Presence extends ChangeNotifier {
       notifyListeners();
     });
     account.addListener(_resubscribe);
+    playing?.addListener(_announce);
     _resubscribe();
   }
 
@@ -208,6 +218,7 @@ class Presence extends ChangeNotifier {
         content: jsonEncode({
           'name': account.name,
           if (Secrets.I.unlocked) 'k': true,
+          'p': ?playing?.value,
         }),
         tags: [
           ['t', 'mobilegames-presence'],
@@ -235,6 +246,12 @@ class Presence extends ChangeNotifier {
             final j = jsonDecode(e.content) as Map;
             final name = j['name'];
             if (name is String) account.updateFriendName(e.pubkey, name);
+            final p = j['p'];
+            if (p is String && p.length < 40) {
+              _playing[e.pubkey] = p;
+            } else {
+              _playing.remove(e.pubkey);
+            }
             if (j['k'] == true) {
               _badges.add(e.pubkey);
             } else {
@@ -252,6 +269,7 @@ class Presence extends ChangeNotifier {
     _timer?.cancel();
     _sub?.cancel();
     account.removeListener(_resubscribe);
+    playing?.removeListener(_announce);
     super.dispose();
   }
 }

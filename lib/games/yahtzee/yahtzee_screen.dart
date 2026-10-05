@@ -153,7 +153,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
   }
 
   bool get myTurn =>
-      (!widget.setup.online && !vsAi) || game.currentPlayer == me;
+      !widget.setup.spectator &&
+      ((!widget.setup.online && !vsAi) || game.currentPlayer == me);
 
   String playerName(int i) {
     final room = widget.setup.room;
@@ -166,7 +167,11 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
   }
 
   void _onMessage(Map<String, dynamic> m) {
-    if (game.currentPlayer == me && m['t'] != 'rematch') return;
+    if (game.currentPlayer == me &&
+        m['t'] != 'rematch' &&
+        !widget.setup.spectator) {
+      return;
+    }
     setState(() {
       switch (m['t']) {
         case 'roll':
