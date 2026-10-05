@@ -32,6 +32,70 @@ void main() {
     expect(prefs.getInt('dice.count'), 5);
   });
 
+  testWidgets('dice cup: put dice aside, history of the last rolls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: DiceCupScreen(random: Random(7))),
+    );
+    await tester.pumpAndSettle();
+    Future<void> roll() async {
+      await tester.tapAt(const Offset(400, 900));
+      await tester.pumpAndSettle();
+    }
+
+    int dieValue(int i) => tester
+        .widget<RollingDie>(
+          find.descendant(
+            of: find.byKey(ValueKey('die$i')),
+            matching: find.byType(RollingDie),
+          ),
+        )
+        .value;
+
+    await roll();
+    final kept = dieValue(0);
+    // Put the first die aside: it moves to the tray and keeps its value.
+    await tester.tap(find.byKey(const ValueKey('die0')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('diceAside')),
+        matching: find.byKey(const ValueKey('die0')),
+      ),
+      findsOneWidget,
+    );
+    for (var i = 0; i < 5; i++) {
+      await roll();
+      expect(dieValue(0), kept);
+    }
+    // Both aside: rolling does nothing.
+    await tester.tap(find.byKey(const ValueKey('die1')));
+    await tester.pumpAndSettle();
+    await roll();
+    expect(find.text('Alle Würfel liegen beiseite'), findsOneWidget);
+
+    // 6 rolls so far, newest first, persisted.
+    expect(find.text('Letzte 6 Würfe'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('dice.history')!;
+    expect(saved.split('],').length, 6);
+
+    // At most ten are kept.
+    await tester.tap(find.byTooltip('Alle zurücklegen'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 8; i++) {
+      await roll();
+    }
+    expect(find.text('Letzte 10 Würfe'), findsOneWidget);
+    await tester.tap(find.byTooltip('Verlauf löschen'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('diceHistory')), findsNothing);
+  });
+
   test('widget links point to games', () {
     expect(
       HomeWidgets.linkTarget(Uri.parse('mobilegames://dice?homeWidget')),
