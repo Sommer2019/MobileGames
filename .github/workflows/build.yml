@@ -39,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     # A normal build takes ~15 min; fail fast instead of hanging.
     timeout-minutes: 45
+    env:
+      HAS_PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -90,6 +92,23 @@ jobs:
       - name: Rename bundle
         if: env.HAS_KEYSTORE == 'true'
         run: mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
+      # Automatic upload to the internal test track of Google Play. Needs the
+      # secret PLAY_SERVICE_ACCOUNT_JSON (service account with release rights
+      # in the Play Console). Only for pushes to main; a failed upload is
+      # shown as a warning but does not stop the GitHub release.
+      - name: Upload to Google Play (internal testing)
+        if: >-
+          env.HAS_KEYSTORE == 'true' && env.HAS_PLAY_JSON == 'true' &&
+          github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: de.sommer2019.mobile_games
+          releaseFiles: build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
+          track: internal
+          # "draft" until the first release was rolled out by hand.
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
       - uses: actions/upload-artifact@v4
         with:
           name: MobileGames-android
