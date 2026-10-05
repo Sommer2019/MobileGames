@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/net/messenger.dart';
+import '../core/nostr/event.dart';
 import '../core/nostr/keys.dart';
 import '../core/nostr/relay_pool.dart';
 import '../core/services.dart';
@@ -35,7 +36,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     super.dispose();
   }
 
-  /// Sends our presence and waits until it comes back from a relay.
+  /// Sends a message to ourselves and waits until it comes back from a relay.
   Future<void> _test() async {
     final s = Services.I;
     setState(() {
@@ -46,7 +47,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     final echo = Completer<void>();
     final sub = s.client
         .subscribe({
-          'kinds': [Kinds.presence],
+          'kinds': [Kinds.ping],
           'authors': [s.account.keys.publicKey],
           'since': DateTime.now().millisecondsSinceEpoch ~/ 1000 - 2,
         })
@@ -55,7 +56,14 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         });
     // Give the subscription a moment to reach the relays.
     await Future<void>.delayed(const Duration(milliseconds: 500));
-    s.presence.announce();
+    await s.client.publish(
+      NostrEvent.create(
+        keys: s.account.keys,
+        kind: Kinds.ping,
+        content: '',
+        tags: const [],
+      ),
+    );
     String result;
     try {
       await echo.future.timeout(const Duration(seconds: 10));

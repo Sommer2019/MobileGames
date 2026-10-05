@@ -276,6 +276,30 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
               if (!widget.pickMode) const NotificationSettingsCard(),
+              if (!widget.pickMode)
+                Card(
+                  child: ListenableBuilder(
+                    listenable: services.presence,
+                    builder: (context, _) => SwitchListTile(
+                      key: const ValueKey('showOnline'),
+                      secondary: Icon(
+                        services.presence.hidden
+                            ? Icons.visibility_off
+                            : Icons.circle,
+                        color: services.presence.hidden ? null : Colors.green,
+                      ),
+                      title: const Text('Online-Status zeigen'),
+                      subtitle: Text(
+                        services.presence.hidden
+                            ? 'Freunde sehen nicht, dass du online bist. '
+                                  'Einladungen und Nachrichten kommen trotzdem an.'
+                            : 'Freunde sehen, wenn du die App offen hast.',
+                      ),
+                      value: !services.presence.hidden,
+                      onChanged: (v) => services.presence.setHidden(!v),
+                    ),
+                  ),
+                ),
               if (!widget.pickMode) const BlockedPlayersCard(),
               if (!widget.pickMode)
                 Card(

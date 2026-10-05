@@ -158,6 +158,20 @@ class Presence extends ChangeNotifier {
 
   final Set<String> _badges = {};
 
+  static const _hiddenKey = 'presence.hidden';
+  bool _hidden = false;
+
+  /// Friends don't see that we are online (we still see them).
+  bool get hidden => _hidden;
+
+  Future<void> setHidden(bool value) async {
+    _hidden = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hiddenKey, value);
+    notifyListeners();
+    if (!value) _announce();
+  }
+
   /// Whether the friend found the Konami code (shows 🎮 next to the name).
   bool hasBadge(String pubkey) => _badges.contains(pubkey);
 
@@ -170,7 +184,10 @@ class Presence extends ChangeNotifier {
   }
 
   void start() {
-    _announce();
+    SharedPreferences.getInstance().then((p) {
+      _hidden = p.getBool(_hiddenKey) ?? false;
+      _announce();
+    });
     _timer = Timer.periodic(interval, (_) {
       _announce();
       notifyListeners();
@@ -183,6 +200,7 @@ class Presence extends ChangeNotifier {
   void announce() => _announce();
 
   void _announce() {
+    if (_hidden) return;
     client.publish(
       NostrEvent.create(
         keys: account.keys,

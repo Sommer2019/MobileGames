@@ -10,6 +10,9 @@ class Kinds {
   static const seek = 25910;
   static const direct = 25911;
   static const presence = 25912;
+
+  /// Connection test: a message to oneself (not a presence).
+  static const ping = 25913;
 }
 
 class DirectMessage {
