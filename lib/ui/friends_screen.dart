@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/names.dart';
 import '../core/services.dart';
+import 'account_transfer_screen.dart';
 import 'chat_view.dart';
 import 'connection_screen.dart';
 import 'friend_code_widgets.dart';
@@ -276,6 +277,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ),
               if (!widget.pickMode) const NotificationSettingsCard(),
               if (!widget.pickMode) const BlockedPlayersCard(),
+              if (!widget.pickMode)
+                Card(
+                  child: ListTile(
+                    key: const ValueKey('transferTile'),
+                    leading: const Icon(Icons.phonelink_setup),
+                    title: const Text('Konto auf neues Handy übertragen'),
+                    subtitle: const Text('Name und Freunde mitnehmen'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AccountTransferScreen(),
+                      ),
+                    ),
+                  ),
+                ),
               if (!widget.pickMode)
                 Card(
                   child: ListTile(

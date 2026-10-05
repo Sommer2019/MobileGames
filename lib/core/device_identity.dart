@@ -37,6 +37,18 @@ class DeviceIdentity {
     return null;
   }
 
+  /// Android: the key derived from this device's id (null elsewhere).
+  static Future<String?> androidKey() async {
+    if (_testing || kIsWeb || !Platform.isAndroid) return null;
+    try {
+      final id = await _channel.invokeMethod<String>('androidId');
+      if (id == null || id.isEmpty) return null;
+      return keyFromDeviceId(id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Stores [privateKey] where it survives a reinstall (iOS Keychain).
   static Future<void> remember(String privateKey) async {
     if (_testing || kIsWeb || !Platform.isIOS) return;

@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'account.dart';
+import 'account_transfer.dart';
 import 'chat.dart';
+import 'device_identity.dart';
 import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'leaderboard.dart';
@@ -59,8 +61,19 @@ class Services {
 
   static Future<Services> init() async {
     await Moderation.I.load();
-    final account = await Account.load();
-    final s = Services(account: account, client: RelayPool());
+    final client = RelayPool();
+    // After a reinstall the device key may point to an account that was
+    // taken over from another phone (see [AccountTransfer]).
+    final account = await Account.load(
+      recover: () async {
+        final key = await DeviceIdentity.recover();
+        if (key == null || await DeviceIdentity.androidKey() != key) {
+          return key;
+        }
+        return AccountTransfer.resolve(client, key);
+      },
+    );
+    final s = Services(account: account, client: client);
     _instance = s;
     await s.friendRequests.start();
     unawaited(s._restoreProfile());
