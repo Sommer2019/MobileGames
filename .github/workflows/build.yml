@@ -104,7 +104,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: de.sommer2019.mobile_games
+          packageName: de.sommer.mobilegames
           releaseFiles: build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
           track: internal
           # "draft" until the first release was rolled out by hand.

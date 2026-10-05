@@ -30,7 +30,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "de.sommer2019.mobile_games"
+        // Registered in the Play Console; the code keeps its namespace.
+        applicationId = "de.sommer.mobilegames"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Android 10 (API 29) or newer.
