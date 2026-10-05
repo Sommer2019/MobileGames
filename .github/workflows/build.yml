@@ -106,7 +106,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: de.sommer.mobilegames
           releaseFiles: build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
-          track: internal
+          tracks: internal
           # "draft" until the first release was rolled out by hand.
           status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
       - uses: actions/upload-artifact@v4
