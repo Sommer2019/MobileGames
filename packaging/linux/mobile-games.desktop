@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mobile Games
+Comment=Schach, Schiffe versenken, 4 gewinnt, Kniffel, Darts, Billard und mehr
+Exec=/opt/mobile-games/mobile_games
+Icon=mobile-games
+Terminal=false
+Categories=Game;BoardGame;
+StartupWMClass=de.sommer.mobile_games

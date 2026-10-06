@@ -148,6 +148,116 @@ jobs:
           name: MobileGames-ios-unsigned
           path: MobileGames-*-iOS-iPadOS-unsigned.ipa
 
+  linux:
+    name: Linux (.deb, .tar.gz)
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev \
+            libsecret-1-dev libasound2-dev libpulse-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build Linux app
+        run: >
+          flutter build linux --release --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+      - name: Package
+        run: |
+          mkdir -p dist
+          tar -czf dist/MobileGames-${{ github.run_number }}-Linux-x64.tar.gz \
+            -C build/linux/x64/release bundle --transform 's,^bundle,MobileGames,'
+          packaging/linux/make_deb.sh "$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')-${{ github.run_number }}" \
+            dist/MobileGames-${{ github.run_number }}-Linux-amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileGames-linux
+          path: dist/*
+
+  windows:
+    name: Windows (Installer)
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build Windows app
+        run: >
+          flutter build windows --release --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+      - name: Add Visual C++ runtime
+        # So the app also starts on PCs without the VC++ redistributable.
+        shell: pwsh
+        run: |
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            Copy-Item "$env:WINDIR\System32\$dll" build\windows\x64\runner\Release\
+          }
+      - name: Package installer and portable zip
+        shell: pwsh
+        run: |
+          $n = '${{ github.run_number }}'
+          $v = ((Select-String -Path pubspec.yaml -Pattern '^version:').Line -replace 'version:\s*','' -replace '\+.*','') + ".$n"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=$v" "/DOutputName=MobileGames-$n-Windows-Setup" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "dist\MobileGames-$n-Windows-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileGames-windows
+          path: dist/*
+
+  macos:
+    name: macOS (.dmg, Homebrew)
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build macOS app
+        run: >
+          flutter build macos --release --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+      - name: Package dmg and zip
+        run: |
+          n=${{ github.run_number }}
+          app="build/macos/Build/Products/Release/Mobile Games.app"
+          # Ad-hoc signature (no paid Apple account): runs after removing
+          # the quarantine flag or via right click → Open.
+          codesign --force --deep --sign - "$app"
+          mkdir -p dist dmg
+          cp -R "$app" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Mobile Games" -srcfolder dmg -ov -format UDZO "dist/MobileGames-$n-macOS.dmg"
+          # Fixed name for the Homebrew cask (releases/latest/download/…).
+          ditto -c -k --keepParent "$app" dist/MobileGames-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileGames-macos
+          path: dist/*
+
   web:
     name: Web-App (GitHub Pages)
     needs: test
@@ -190,8 +300,12 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: [android, ios]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [android, ios, linux, windows, macos]
+    # A failed desktop build must not hold back the phone apps.
+    if: >-
+      !cancelled() && needs.android.result == 'success' &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -199,7 +313,7 @@ jobs:
           path: dist
           merge-multiple: true
       - run: ls -la dist
-      - name: Publish release with APK and IPA
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
@@ -216,9 +330,25 @@ jobs:
             universelle, aber **unsignierte** App. Sie muss vor der Installation signiert werden, z. B. mit
             AltStore, Sideloadly oder einem Apple-Developer-Account.
 
+            **Windows:** `MobileGames-${{ github.run_number }}-Windows-Setup.exe` installieren (ohne
+            Admin-Rechte). Die App ist nicht signiert: bei der SmartScreen-Warnung auf „Weitere Informationen“
+            → „Trotzdem ausführen“. Ohne Installation: `…-Windows-portable.zip` entpacken.
+
+            **macOS (ab 12):** `MobileGames-${{ github.run_number }}-macOS.dmg` öffnen und in „Programme“ ziehen.
+            Nicht notarisiert: beim ersten Start Rechtsklick → „Öffnen“. Oder per Homebrew:
+            `brew tap sommer2019/mobilegames https://github.com/Sommer2019/MobileGames && brew install --cask mobile-games`
+
+            **Linux:** `MobileGames-${{ github.run_number }}-Linux-amd64.deb` (Debian/Ubuntu:
+            `sudo apt install ./MobileGames-…deb`) oder `…-Linux-x64.tar.gz` entpacken und `MobileGames/mobile_games` starten.
+
             **Google Play:** `MobileGames-${{ github.run_number }}-PlayStore.aab` ist das App-Bundle zum
             Hochladen in die Play Console (nicht direkt installierbar).
           files: |
             dist/*.apk
             dist/*.aab
             dist/*.ipa
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.deb
+            dist/*.tar.gz

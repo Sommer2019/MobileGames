@@ -29,6 +29,13 @@ class Notifications {
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
           iOS: DarwinInitializationSettings(),
+          macOS: DarwinInitializationSettings(),
+          linux: LinuxInitializationSettings(defaultActionName: 'Öffnen'),
+          windows: WindowsInitializationSettings(
+            appName: 'Mobile Games',
+            appUserModelId: 'Sommer.MobileGames',
+            guid: '6f1d6c2e-3b8a-4d55-9c1e-2a7f0e4b9d13',
+          ),
         ),
         onDidReceiveNotificationResponse: (r) {
           final p = r.payload;
@@ -90,6 +97,9 @@ class Notifications {
             priority: Priority.high,
           ),
           iOS: DarwinNotificationDetails(),
+          macOS: DarwinNotificationDetails(),
+          linux: LinuxNotificationDetails(),
+          windows: WindowsNotificationDetails(),
         ),
       );
     } catch (e) {

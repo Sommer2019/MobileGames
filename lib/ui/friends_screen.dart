@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/platform_caps.dart';
 import '../core/names.dart';
 import '../core/services.dart';
 import 'account_transfer_screen.dart';
@@ -112,18 +113,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 decoration: const InputDecoration(labelText: 'Name (optional)'),
               ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const ValueKey('scanQr'),
-                onPressed: () async {
-                  final scanned = await Navigator.push<String>(
-                    c,
-                    MaterialPageRoute(builder: (_) => const QrScanScreen()),
-                  );
-                  if (scanned != null) code.text = scanned;
-                },
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('QR-Code scannen'),
-              ),
+              if (canScanQr)
+                OutlinedButton.icon(
+                  key: const ValueKey('scanQr'),
+                  onPressed: () async {
+                    final scanned = await Navigator.push<String>(
+                      c,
+                      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+                    );
+                    if (scanned != null) code.text = scanned;
+                  },
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('QR-Code scannen'),
+                ),
               if (busy)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),

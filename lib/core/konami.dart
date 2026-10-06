@@ -7,6 +7,8 @@ import 'package:flutter/widgets.dart';
 import 'package:vibration/vibration.dart';
 import 'package:volume_controller/volume_controller.dart';
 
+import 'platform_caps.dart';
+
 enum KonamiInput { up, down, left, right, volumeUp, volumeDown, plugIn }
 
 /// Whether a chat message spells the Konami code, e.g. "↑↑↓↓←→←→BA",
@@ -163,8 +165,9 @@ class _KonamiDetectorState extends State<KonamiDetector> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
-    // Volume keys and charger are not visible in the browser.
-    if (kIsWeb && widget.batteryStates == null) return;
+    // Volume keys and charger are not visible in the browser or on a
+    // computer.
+    if ((kIsWeb || isDesktop) && widget.batteryStates == null) return;
     try {
       VolumeController.instance.showSystemUI = true;
       _volume = VolumeController.instance.addListener((v) {

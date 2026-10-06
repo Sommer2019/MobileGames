@@ -38,6 +38,18 @@ Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
 * **iPhone & iPad:** Im selben Release liegt `MobileGames-N-iOS-iPadOS-unsigned.ipa`
   (eine universelle App für iOS und iPadOS). Sie ist *unsigniert* und lässt sich erst nach
   eigenem Signieren installieren (z. B. AltStore/Sideloadly oder Apple-Developer-Account).
+* **Windows:** `MobileGames-N-Windows-Setup.exe` (ohne Admin-Rechte; unsigniert, daher bei
+  SmartScreen „Weitere Informationen“ → „Trotzdem ausführen“) oder `…-Windows-portable.zip`.
+* **macOS (ab 12):** `MobileGames-N-macOS.dmg` → App in „Programme“ ziehen, beim ersten Start
+  Rechtsklick → „Öffnen“ (nicht notarisiert). Oder per Homebrew:
+  ```
+  brew tap sommer2019/mobilegames https://github.com/Sommer2019/MobileGames
+  brew install --cask mobile-games
+  brew upgrade --cask --greedy mobile-games   # Update auf den neuesten Build
+  ```
+* **Linux:** `MobileGames-N-Linux-amd64.deb` (`sudo apt install ./MobileGames-N-Linux-amd64.deb`)
+  oder `…-Linux-x64.tar.gz` entpacken und `MobileGames/mobile_games` starten.
+  Am Computer gibt es keine Widgets; QR-Codes scannen geht nur am Mac (sonst Code eintippen).
 * **Web-App (ohne Installation, auch iPhone):** https://sommer2019.github.io/MobileGames/
   in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Startet dann wie eine App im Vollbild und
   ist nach jedem Push auf `main` automatisch aktuell. Ohne Widgets und ohne Benachrichtigungen

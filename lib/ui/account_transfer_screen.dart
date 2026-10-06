@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../core/platform_caps.dart';
 import '../core/account_transfer.dart';
 import '../core/services.dart';
 import 'friend_code_widgets.dart';
@@ -199,11 +200,12 @@ class _AccountTransferScreenState extends State<AccountTransferScreen> {
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  FilledButton.icon(
-                    onPressed: _scan,
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text('Code scannen'),
-                  ),
+                  if (canScanQr)
+                    FilledButton.icon(
+                      onPressed: _scan,
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('Code scannen'),
+                    ),
                   const SizedBox(height: 12),
                   TextField(
                     key: const ValueKey('transferInput'),
