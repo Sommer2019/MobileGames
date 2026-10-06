@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../moderation.dart';
 import '../nostr/event.dart';
 import '../nostr/keys.dart';
 import '../nostr/relay_pool.dart';
@@ -48,7 +49,7 @@ class Messenger {
   }
 
   void _onEvent(NostrEvent e) {
-    if (e.pubkey == me) return;
+    if (e.pubkey == me || Moderation.I.isBlocked(e.pubkey)) return;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if ((now - e.createdAt).abs() > 120) return;
     try {

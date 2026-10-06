@@ -1,27 +1,58 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'nostr/keys.dart';
 
-/// Blocking and reporting players. Without an own server a block only
-/// works on this device: messages, invites and friend requests of blocked
-/// players are dropped. Reports go to the developer by e-mail (address set
-/// at build time with `--dart-define=REPORT_EMAIL=...`), otherwise as a
+/// Blocking, banning and reporting players.
+///
+/// A block only works on this device: messages, invites and friend
+/// requests of blocked players are dropped. A ban works the same way, but
+/// for everyone: the admins (public keys set at build time with
+/// `--dart-define=ADMIN_PUBKEYS=hex,hex`) publish a signed ban list on the
+/// relays that every app follows (see [ModerationSync]).
+///
+/// Reports go encrypted to the admins through the relays. Without admins
+/// they go by e-mail (`--dart-define=REPORT_EMAIL=...`), otherwise as a
 /// prefilled GitHub issue.
 class Moderation extends ChangeNotifier {
   Moderation._();
   static final Moderation I = Moderation._();
 
   static const _key = 'moderation.blocked';
+  static const _bansKey = 'moderation.banned';
   static const reportEmail = String.fromEnvironment('REPORT_EMAIL');
   static const _issues = 'https://github.com/Sommer2019/MobileGames/issues/new';
+
+  /// Public keys (hex) of the players who handle reports and bans.
+  static List<String> admins = parseAdmins(
+    const String.fromEnvironment('ADMIN_PUBKEYS'),
+  );
+
+  static List<String> parseAdmins(String s) => [
+    for (final k in s.split(RegExp(r'[,\s]+')))
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(k.toLowerCase())) k.toLowerCase(),
+  ];
+
+  static bool isAdmin(String pubkey) => admins.contains(pubkey);
 
   /// pubkey → name at the time of blocking.
   final Map<String, String> _blocked = {};
 
+  /// Banned by an admin: pubkey → name.
+  final Map<String, String> _banned = {};
+
   Map<String, String> get blocked => Map.unmodifiable(_blocked);
-  bool isBlocked(String pubkey) => _blocked.containsKey(pubkey);
+  Map<String, String> get banned => Map.unmodifiable(_banned);
+
+  bool isBanned(String pubkey) =>
+      _banned.containsKey(pubkey) && !isAdmin(pubkey);
+
+  /// Blocked here or banned for everyone.
+  bool isBlocked(String pubkey) =>
+      _blocked.containsKey(pubkey) || isBanned(pubkey);
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -30,6 +61,24 @@ class Moderation extends ChangeNotifier {
       final i = e.indexOf(' ');
       if (i == 64) _blocked[e.substring(0, i)] = e.substring(i + 1);
     }
+    _banned.clear();
+    try {
+      final j = jsonDecode(prefs.getString(_bansKey) ?? '{}') as Map;
+      for (final e in j.entries) {
+        _banned[e.key as String] = e.value as String;
+      }
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Takes over the current ban list (from the relays).
+  Future<void> setBanned(Map<String, String> bans) async {
+    if (mapEquals(bans, _banned)) return;
+    _banned
+      ..clear()
+      ..addAll(bans);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_bansKey, jsonEncode(_banned));
     notifyListeners();
   }
 

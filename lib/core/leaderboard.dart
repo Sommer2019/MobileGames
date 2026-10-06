@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'account.dart';
+import 'moderation.dart';
 import 'names.dart';
 import 'nostr/event.dart';
 import 'nostr/relay_pool.dart';
@@ -366,6 +367,7 @@ class Leaderboard {
           if (!e.tags.any((t) => t.length > 1 && t[0] == 'd' && t[1] == _d)) {
             return;
           }
+          if (Moderation.I.isBlocked(e.pubkey)) return;
           final prev = latest[e.pubkey];
           if (prev != null && prev.createdAt >= e.createdAt) return;
           try {

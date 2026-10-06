@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/net/messenger.dart';
 import '../core/nostr/event.dart';
@@ -173,6 +174,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             'Auf beiden Geräten muss beim jeweils anderen genau diese ID '
             'als Freund stehen.',
             style: theme.textTheme.bodySmall,
+          ),
+          TextButton.icon(
+            key: const ValueKey('copyFullId'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: s.account.keys.publicKey));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Vollständige ID kopiert.')),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Vollständige ID kopieren'),
           ),
         ],
       ),

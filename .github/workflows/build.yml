@@ -77,6 +77,7 @@ jobs:
         run: >-
           flutter build apk --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}.apk
       # Google Play: app bundle without the background service
@@ -88,6 +89,7 @@ jobs:
           flutter build appbundle --release --build-number=${{ github.run_number }}
           --dart-define=PLAY_STORE=true
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
           --android-project-arg=playStore=true
       - name: Rename bundle
         if: env.HAS_KEYSTORE == 'true'
@@ -135,6 +137,7 @@ jobs:
         run: >-
           flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload

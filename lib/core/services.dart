@@ -8,6 +8,7 @@ import 'friend_codes.dart';
 import 'friend_requests.dart';
 import 'leaderboard.dart';
 import 'moderation.dart';
+import 'moderation_sync.dart';
 import 'profile_backup.dart';
 import 'secrets.dart';
 import 'net/game_session.dart';
@@ -38,6 +39,7 @@ class Services {
     leaderboard = Leaderboard(client, account);
     Leaderboard.instance = leaderboard;
     leaderboard.publish();
+    moderation = ModerationSync(client, account.keys);
     // Show the 🎮 badge to friends as soon as the code was found.
     var badge = Secrets.I.unlocked;
     Secrets.I.addListener(() {
@@ -80,6 +82,7 @@ class Services {
     await s.friendRequests.start();
     unawaited(s._restoreProfile());
     await s.chat.start();
+    await s.moderation.start();
     return s;
   }
 
@@ -95,6 +98,7 @@ class Services {
   late final FriendCodes friendCodes;
   late final Leaderboard leaderboard;
   late final ProfileBackup profileBackup;
+  late final ModerationSync moderation;
 
   /// Brings back name and friends after a reinstall, then keeps the backup
   /// up to date. Saving only starts afterwards so an empty fresh profile

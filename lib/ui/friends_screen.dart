@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/names.dart';
 import '../core/services.dart';
 import 'account_transfer_screen.dart';
+import 'admin_screen.dart';
 import 'watch.dart';
 import 'chat_view.dart';
 import 'connection_screen.dart';
@@ -240,6 +241,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
             children: [
+              if (!widget.pickMode) const BannedNotice(),
               if (!widget.pickMode)
                 Card(
                   child: Padding(
@@ -302,6 +304,36 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
               if (!widget.pickMode) const BlockedPlayersCard(),
+              if (!widget.pickMode && services.moderation.isAdmin)
+                Card(
+                  child: ListenableBuilder(
+                    listenable: services.moderation,
+                    builder: (context, _) {
+                      final open = services.moderation.openReports.length;
+                      return ListTile(
+                        key: const ValueKey('adminTile'),
+                        leading: Badge(
+                          isLabelVisible: open > 0,
+                          label: Text('$open'),
+                          child: const Icon(Icons.shield_outlined),
+                        ),
+                        title: const Text('Moderation'),
+                        subtitle: Text(
+                          open == 0
+                              ? 'Meldungen und gesperrte Spieler'
+                              : '$open offene Meldung${open == 1 ? '' : 'en'}',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AdminScreen(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               if (!widget.pickMode)
                 Card(
                   child: ListTile(
@@ -566,6 +598,8 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
                       if (!m.mine) '${m.time.toIso8601String()} ${m.text}',
                   ].reversed.take(20).toList().reversed.toList(),
                 );
+              } else if (v == 'ban') {
+                await banPlayer(context, pubkey: widget.pubkey, name: name);
               } else if (v == 'block') {
                 final nav = Navigator.of(context);
                 if (await blockPlayer(
@@ -577,21 +611,29 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
                 }
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              const PopupMenuItem(
                 value: 'report',
                 child: ListTile(
                   leading: Icon(Icons.flag_outlined),
                   title: Text('Melden'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'block',
                 child: ListTile(
                   leading: Icon(Icons.block),
                   title: Text('Blockieren'),
                 ),
               ),
+              if (services.moderation.isAdmin)
+                const PopupMenuItem(
+                  value: 'ban',
+                  child: ListTile(
+                    leading: Icon(Icons.gpp_bad),
+                    title: Text('Für alle sperren'),
+                  ),
+                ),
             ],
           ),
         ],

@@ -304,6 +304,8 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
       if (await blockPlayer(context, pubkey: key, name: name)) {
         setState(() => _muted.add(seat));
       }
+    } else if (action == 'ban' && key != null) {
+      await banPlayer(context, pubkey: key, name: name);
     } else if (action == 'mute') {
       setState(() => _muted.add(seat));
     }
@@ -353,6 +355,12 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
                                   : '${r.names[seat]} blockieren',
                             ),
                           ),
+                          if (r.pubkeyOf(seat) != null &&
+                              Services.I.moderation.isAdmin)
+                            PopupMenuItem(
+                              value: (seat, 'ban'),
+                              child: Text('${r.names[seat]} für alle sperren'),
+                            ),
                         ],
                     ],
                   ),

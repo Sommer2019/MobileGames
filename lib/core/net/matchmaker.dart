@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../moderation.dart';
 import '../names.dart';
 import '../nostr/event.dart';
 import '../nostr/keys.dart';
@@ -120,6 +121,7 @@ class Matchmaker {
 
   void _onSeek(_Seek seek, NostrEvent e) {
     if (_seek != seek || e.pubkey == me) return;
+    if (Moderation.I.isBlocked(e.pubkey)) return;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if (now - e.createdAt > 20) return;
     // Deterministic tie-break: the smaller public key proposes the match,
