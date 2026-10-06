@@ -4,17 +4,55 @@
 
 #include "gfx.hpp"
 
+#ifdef __SWITCH__
+#include <switch.h>
+
+namespace {
+// Six-axis sensors of handheld mode, a Pro Controller or a pair of Joy-Cons.
+HidSixAxisSensorHandle sixAxis[4];
+bool sixAxisStarted = false;
+}  // namespace
+#endif
+
 void InputReader::open() {
-  for (int i = 0; i < SDL_NumJoysticks() && i < 8; i++) {
-    SDL_JoystickOpen(i);
-    // Motion sensor (Joy-Con / Pro Controller), if SDL offers it.
-    if (SDL_IsGameController(i)) {
-      if (SDL_GameController* c = SDL_GameControllerOpen(i)) {
-        if (SDL_GameControllerHasSensor(c, SDL_SENSOR_ACCEL) &&
-            SDL_GameControllerSetSensorEnabled(c, SDL_SENSOR_ACCEL, SDL_TRUE) == 0) {
-          hasMotion_ = true;
-        }
-      }
+  for (int i = 0; i < SDL_NumJoysticks() && i < 8; i++) openDevice(i);
+#ifdef __SWITCH__
+  hidGetSixAxisSensorHandles(&sixAxis[0], 1, HidNpadIdType_Handheld, HidNpadStyleTag_NpadHandheld);
+  hidGetSixAxisSensorHandles(&sixAxis[1], 1, HidNpadIdType_No1, HidNpadStyleTag_NpadFullKey);
+  hidGetSixAxisSensorHandles(&sixAxis[2], 2, HidNpadIdType_No1, HidNpadStyleTag_NpadJoyDual);
+  for (auto& h : sixAxis) hidStartSixAxisSensor(h);
+  sixAxisStarted = true;
+#endif
+}
+
+void InputReader::readSwitchMotion(Input& in) {
+#ifdef __SWITCH__
+  if (!sixAxisStarted) return;
+  for (auto& h : sixAxis) {
+    HidSixAxisSensorState state{};
+    if (hidGetSixAxisSensorStates(h, &state, 1) == 0) continue;
+    const auto& a = state.acceleration;  // in g
+    if (a.x == 0 && a.y == 0 && a.z == 0) continue;
+    hasMotion_ = true;
+    accel_[0] = a.x * 9.81;
+    accel_[1] = a.y * 9.81;
+    accel_[2] = a.z * 9.81;
+    in.motionSample = true;
+    return;
+  }
+#else
+  (void)in;
+#endif
+}
+
+void InputReader::openDevice(int i) {
+  SDL_JoystickOpen(i);
+  // Motion sensor (Joy-Con / Pro Controller), if SDL offers it.
+  if (!SDL_IsGameController(i)) return;
+  if (SDL_GameController* c = SDL_GameControllerOpen(i)) {
+    if (SDL_GameControllerHasSensor(c, SDL_SENSOR_ACCEL) &&
+        SDL_GameControllerSetSensorEnabled(c, SDL_SENSOR_ACCEL, SDL_TRUE) == 0) {
+      hasMotion_ = true;
     }
   }
 }
@@ -85,12 +123,17 @@ Input InputReader::poll(double dt) {
         if (b >= 0) set(Button(b), e.type == SDL_KEYDOWN);
         break;
       }
+      case SDL_JOYDEVICEADDED:
+        // Controllers attached later (e.g. Joy-Cons taken off).
+        openDevice(e.jdevice.which);
+        break;
       case SDL_JOYAXISMOTION:
         if (e.jaxis.axis < 2) axis_[e.jaxis.axis] = e.jaxis.value / 32767.0;
         break;
       case SDL_CONTROLLERSENSORUPDATE:
         if (e.csensor.sensor == SDL_SENSOR_ACCEL) {
           for (int k = 0; k < 3; k++) accel_[k] = e.csensor.data[k];
+          in.motionSample = true;
         }
         break;
       case SDL_FINGERDOWN:
@@ -140,6 +183,7 @@ Input InputReader::poll(double dt) {
         break;
     }
   }
+  readSwitchMotion(in);
   // Analog stick with a dead zone; the arrow keys count as full deflection.
   for (int k = 0; k < 2; k++) {
     double v = axis_[k];

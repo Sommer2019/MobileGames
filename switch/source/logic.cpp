@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 
 // ------------------------------------------------------------------ 4 gewinnt
@@ -347,6 +348,35 @@ void Snake::step() {
   } else {
     body.pop_back();
   }
+}
+
+// ------------------------------------------------------------------ Schütteln
+
+bool ShakeDetector::add(double x, double y, double z, double time) {
+  // Gravity changes slowly, shaking fast: a low-pass filter separates them.
+  if (!hasGravity_) {
+    gx_ = x;
+    gy_ = y;
+    gz_ = z;
+    hasGravity_ = true;
+    return false;
+  }
+  gx_ += (x - gx_) * 0.1;
+  gy_ += (y - gy_) * 0.1;
+  gz_ += (z - gz_) * 0.1;
+  const double lx = x - gx_, ly = y - gy_, lz = z - gz_;
+  if (std::sqrt(lx * lx + ly * ly + lz * lz) < Threshold) return false;
+  if (time - lastShake_ < Cooldown) return false;
+  peaks_.push_back(time);
+  peaks_.erase(std::remove_if(peaks_.begin(), peaks_.end(),
+                              [&](double t) { return time - t > Window; }),
+               peaks_.end());
+  if ((int)peaks_.size() >= MinPeaks) {
+    peaks_.clear();
+    lastShake_ = time;
+    return true;
+  }
+  return false;
 }
 
 // ----------------------------------------------------------------- Würfel

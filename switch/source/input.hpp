@@ -20,6 +20,7 @@ struct Input {
   double stickX = 0, stickY = 0;
   // Gravity from the controller's motion sensor (m/s²), if it has one.
   bool hasMotion = false;
+  bool motionSample = false;  // a new sensor reading arrived this frame
   double accelX = 0, accelY = 0, accelZ = 0;
   // Finger on the screen right now (position in pixels).
   bool touching = false;
@@ -36,6 +37,8 @@ class InputReader {
 
  private:
   void set(Button b, bool down);
+  void openDevice(int index);
+  void readSwitchMotion(Input& in);
   bool down_[BtnCount] = {};
   bool edge_[BtnCount] = {};
   double repeat_[BtnCount] = {};

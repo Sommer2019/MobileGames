@@ -114,6 +114,25 @@ class Snake {
   void placeFood();
 };
 
+// ------------------------------------------------------------------ Schütteln
+
+// Detects shaking from accelerometer samples (m/s², gravity included –
+// it is filtered out). A shake is several strong movements within a short
+// window, like in the app.
+class ShakeDetector {
+ public:
+  // Feeds one sample at [time] seconds; true when a shake is recognised.
+  bool add(double x, double y, double z, double time);
+
+ private:
+  static constexpr double Threshold = 12, Window = 0.7, Cooldown = 1.2;
+  static constexpr int MinPeaks = 3;
+  bool hasGravity_ = false;
+  double gx_ = 0, gy_ = 0, gz_ = 0;
+  std::vector<double> peaks_;
+  double lastShake_ = -1e9;
+};
+
 // ----------------------------------------------------------------- Würfel
 
 struct DiceCup {

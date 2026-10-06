@@ -172,7 +172,26 @@ static void dice() {
   CHECK(cup.sum() == cup.values[0] + cup.values[1] + cup.values[2]);
 }
 
+static void shake() {
+  ShakeDetector d;
+  double t = 0;
+  // Lying still: no shake.
+  bool any = false;
+  for (int i = 0; i < 100; i++, t += 0.016) any |= d.add(0, 0, 9.81, t);
+  CHECK(!any);
+  // Shaking: strong back-and-forth movements.
+  bool shaken = false;
+  for (int i = 0; i < 30 && !shaken; i++, t += 0.016) {
+    shaken = d.add(i % 2 ? 25 : -25, 0, 9.81, t);
+  }
+  CHECK(shaken);
+  // Cooldown: not again right away.
+  CHECK(!d.add(25, 0, 9.81, t + 0.02) && !d.add(-25, 0, 9.81, t + 0.04) &&
+        !d.add(25, 0, 9.81, t + 0.06));
+}
+
 int main() {
+  shake();
   connectFour();
   checkers();
   snake();

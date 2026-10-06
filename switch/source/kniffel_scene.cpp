@@ -2,6 +2,7 @@
 #include <random>
 #include <string>
 
+#include "logic.hpp"
 #include "logic2.hpp"
 #include "scene.hpp"
 
@@ -44,6 +45,9 @@ class KniffelScene : public Scene {
   }
 
   void update(const Input& in, double dt) override {
+    time_ += dt;
+    hasMotion_ = in.hasMotion;
+    const bool shaken = in.motionSample && shake_.add(in.accelX, in.accelY, in.accelZ, time_);
     if (in[BtnPlus]) {
       done = true;
       return;
@@ -66,7 +70,7 @@ class KniffelScene : public Scene {
     if (in[BtnUp]) catFocus_ = (catFocus_ + CatCount - 1) % CatCount;
     if (in[BtnDown]) catFocus_ = (catFocus_ + 1) % CatCount;
     if (in[BtnY]) game_.toggleHold(dieFocus_);
-    if (in[BtnA]) roll();
+    if (in[BtnA] || shaken) roll();
     if (in[BtnX]) score(catFocus_);
     if (in[BtnB]) done = true;
     if (in.tapped) tap(in.tapX, in.tapY);
@@ -95,8 +99,9 @@ class KniffelScene : public Scene {
     g.roundRect(DiceX, 300, 300, 64, 16, canRoll ? rgb(0x2E7D32) : theme::surface);
     g.text(game_.rollsLeft == 3 ? "Würfeln" : "Nochmal würfeln", DiceX + 150, 316, 26,
            canRoll ? theme::text : theme::muted, Align::Center);
-    g.text("Noch " + std::to_string(game_.rollsLeft) + "× würfeln", DiceX, 376, 22,
-           theme::muted);
+    g.text("Noch " + std::to_string(game_.rollsLeft) + "× würfeln" +
+               (hasMotion_ && canRoll ? " – A oder Joy-Con schütteln" : ""),
+           DiceX, 376, 22, theme::muted);
     if (game_.isOver()) {
       std::string w;
       for (int i : game_.winners()) w += (w.empty() ? "" : " & ") + names_[i];
@@ -233,7 +238,9 @@ class KniffelScene : public Scene {
   std::mt19937 rng_;
   std::vector<std::string> names_;
   int dieFocus_ = 0, catFocus_ = 0;
-  double rolling_ = 0, thinking_ = 0;
+  double rolling_ = 0, thinking_ = 0, time_ = 0;
+  ShakeDetector shake_;
+  bool hasMotion_ = false;
 };
 
 }  // namespace

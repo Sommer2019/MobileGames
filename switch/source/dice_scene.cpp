@@ -35,10 +35,14 @@ class DiceScene : public Scene {
   }
 
   void update(const Input& in, double dt) override {
+    time_ += dt;
+    hasMotion_ = in.hasMotion;
     if (in[BtnB] || in[BtnPlus]) {
       done = true;
       return;
     }
+    // Shaking the Joy-Con rolls, like shaking the phone in the app.
+    const bool shaken = in.motionSample && shake_.add(in.accelX, in.accelY, in.accelZ, time_);
     if (rolling_ > 0) {
       rolling_ -= dt;
       flicker_ -= dt;
@@ -74,7 +78,7 @@ class DiceScene : public Scene {
       startRoll();
       return;
     }
-    if (in[BtnA]) startRoll();
+    if (in[BtnA] || shaken) startRoll();
   }
 
   void draw(Gfx& g) override {
@@ -111,6 +115,7 @@ class DiceScene : public Scene {
       i++;
     }
     if (cup_.history.empty()) g.text("Noch nicht gewürfelt", 80, 504, 22, theme::muted);
+    if (hasMotion_) g.text("Oder Joy-Con schütteln", Gfx::W - 80, 404 + 12, 22, theme::muted, Align::Right);
     g.hints({{"A", "Würfeln"}, {"Y", "Beiseite"}, {"L", "−"}, {"R", "+"},
              {"X", "Verlauf löschen"}, {"B", "Zurück"}});
   }
@@ -159,6 +164,9 @@ class DiceScene : public Scene {
   int focus_ = 0;
   double rolling_ = 0, flicker_ = 0;
   int shown_[6] = {1, 1, 1, 1, 1, 1};
+  ShakeDetector shake_;
+  double time_ = 0;
+  bool hasMotion_ = false;
 };
 
 }  // namespace
