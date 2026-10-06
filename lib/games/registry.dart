@@ -13,6 +13,7 @@ import 'chess/chess_screen.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
+import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
 import 'solitaire/klondike_screen.dart';
@@ -190,6 +191,24 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 4,
     playerCounts: const [2, 3, 4],
     multiplayerBuilder: (s) => BoxesScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'ludo',
+    title: 'Mensch ärgere dich nicht',
+    description: 'Der Klassiker für 2 bis 4 – mit Computer-Gegnern',
+    icon: Icons.casino,
+    color: const Color(0xFFD84315),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen 3 Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 4, bots: {1, 2, 3}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 4,
+    playerCounts: const [2, 3, 4],
+    multiplayerBuilder: (s) => LudoScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
