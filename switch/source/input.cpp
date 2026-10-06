@@ -5,7 +5,18 @@
 #include "gfx.hpp"
 
 void InputReader::open() {
-  for (int i = 0; i < SDL_NumJoysticks() && i < 8; i++) SDL_JoystickOpen(i);
+  for (int i = 0; i < SDL_NumJoysticks() && i < 8; i++) {
+    SDL_JoystickOpen(i);
+    // Motion sensor (Joy-Con / Pro Controller), if SDL offers it.
+    if (SDL_IsGameController(i)) {
+      if (SDL_GameController* c = SDL_GameControllerOpen(i)) {
+        if (SDL_GameControllerHasSensor(c, SDL_SENSOR_ACCEL) &&
+            SDL_GameControllerSetSensorEnabled(c, SDL_SENSOR_ACCEL, SDL_TRUE) == 0) {
+          hasMotion_ = true;
+        }
+      }
+    }
+  }
 }
 
 void InputReader::set(Button b, bool down) {
@@ -74,15 +85,27 @@ Input InputReader::poll(double dt) {
         if (b >= 0) set(Button(b), e.type == SDL_KEYDOWN);
         break;
       }
+      case SDL_JOYAXISMOTION:
+        if (e.jaxis.axis < 2) axis_[e.jaxis.axis] = e.jaxis.value / 32767.0;
+        break;
+      case SDL_CONTROLLERSENSORUPDATE:
+        if (e.csensor.sensor == SDL_SENSOR_ACCEL) {
+          for (int k = 0; k < 3; k++) accel_[k] = e.csensor.data[k];
+        }
+        break;
       case SDL_FINGERDOWN:
         fingerDown_ = true;
         moved_ = false;
         startX_ = e.tfinger.x * Gfx::W;
         startY_ = e.tfinger.y * Gfx::H;
+        touchX_ = int(startX_);
+        touchY_ = int(startY_);
         break;
       case SDL_FINGERMOTION: {
         if (!fingerDown_) break;
         const float x = e.tfinger.x * Gfx::W, y = e.tfinger.y * Gfx::H;
+        touchX_ = int(x);
+        touchY_ = int(y);
         const float dx = x - startX_, dy = y - startY_;
         if (std::hypot(dx, dy) > 40) {
           moved_ = true;
@@ -117,6 +140,23 @@ Input InputReader::poll(double dt) {
         break;
     }
   }
+  // Analog stick with a dead zone; the arrow keys count as full deflection.
+  for (int k = 0; k < 2; k++) {
+    double v = axis_[k];
+    if (std::fabs(v) < 0.12) v = 0;
+    (k == 0 ? in.stickX : in.stickY) = v;
+  }
+  if (down_[BtnLeft] && in.stickX == 0) in.stickX = -1;
+  if (down_[BtnRight] && in.stickX == 0) in.stickX = 1;
+  if (down_[BtnUp] && in.stickY == 0) in.stickY = -1;
+  if (down_[BtnDown] && in.stickY == 0) in.stickY = 1;
+  in.hasMotion = hasMotion_;
+  in.accelX = accel_[0];
+  in.accelY = accel_[1];
+  in.accelZ = accel_[2];
+  in.touching = fingerDown_;
+  in.touchX = touchX_;
+  in.touchY = touchY_;
   for (int b = 0; b < BtnCount; b++) {
     in.held[b] = down_[b];
     in.pressed[b] = edge_[b];

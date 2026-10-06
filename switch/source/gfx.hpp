@@ -43,6 +43,8 @@ class Gfx {
   void circle(int cx, int cy, int radius, Color c);
   void ring(int cx, int cy, int radius, int thickness, Color c);
   void line(int x1, int y1, int x2, int y2, int thickness, Color c);
+  // Filled convex polygon (as a triangle fan).
+  void polygon(const float* xs, const float* ys, int n, Color c);
 
   // Draws text; returns its width. y is the top of the line.
   int text(const std::string& s, int x, int y, int size, Color c,

@@ -10,7 +10,8 @@
 #endif
 
 bool Gfx::init() {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_EVENTS) < 0) {
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER |
+               SDL_INIT_SENSOR | SDL_INIT_EVENTS) < 0) {
     return false;
   }
   if (TTF_Init() < 0) return false;
@@ -247,4 +248,21 @@ void Gfx::die(int x, int y, int size, int value, bool held) {
     circle(x + margin + pips[value][k][0] * gap, y + margin + pips[value][k][1] * gap,
            size / 11, rgb(0x212121));
   }
+}
+
+void Gfx::polygon(const float* xs, const float* ys, int n, Color c) {
+  if (n < 3) return;
+  std::vector<SDL_Vertex> v(static_cast<size_t>(n));
+  for (int i = 0; i < n; i++) {
+    v[size_t(i)].position = {xs[i], ys[i]};
+    v[size_t(i)].color = {c.r, c.g, c.b, c.a};
+    v[size_t(i)].tex_coord = {0, 0};
+  }
+  std::vector<int> idx;
+  for (int i = 1; i + 1 < n; i++) {
+    idx.push_back(0);
+    idx.push_back(i);
+    idx.push_back(i + 1);
+  }
+  SDL_RenderGeometry(renderer_, nullptr, v.data(), n, idx.data(), int(idx.size()));
 }

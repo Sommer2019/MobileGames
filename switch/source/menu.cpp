@@ -66,6 +66,35 @@ class Menu : public Scene {
                 {"3 Spieler", "Abwechselnd", [] { return makeKniffel(3, false); }},
                 {"4 Spieler", "Abwechselnd", [] { return makeKniffel(4, false); }}});
          }},
+        {"Darts", "501, 301 oder Rund um die Uhr", rgb(0xB71C1C),
+         [] {
+           auto players = [](int mode, const char* title) {
+             return [=] {
+               std::vector<Choice> c;
+               for (int p = 1; p <= 4; p++) {
+                 c.push_back({p == 1 ? "Allein" : std::to_string(p) + " Spieler",
+                              p == 1 ? "Rekord in möglichst wenigen Darts" : "Abwechselnd werfen",
+                              [=] { return makeDarts(mode, p); }});
+               }
+               return makeChoices(title, rgb(0xB71C1C), c);
+             };
+           };
+           return makeChoices(
+               "Darts", rgb(0xB71C1C),
+               {{"501", "Double out", players(0, "Darts – 501")},
+                {"301", "Double out", players(1, "Darts – 301")},
+                {"Rund um die Uhr", "1 bis 20, dann Bull", players(2, "Darts – Rund um die Uhr")}});
+         }},
+        {"Billard", "Allein oder 8-Ball zu zweit", rgb(0x1B5E20),
+         [] {
+           return makeChoices(
+               "Billard", rgb(0x1B5E20),
+               {{"8 zum Schluss", "Allein: alle versenken, die 8 zuletzt",
+                 [] { return makeBilliard(0); }},
+                {"Reihenfolge 1–15", "Allein: immer die niedrigste zuerst",
+                 [] { return makeBilliard(1); }},
+                {"8-Ball zu zweit", "Volle gegen Halbe", [] { return makeBilliard(2); }}});
+         }},
         {"Snake", "Fressen, wachsen – nicht anstoßen", rgb(0x558B2F),
          [] {
            return makeChoices(
@@ -80,6 +109,15 @@ class Menu : public Scene {
                "Solitär", rgb(0x00695C),
                {{"1 Karte ziehen", "Die klassische Variante", [] { return makeSolitaire(1); }},
                 {"3 Karten ziehen", "Schwerer", [] { return makeSolitaire(3); }}});
+         }},
+        {"Kugellabyrinth", "26 Level – kipp die Kugel ins Ziel", rgb(0x795548),
+         [] { return makeLabyrinth(); }},
+        {"Mahjong", "Gleiche freie Steine abräumen", rgb(0x00838F),
+         [] {
+           return makeChoices(
+               "Mahjong", rgb(0x00838F),
+               {{"Pyramide", "120 Steine, breit", [] { return makeMahjong(false); }},
+                {"Turm", "108 Steine, hoch", [] { return makeMahjong(true); }}});
          }},
         {"Würfelbecher", "1–6 Würfel, beiseitelegen", rgb(0x33691E),
          [] { return makeDiceCup(); }},

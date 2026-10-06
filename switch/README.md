@@ -1,7 +1,8 @@
 # Mobile Games für die Nintendo Switch
 
-Homebrew-Version (offline) mit Schach, Schiffe versenken, 4 gewinnt, Dame,
-Mühle, Kniffel, Snake, Solitär und Würfelbecher –
+Homebrew-Version (offline) mit allen Spielen der App: Schach, Schiffe versenken,
+4 gewinnt, Dame, Mühle, Kniffel, Darts, Billard, Snake, Solitär, Kugellabyrinth,
+Mahjong und Würfelbecher –
 Regeln wie in der App. C++17 mit SDL2/SDL2_ttf, Texte in der Systemschrift
 der Switch.
 
@@ -15,6 +16,9 @@ kopieren und im Homebrew-Menü starten. Rekorde und Würfelverlauf liegen in
 
 ## Steuerung
 Steuerkreuz/Stick bewegen, A bestätigen, B zurück, + Pause/Beenden.
+Labyrinth: Stick neigt das Brett (Y schaltet auf Joy-Con-Bewegung, falls verfügbar).
+Darts: Stick zielt, A wirft. Billard: Stick zielt, L/R fein, A halten = Stoßkraft,
+X legt die Weiße (Ball in der Hand), Y wählt Effet.
 Würfelbecher: Y legt den gewählten Würfel beiseite, L/R ändern die Anzahl,
 X löscht den Verlauf. Im Handheld-Modus geht alles auch per Touch.
 

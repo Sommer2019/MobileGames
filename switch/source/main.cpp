@@ -38,6 +38,11 @@ int main(int, char**) {
     if (s == "kniffel") stack.push_back(makeKniffel(1, true));
     if (s == "battleship") stack.push_back(makeBattleship(true));
     if (s == "solitaire") stack.push_back(makeSolitaire(1));
+    if (s == "mahjong") stack.push_back(makeMahjong(false));
+    if (s == "tower") stack.push_back(makeMahjong(true));
+    if (s == "labyrinth") stack.push_back(makeLabyrinth());
+    if (s == "darts") stack.push_back(makeDarts(0, 2));
+    if (s == "billiard") stack.push_back(makeBilliard(2));
   }
 #endif
   Uint64 last = SDL_GetPerformanceCounter();
