@@ -13,6 +13,7 @@ import 'chess/chess_screen.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
+import 'domino/domino_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
@@ -209,6 +210,24 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 4,
     playerCounts: const [2, 3, 4],
     multiplayerBuilder: (s) => LudoScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'domino',
+    title: 'Domino',
+    description: 'Steine anlegen bis 100 Punkte – 2 bis 4 Spieler',
+    icon: Icons.view_agenda,
+    color: const Color(0xFF5D4037),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 4,
+    playerCounts: const [2, 3, 4],
+    multiplayerBuilder: (s) => DominoScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
