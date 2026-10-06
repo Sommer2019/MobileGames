@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/play_setup.dart';
 import 'battleship/battleship_local_screen.dart';
+import 'bingo/bingo_screen.dart';
 import 'boxes/boxes_screen.dart';
 import 'battleship/battleship_screen.dart';
 import 'billiard/billiard_screen.dart';
@@ -247,6 +248,29 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 6,
     playerCounts: const [2, 3, 4, 6],
     multiplayerBuilder: (s) => HalmaScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'bingo',
+    title: 'Bingo',
+    description: 'Kugeln ziehen, Zahlen streichen, als Erster BINGO rufen',
+    icon: Icons.blur_circular,
+    color: const Color(0xFFAD1457),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen 1 Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode(
+        'Gegen 3 Computer',
+        Icons.groups,
+        PlaySetup.local(players: 4, bots: {1, 2, 3}),
+      ),
+    ],
+    maxOnlinePlayers: 6,
+    playerCounts: const [2, 3, 4, 5, 6],
+    maxHumansOffline: 1,
+    multiplayerBuilder: (s) => BingoScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',

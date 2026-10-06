@@ -25,7 +25,7 @@ enum Secret {
   ),
   halmaRainbow(
     'Regenbogen-Murmeln',
-    'Sternhalma: die Murmeln schillern in allen Farben',
+    'Sternhalma: schillernde Murmeln und Regenbogen-Sprungspur',
   ),
   dominoEffect(
     'Domino-Effekt',
