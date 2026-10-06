@@ -272,6 +272,7 @@ class _DominoScreenState extends State<DominoScreen>
               ),
               Expanded(
                 child: Container(
+                  width: double.infinity,
                   margin: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2E7D32),

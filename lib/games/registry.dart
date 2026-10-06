@@ -14,6 +14,7 @@ import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'domino/domino_screen.dart';
+import 'halma/halma_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
@@ -228,6 +229,24 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 4,
     playerCounts: const [2, 3, 4],
     multiplayerBuilder: (s) => DominoScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'halma',
+    title: 'Sternhalma',
+    description: 'Über alle springen, ab ins Ziel – 2, 3, 4 oder 6 Spieler',
+    icon: Icons.star,
+    color: const Color(0xFF00897B),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 6,
+    playerCounts: const [2, 3, 4, 6],
+    multiplayerBuilder: (s) => HalmaScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
