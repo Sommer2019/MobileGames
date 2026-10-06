@@ -31,7 +31,15 @@ enum Secret {
     'Domino-Effekt',
     'Domino: am Rundenende fallen alle Steine nacheinander um',
   ),
-  bingoTurbo('Bingo-Turbo', 'Bingo: die Kugeln fallen doppelt so schnell');
+  bingoTurbo('Bingo-Turbo', 'Bingo: die Kugeln fallen doppelt so schnell'),
+  lastCardStack(
+    'Stapel-Wahnsinn',
+    'Letzte Karte: +2 und +4 lassen sich stapeln (gilt für deine Runden)',
+  ),
+  jokerRain(
+    'Joker-Regen',
+    'Stapelfix: doppelt so viele Joker im Spiel (gilt für deine Runden)',
+  );
 
   const Secret(this.title, this.description);
   final String title;

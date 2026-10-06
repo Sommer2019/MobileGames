@@ -16,6 +16,7 @@ import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'domino/domino_screen.dart';
 import 'halma/halma_screen.dart';
+import 'lastcard/lastcard_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
@@ -271,6 +272,29 @@ final List<GameInfo> games = [
     playerCounts: const [2, 3, 4, 5, 6],
     maxHumansOffline: 1,
     multiplayerBuilder: (s) => BingoScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'lastcard',
+    title: 'Letzte Karte',
+    description: 'Farbe oder Zahl bedienen, +2, +4 und Aussetzen – 2 bis 6',
+    icon: Icons.style,
+    color: const Color(0xFFC62828),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen 3 Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 4, bots: {1, 2, 3}),
+      ),
+      OfflineMode(
+        'Gegen 1 Computer',
+        Icons.person,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 6,
+    playerCounts: const [2, 3, 4, 5, 6],
+    multiplayerBuilder: (s) => LastCardScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
