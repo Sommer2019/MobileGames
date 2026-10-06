@@ -1,0 +1,74 @@
+name: Switch
+
+# Builds only the Nintendo Switch homebrew version, only from this branch.
+on:
+  push:
+    branches: [switch]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: switch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Spielregeln testen (PC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libsdl2-dev libsdl2-ttf-dev
+      - run: make -C switch -f Makefile.pc test
+      - name: PC build compiles
+        run: make -C switch -f Makefile.pc
+
+  nro:
+    name: Nintendo Switch (.nro)
+    needs: test
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2 for the Switch
+        run: dkp-pacman -Sy --noconfirm --needed switch-sdl2 switch-sdl2_ttf
+      - name: Build MobileGames.nro
+        working-directory: switch
+        run: make -j"$(nproc)" APP_VERSION=1.0.${{ github.run_number }}
+      - run: |
+          mkdir -p dist
+          cp switch/MobileGames.nro dist/MobileGames-Switch-${{ github.run_number }}.nro
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobileGames-switch
+          path: dist/*
+
+  release:
+    name: Release
+    needs: nro
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MobileGames-switch
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: switch-build-${{ github.run_number }}
+          name: Mobile Games für Switch – Build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          # The newest release stays the one of the phone apps (Homebrew
+          # cask and download links point to "latest").
+          make_latest: false
+          body: |
+            Homebrew-Version für die Nintendo Switch (Konsole mit Custom Firmware, z. B. Atmosphère).
+
+            `MobileGames-Switch-${{ github.run_number }}.nro` nach `sdmc:/switch/` auf die SD-Karte kopieren
+            und im Homebrew-Menü starten. Offline: Snake, 4 gewinnt (2–4 Spieler oder gegen Computer),
+            Dame und Würfelbecher.
+          files: dist/*.nro
