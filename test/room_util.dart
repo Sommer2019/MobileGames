@@ -24,11 +24,12 @@ Future<List<GameRoom>> buildRoom(
   String gameId = 'g',
   List<String>? names,
   Map<String, dynamic> options = const {'mode': 'x'},
+  int bots = 0,
 }) async {
   final hostMsg = newMessenger(bus);
   final host = RoomHost(
     gameId: gameId,
-    maxPlayers: guests + 1,
+    maxPlayers: guests + 1 + bots,
     myName: names?[0] ?? 'Host',
     sessionFactory: factoryFor(hostMsg),
   );
@@ -61,6 +62,7 @@ Future<List<GameRoom>> buildRoom(
     await pump();
   }
   expect(host.connected.length, guests);
+  host.bots = bots;
   expect(host.isFull, isTrue);
   final hostRoom = host.start(options: options);
   final rooms = await Future.wait(guestRooms)

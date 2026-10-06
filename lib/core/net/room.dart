@@ -160,6 +160,11 @@ class GameRoom extends ChangeNotifier {
 
   bool get isHost => mySeat == 0;
   int get size => names.length;
+
+  /// Seats played by the computer (on the host's device).
+  Set<int> get botSeats => {
+    for (final s in options['bots'] as List? ?? const []) s as int,
+  };
   bool get isDirect => _links.isNotEmpty && _links.every((l) => l.isDirect);
 
   /// Game messages from the other players (buffered until listened to).
@@ -283,6 +288,15 @@ class GameRoom extends ChangeNotifier {
     }
   }
 
+  /// Host only: sends a move of the computer player on [seat].
+  void sendAs(int seat, Map<String, dynamic> data) {
+    if (_closed || spectator || !isHost) return;
+    _record(seat, data);
+    for (final l in _links) {
+      l.send({'k': 'g', 's': seat, 'd': data});
+    }
+  }
+
   void sendChat(String text) {
     final t = text.trim();
     if (t.isEmpty || _closed || spectator) return;
@@ -346,9 +360,13 @@ class RoomHost extends ChangeNotifier {
   List<RoomGuestEntry> get connected =>
       guests.where((g) => g.status == GuestStatus.connected).toList();
   bool get isFull =>
-      guests.where((g) => g.status != GuestStatus.left).length + 1 >=
+      guests.where((g) => g.status != GuestStatus.left).length + 1 + bots >=
       maxPlayers;
-  bool get canStart => connected.isNotEmpty;
+
+  /// Computer players added by the host (games with bots).
+  int bots = 0;
+
+  bool get canStart => connected.isNotEmpty || bots > 0;
 
   void addGuest(MatchInfo match) {
     if (_closed || room != null) return;
@@ -384,7 +402,18 @@ class RoomHost extends ChangeNotifier {
       g.stateSub?.cancel();
       g.session.close();
     }
-    final names = [myName, for (final g in players) g.match.opponentName];
+    final names = [
+      myName,
+      for (final g in players) g.match.opponentName,
+      for (var i = 0; i < bots; i++)
+        bots == 1 ? 'Computer' : 'Computer ${i + 1}',
+    ];
+    if (bots > 0) {
+      options = {
+        ...options,
+        'bots': [for (var i = 0; i < bots; i++) players.length + 1 + i],
+      };
+    }
     final r = GameRoom._(
       gameId: gameId,
       mySeat: 0,

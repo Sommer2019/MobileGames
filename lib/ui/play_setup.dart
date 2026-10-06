@@ -18,9 +18,10 @@ typedef GameResultCallback = void Function(List<int> winnerSeats);
 
 /// How a game is played: on one device, against the computer or online.
 class PlaySetup {
-  const PlaySetup.local({int players = 2})
+  const PlaySetup.local({int players = 2, Set<int> bots = const {}})
     : kind = PlayKind.local,
       _players = players,
+      _bots = bots,
       room = null,
       scope = null,
       firstRound = 0,
@@ -29,6 +30,7 @@ class PlaySetup {
   const PlaySetup.ai()
     : kind = PlayKind.ai,
       _players = 2,
+      _bots = const {1},
       room = null,
       scope = null,
       firstRound = 0,
@@ -41,11 +43,50 @@ class PlaySetup {
     this.onFinished,
     this.onLeave,
   }) : kind = PlayKind.online,
-       _players = 0;
+       _players = 0,
+       _bots = const {};
 
   final PlayKind kind;
   final int _players;
+  final Set<int> _bots;
   final GameRoom? room;
+
+  /// Seats played by the computer. Offline every device plays them, online
+  /// the host does (see [GameRoom.botSeats]).
+  Set<int> get botSeats => room?.botSeats ?? _bots;
+
+  bool isBot(int seat) => botSeats.contains(seat);
+
+  /// Whether this device makes the moves of [seat]: offline all seats
+  /// (people taking turns and computer players), online its own seat and,
+  /// on the host, the computer players.
+  bool controls(int seat) {
+    final r = room;
+    if (r == null) return true;
+    if (r.spectator) return false;
+    return seat == r.mySeat || (r.isHost && isBot(seat));
+  }
+
+  /// Whether a person on this device moves for [seat] (not the computer).
+  bool humanControls(int seat) => controls(seat) && !isBot(seat);
+
+  /// Name of a seat for status lines: "Du", a player's name, "Computer"…
+  String seatName(int seat, {List<String>? offlineNames}) {
+    final r = room;
+    if (r != null) return r.nameOf(seat);
+    if (isBot(seat)) {
+      final bots = botSeats.toList()..sort();
+      return bots.length == 1
+          ? 'Computer'
+          : 'Computer ${bots.indexOf(seat) + 1}';
+    }
+    final humans = [
+      for (var i = 0; i < players; i++)
+        if (!isBot(i)) i,
+    ];
+    if (offlineNames != null) return offlineNames[seat];
+    return humans.length == 1 ? 'Du' : 'Spieler ${humans.indexOf(seat) + 1}';
+  }
 
   /// Tournament: messages of this game are tagged with [scope] so they do
   /// not mix with other games played in the same room.
@@ -66,7 +107,12 @@ class PlaySetup {
   bool get spectator => room?.spectator ?? false;
 
   /// Where an offline round of [game] is kept when leaving (online: null).
-  String? saveKey(String game) => online ? null : '$game.${kind.name}$players';
+  String? saveKey(String game) {
+    if (online) return null;
+    final bots = (_bots.toList()..sort()).join();
+    return '$game.${kind.name}$players${kind == PlayKind.local && bots.isNotEmpty ? 'b$bots' : ''}';
+  }
+
   bool get inTournament => onFinished != null;
 
   /// Number of players taking part.
@@ -88,6 +134,19 @@ class PlaySetup {
   /// Sends a game message to the other players (no-op offline).
   void send(Map<String, dynamic> data) =>
       room?.send(scope == null ? data : {...data, '_s': scope});
+
+  /// Sends a move made for [seat] – online the host also moves for the
+  /// computer players.
+  void sendAs(int seat, Map<String, dynamic> data) {
+    final r = room;
+    if (r == null) return;
+    final d = scope == null ? data : {...data, '_s': scope};
+    if (seat == r.mySeat) {
+      r.send(d);
+    } else {
+      r.sendAs(seat, d);
+    }
+  }
 
   /// Game messages of the other players.
   StreamSubscription<RoomMessage>? listen(void Function(RoomMessage) onData) =>

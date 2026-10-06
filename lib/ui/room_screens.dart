@@ -219,7 +219,14 @@ class _RandomMatchScreenState extends State<RandomMatchScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: FilledButton.icon(
-                  onPressed: host.canStart ? _start : null,
+                  onPressed:
+                      host.canStart &&
+                          (widget.game.playerCounts.isEmpty ||
+                              widget.game.playerCounts.contains(
+                                host.connected.length + 1,
+                              ))
+                      ? _start
+                      : null,
                   icon: const Icon(Icons.play_arrow),
                   label: Text(
                     'Jetzt mit ${host.connected.length + 1} Spielern starten',
@@ -272,7 +279,9 @@ class _FriendsRoomScreenState extends State<FriendsRoomScreen> {
   void _changed() {
     if (!mounted) return;
     setState(() {});
-    if (widget.game.maxOnlinePlayers == 2 && host.connected.isNotEmpty) {
+    if (widget.game.maxOnlinePlayers == 2 &&
+        !widget.game.hasBots &&
+        host.connected.isNotEmpty) {
       _start();
     }
   }
@@ -308,8 +317,15 @@ class _FriendsRoomScreenState extends State<FriendsRoomScreen> {
     if (match != null && !_started) host.addGuest(match);
   }
 
+  /// Total players fit the game (Sternhalma: 2, 3, 4 or 6).
+  bool get _validCount {
+    final counts = widget.game.playerCounts;
+    final total = host.connected.length + 1 + host.bots;
+    return counts.isEmpty || counts.contains(total);
+  }
+
   void _start() {
-    if (_started || !host.canStart) return;
+    if (_started || !host.canStart || !_validCount) return;
     _started = true;
     final room = host.start(options: widget.startOptions);
     openGameRoom(context, room);
@@ -336,14 +352,41 @@ class _FriendsRoomScreenState extends State<FriendsRoomScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           _PlayerList(host: host),
-          if (widget.game.maxOnlinePlayers > 2)
+          if (widget.game.hasBots)
+            ListTile(
+              key: const ValueKey('botCount'),
+              leading: const Icon(Icons.smart_toy),
+              title: const Text('Computer-Spieler'),
+              subtitle: const Text('Dein Gerät spielt sie mit'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: const ValueKey('botMinus'),
+                    onPressed: host.bots > 0
+                        ? () => setState(() => host.bots--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                  Text('${host.bots}', style: const TextStyle(fontSize: 18)),
+                  IconButton(
+                    key: const ValueKey('botPlus'),
+                    onPressed: !host.isFull
+                        ? () => setState(() => host.bots++)
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                  ),
+                ],
+              ),
+            ),
+          if (widget.game.maxOnlinePlayers > 2 || widget.game.hasBots)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: FilledButton.icon(
-                onPressed: host.canStart ? _start : null,
+                onPressed: host.canStart && _validCount ? _start : null,
                 icon: const Icon(Icons.play_arrow),
                 label: Text(
-                  'Spiel mit ${host.connected.length + 1} Spielern starten',
+                  'Spiel mit ${host.connected.length + 1 + host.bots} Spielern starten',
                 ),
               ),
             ),

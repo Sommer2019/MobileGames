@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/play_setup.dart';
 import 'battleship/battleship_local_screen.dart';
+import 'boxes/boxes_screen.dart';
 import 'battleship/battleship_screen.dart';
 import 'billiard/billiard_screen.dart';
 import 'billiard/eight_ball_screen.dart';
@@ -38,7 +39,19 @@ class GameInfo {
     this.singleplayerBuilder,
     this.maxOnlinePlayers = 2,
     this.alsoSingleplayer = false,
+    this.playerCounts = const [],
+    this.maxHumansOffline,
   });
+
+  /// Games with computer players: the allowed numbers of players. Offline
+  /// every seat can be a person or the computer, online the host can fill
+  /// seats with computer players. Empty = no such options.
+  final List<int> playerCounts;
+
+  /// Offline: at most this many people on one device (null = all seats).
+  final int? maxHumansOffline;
+
+  bool get hasBots => playerCounts.isNotEmpty;
 
   /// Multiplayer game that can also be played alone (listed in both sections).
   final bool alsoSingleplayer;
@@ -159,6 +172,24 @@ final List<GameInfo> games = [
     ],
     maxOnlinePlayers: 4,
     multiplayerBuilder: (s) => YahtzeeScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'boxes',
+    title: 'Käsekästchen',
+    description: 'Striche ziehen, Kästchen schließen – 2 bis 4 Spieler',
+    icon: Icons.grid_on,
+    color: const Color(0xFF3949AB),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 4,
+    playerCounts: const [2, 3, 4],
+    multiplayerBuilder: (s) => BoxesScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',

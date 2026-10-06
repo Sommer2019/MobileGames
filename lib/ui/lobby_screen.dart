@@ -5,6 +5,7 @@ import '../core/net/matchmaker.dart';
 import '../games/registry.dart';
 import 'leaderboard_screen.dart';
 import 'room_screens.dart';
+import 'seat_setup_screen.dart';
 
 /// Opens the waiting screen after accepting an invite.
 void openInvitedGame(BuildContext context, MatchInfo match) {
@@ -85,9 +86,26 @@ class LobbyScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!soloFirst && game.offlineModes.isNotEmpty) ...[
+              if (!soloFirst &&
+                  (game.offlineModes.isNotEmpty || game.hasBots)) ...[
                 const SizedBox(height: 16),
                 const _Section('Offline'),
+                if (game.hasBots)
+                  _OptionTile(
+                    key: const ValueKey('seatSetup'),
+                    icon: Icons.groups,
+                    title: 'Spieler & Computer wählen',
+                    subtitle: game.maxHumansOffline == 1
+                        ? 'Gegen ${game.playerCounts.last - 1 > 1 ? 'bis zu ${game.playerCounts.last - 1} Computer' : 'den Computer'}'
+                        : '${game.playerCounts.first}–${game.playerCounts.last} Spieler, '
+                              'jeder Platz Mensch oder Computer',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => SeatSetupScreen(game: game),
+                      ),
+                    ),
+                  ),
                 for (final m in game.offlineModes)
                   _OptionTile(
                     icon: m.icon,
@@ -116,10 +134,14 @@ class LobbyScreen extends StatelessWidget {
           title: const Text('Wie viele Spieler?'),
           children: [
             for (var n = 2; n <= game.maxOnlinePlayers; n++)
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(c, n),
-                child: Text('$n Spieler', style: const TextStyle(fontSize: 18)),
-              ),
+              if (game.playerCounts.isEmpty || game.playerCounts.contains(n))
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(c, n),
+                  child: Text(
+                    '$n Spieler',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
           ],
         ),
       );

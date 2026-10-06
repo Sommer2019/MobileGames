@@ -17,7 +17,21 @@ enum Secret {
     'Glückspilz-Computer',
     'Kniffel: der Computer würfelt einmal pro Spiel verdächtig gut',
   ),
-  labyrinthEasy('Easy Mode Labyrinth', 'Alle Labyrinth-Level freigeschaltet');
+  labyrinthEasy('Easy Mode Labyrinth', 'Alle Labyrinth-Level freigeschaltet'),
+  boxesPro('Käsekästchen-Profi', 'Der Computer spielt das Ende perfekt'),
+  ludoRage(
+    'Ärger-Effekt',
+    'Mensch ärgere dich nicht: Rauswerfen lässt das Brett wackeln',
+  ),
+  halmaRainbow(
+    'Regenbogen-Murmeln',
+    'Sternhalma: die Murmeln schillern in allen Farben',
+  ),
+  dominoEffect(
+    'Domino-Effekt',
+    'Domino: am Rundenende fallen alle Steine nacheinander um',
+  ),
+  bingoTurbo('Bingo-Turbo', 'Bingo: die Kugeln fallen doppelt so schnell');
 
   const Secret(this.title, this.description);
   final String title;

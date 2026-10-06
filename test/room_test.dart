@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_games/core/net/room.dart';
 import 'package:mobile_games/core/net/matchmaker.dart';
 import 'package:mobile_games/core/net/random_room.dart';
 
@@ -100,4 +101,25 @@ void main() {
       s.cancel();
     }
   });
+
+  test(
+    'computer players: seats after the guests, moves sent by the host',
+    () async {
+      final bus = FakeRelayBus();
+      final rooms = await buildRoom(bus, 1, bots: 2);
+      final host = rooms[0], guest = rooms[1];
+      expect(host.names, ['Host', 'G0', 'Computer 1', 'Computer 2']);
+      expect(guest.botSeats, {2, 3});
+      expect(host.botSeats, {2, 3});
+      final got = <RoomMessage>[];
+      guest.messages.listen(got.add);
+      host.sendAs(3, {'t': 'move', 'x': 1});
+      guest.sendAs(2, {'t': 'cheat'}); // only the host may move for bots
+      for (var i = 0; i < 50 && got.isEmpty; i++) {
+        await pump();
+      }
+      expect(got.single.seat, 3);
+      expect(got.single.data['x'], 1);
+    },
+  );
 }
