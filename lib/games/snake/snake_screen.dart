@@ -131,15 +131,28 @@ class _SnakeScreenState extends State<SnakeScreen>
     _focus.requestFocus();
   }
 
-  void _swipe(DragEndDetails d) {
-    final v = d.velocity.pixelsPerSecond;
-    if (v.distance < 50) return;
-    if (v.dx.abs() > v.dy.abs()) {
-      game.turn(v.dx > 0 ? Dir.right : Dir.left);
+  // Swipes are read from the raw pointer: a turn happens as soon as the
+  // finger has moved far enough (no need to lift it, slow swipes count),
+  // and keeping the finger down allows the next turn right away.
+  Offset? _swipeFrom;
+  static const _swipeDistance = 18.0;
+
+  void _pointerDown(PointerDownEvent e) => _swipeFrom = e.position;
+
+  void _pointerMove(PointerMoveEvent e) {
+    final from = _swipeFrom;
+    if (from == null) return;
+    final d = e.position - from;
+    if (d.distance < _swipeDistance) return;
+    if (d.dx.abs() > d.dy.abs()) {
+      game.turn(d.dx > 0 ? Dir.right : Dir.left);
     } else {
-      game.turn(v.dy > 0 ? Dir.down : Dir.up);
+      game.turn(d.dy > 0 ? Dir.down : Dir.up);
     }
+    _swipeFrom = e.position;
   }
+
+  void _pointerUp(PointerEvent _) => _swipeFrom = null;
 
   KeyEventResult _key(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
@@ -188,9 +201,12 @@ class _SnakeScreenState extends State<SnakeScreen>
           focusNode: _focus,
           autofocus: true,
           onKeyEvent: _key,
-          child: GestureDetector(
+          child: Listener(
             behavior: HitTestBehavior.opaque,
-            onPanEnd: _swipe,
+            onPointerDown: _pointerDown,
+            onPointerMove: _pointerMove,
+            onPointerUp: _pointerUp,
+            onPointerCancel: _pointerUp,
             child: Column(
               children: [
                 Expanded(

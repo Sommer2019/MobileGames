@@ -50,4 +50,23 @@ void main() {
     }
     expect(w.dead, isFalse);
   });
+
+  test('two quick swipes within one step both count', () {
+    final g = SnakeGame(width: 10, height: 10, random: Random(5));
+    g.food = (0, 0);
+    final (x, y) = g.body.first;
+    // U-turn: left, then down before the next step.
+    g.turn(Dir.left);
+    g.turn(Dir.down);
+    g.step();
+    expect(g.body.first, (x - 1, y));
+    g.step();
+    expect(g.body.first, (x - 1, y + 1));
+    expect(g.dead, isFalse);
+    // A reversal of the last queued turn is ignored.
+    g.turn(Dir.right);
+    g.turn(Dir.left);
+    g.step();
+    expect(g.direction, Dir.right);
+  });
 }

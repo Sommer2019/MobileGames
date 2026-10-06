@@ -51,7 +51,7 @@ class SnakeGame {
     'body': [
       for (final (x, y) in body) [x, y],
     ],
-    'dir': (_queued ?? direction).name,
+    'dir': (_queue.isEmpty ? direction : _queue.first).name,
     'food': [food.$1, food.$2],
     'score': score,
   };
@@ -64,7 +64,8 @@ class SnakeGame {
   /// body.first is the head.
   final List<(int, int)> body = [];
   Dir direction = Dir.up;
-  Dir? _queued;
+  // Turns not yet applied, so two quick swipes within one step both count.
+  final List<Dir> _queue = [];
   (int, int) food = (0, 0);
   int score = 0;
   bool dead = false;
@@ -75,9 +76,9 @@ class SnakeGame {
 
   /// Queues a direction change (ignored if it would reverse the snake).
   void turn(Dir d) {
-    final base = _queued ?? direction;
-    if (d == base || d.isOpposite(direction)) return;
-    _queued = d;
+    final base = _queue.isEmpty ? direction : _queue.last;
+    if (d == base || d.isOpposite(base) || _queue.length >= 3) return;
+    _queue.add(d);
   }
 
   void _placeFood() {
@@ -92,10 +93,7 @@ class SnakeGame {
   /// Advances one step.
   void step() {
     if (dead || won) return;
-    if (_queued != null) {
-      direction = _queued!;
-      _queued = null;
-    }
+    if (_queue.isNotEmpty) direction = _queue.removeAt(0);
     final (dx, dy) = direction.delta;
     var (x, y) = body.first;
     x += dx;
