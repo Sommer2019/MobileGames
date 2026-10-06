@@ -2,7 +2,9 @@ name: Build
 
 on:
   push:
-    branches: ['**']
+    # The Nintendo Switch version lives on its own branch with its own
+    # workflow (switch.yml).
+    branches: ['**', '!switch']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -166,10 +168,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Test Switch game rules
-        run: |
-          sudo apt-get install -y -qq libsdl2-dev libsdl2-ttf-dev
-          make -C switch -f Makefile.pc test
       - name: Build Linux app
         run: >
           flutter build linux --release --build-number=${{ github.run_number }}
@@ -262,27 +260,6 @@ jobs:
           name: MobileGames-macos
           path: dist/*
 
-  switch:
-    name: Nintendo Switch (Homebrew .nro)
-    needs: test
-    runs-on: ubuntu-latest
-    container: devkitpro/devkita64:latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install SDL2 for the Switch
-        run: dkp-pacman -Sy --noconfirm --needed switch-sdl2 switch-sdl2_ttf
-      - name: Build MobileGames.nro
-        working-directory: switch
-        run: make -j"$(nproc)" APP_VERSION=1.1.${{ github.run_number }}
-      - run: |
-          mkdir -p dist
-          cp switch/MobileGames.nro dist/MobileGames-${{ github.run_number }}-Switch.nro
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MobileGames-switch
-          path: dist/*
-
   web:
     name: Web-App (GitHub Pages)
     needs: test
@@ -329,7 +306,7 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: [android, ios, linux, windows, macos, switch]
+    needs: [android, ios, linux, windows, macos]
     # A failed desktop build must not hold back the phone apps.
     if: >-
       !cancelled() && needs.android.result == 'success' &&
@@ -370,10 +347,6 @@ jobs:
             **Linux:** `MobileGames-${{ github.run_number }}-Linux-amd64.deb` (Debian/Ubuntu:
             `sudo apt install ./MobileGames-…deb`) oder `…-Linux-x64.tar.gz` entpacken und `MobileGames/mobile_games` starten.
 
-            **Nintendo Switch (Homebrew, Custom Firmware nötig):** `MobileGames-${{ github.run_number }}-Switch.nro`
-            nach `sdmc:/switch/` auf die SD-Karte kopieren und im Homebrew-Menü starten. Offline:
-            Snake, 4 gewinnt, Dame und Würfelbecher.
-
             **Google Play:** `MobileGames-${{ github.run_number }}-PlayStore.aab` ist das App-Bundle zum
             Hochladen in die Play Console (nicht direkt installierbar).
           files: |
@@ -385,4 +358,3 @@ jobs:
             dist/*.dmg
             dist/*.deb
             dist/*.tar.gz
-            dist/*.nro

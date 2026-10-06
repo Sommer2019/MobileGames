@@ -1,7 +1,0 @@
-build/
-build_pc/
-*.nro
-*.nacp
-*.elf
-*.map
-mobilegames_save.txt
