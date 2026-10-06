@@ -107,6 +107,9 @@ jobs:
           packageName: de.sommer.mobilegames
           releaseFiles: build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}-PlayStore.aab
           tracks: internal
+          # Release notes for testers (max. 500 characters, one file per
+          # language). Update the file with every release worth noting.
+          whatsNewDirectory: distribution/whatsnew
           # "draft" until the first release was rolled out by hand.
           status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
       - uses: actions/upload-artifact@v4
