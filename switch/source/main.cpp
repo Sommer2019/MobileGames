@@ -38,6 +38,7 @@ int main(int, char**) {
     if (s == "kniffel") stack.push_back(makeKniffel(1, true));
     if (s == "battleship") stack.push_back(makeBattleship(true));
     if (s == "solitaire") stack.push_back(makeSolitaire(1));
+    if (s == "secrets") stack.push_back(makeSecrets());
     if (s == "mahjong") stack.push_back(makeMahjong(false));
     if (s == "tower") stack.push_back(makeMahjong(true));
     if (s == "labyrinth") stack.push_back(makeLabyrinth());

@@ -5,6 +5,7 @@
 
 #include "logic.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -32,7 +33,8 @@ class CheckersScene : public Scene {
       thinking_ += dt;
       if (thinking_ > 0.6) {
         thinking_ = 0;
-        game_.apply(game_.aiMove(rng_));
+        game_.apply(secrets::on(Secret::Grandmaster) ? game_.strongMove(rng_)
+                                                     : game_.aiMove(rng_));
         moves_ = game_.legalMoves();
       }
       return;

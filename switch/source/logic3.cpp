@@ -451,7 +451,6 @@ void Labyrinth::step(double dt, double tiltX, double tiltY) {
   elapsed += dt;
   const int steps = std::max(1, int(std::ceil(dt / 0.004)));
   const double h = dt / steps;
-  const double damping = 0.6;
   for (int i = 0; i < steps && state == BallState::Rolling; i++) {
     vx += std::clamp(tiltX, -1.0, 1.0) * Gravity * h;
     vy += std::clamp(tiltY, -1.0, 1.0) * Gravity * h;
@@ -471,7 +470,6 @@ void Labyrinth::step(double dt, double tiltX, double tiltY) {
 }
 
 void Labyrinth::collide(const LWall& w) {
-  const double restitution = 0.35;
   const double cx = std::clamp(x, w.left, w.right), cy = std::clamp(y, w.top, w.bottom);
   const double dx = x - cx, dy = y - cy;
   const double d2 = dx * dx + dy * dy;

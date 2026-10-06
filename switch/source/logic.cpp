@@ -277,6 +277,64 @@ CheckersMove Checkers::aiMove(std::mt19937& rng) const {
   return choice;
 }
 
+namespace {
+// Material (kings count more) plus a little for advanced men.
+double checkersEval(const Checkers& g, Side me) {
+  double score = 0;
+  for (int r = 0; r < 8; r++) {
+    for (int c = 0; c < 8; c++) {
+      const Piece& p = g.board[r][c];
+      if (!p.present) continue;
+      double v = p.king ? 1.7 : 1.0;
+      if (!p.king) v += (p.side == Side::White ? 7 - r : r) * 0.04;
+      score += p.side == me ? v : -v;
+    }
+  }
+  return score;
+}
+
+double checkersSearch(const Checkers& g, int depth, double alpha, double beta, Side me) {
+  if (g.hasWinner) return g.winner == me ? 1000.0 + depth : -1000.0 - depth;
+  if (g.draw) return 0;
+  if (depth == 0) return checkersEval(g, me);
+  const auto moves = g.legalMoves();
+  if (moves.empty()) return g.turn == me ? -1000.0 : 1000.0;
+  const bool maximizing = g.turn == me;
+  double v = maximizing ? -1e18 : 1e18;
+  for (auto& m : moves) {
+    Checkers c = g;
+    c.apply(m);
+    const double s = checkersSearch(c, depth - 1, alpha, beta, me);
+    if (maximizing) {
+      v = std::max(v, s);
+      alpha = std::max(alpha, v);
+    } else {
+      v = std::min(v, s);
+      beta = std::min(beta, v);
+    }
+    if (alpha >= beta) break;
+  }
+  return v;
+}
+}  // namespace
+
+CheckersMove Checkers::strongMove(std::mt19937& rng) const {
+  const auto moves = legalMoves();
+  std::uniform_real_distribution<double> noise(0, 0.01);
+  double best = -1e18;
+  CheckersMove choice = moves.front();
+  for (const auto& m : moves) {
+    Checkers g = *this;
+    g.apply(m);
+    const double s = checkersSearch(g, 3, -1e18, 1e18, turn) + noise(rng);
+    if (s > best) {
+      best = s;
+      choice = m;
+    }
+  }
+  return choice;
+}
+
 // ---------------------------------------------------------------------- Snake
 
 Snake::Snake(int w, int h, bool wr, uint32_t seed)

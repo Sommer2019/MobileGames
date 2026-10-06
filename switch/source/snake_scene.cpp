@@ -4,6 +4,7 @@
 #include "logic.hpp"
 #include "save.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -50,17 +51,28 @@ class SnakeScene : public Scene {
     g.header(wrap_ ? "Snake – ohne Wände" : "Snake",
              "Punkte " + std::to_string(game_.score) + "   Rekord " +
                  std::to_string(best_));
+    const bool nokia = secrets::on(Secret::Retro);
+    // Nokia look: grey-green LCD, dark square pixels.
+    const Color lcd = rgb(0x9BB87A), pixel = rgb(0x2B3A1E);
     g.rect(Left - 4, Top - 4, Cols * CellSize + 8, Rows * CellSize + 8,
-           wrap_ ? rgb(0x33691E) : rgb(0x9CCC65));
-    g.rect(Left, Top, Cols * CellSize, Rows * CellSize, rgb(0x1B2A1B));
-    auto [fx, fy] = game_.food;
-    g.circle(Left + fx * CellSize + CellSize / 2, Top + fy * CellSize + CellSize / 2,
-             CellSize / 2 - 6, rgb(0xEF5350));
-    for (size_t i = 0; i < game_.body.size(); i++) {
-      auto [x, y] = game_.body[i];
-      const Color c = i == 0 ? rgb(0xC5E1A5) : rgb(0x7CB342);
-      g.roundRect(Left + x * CellSize + 2, Top + y * CellSize + 2, CellSize - 4,
-                  CellSize - 4, 8, c);
+           nokia ? pixel : wrap_ ? rgb(0x33691E) : rgb(0x9CCC65));
+    g.rect(Left, Top, Cols * CellSize, Rows * CellSize, nokia ? lcd : rgb(0x1B2A1B));
+    if (nokia) {
+      auto [fx, fy] = game_.food;
+      g.rect(Left + fx * CellSize + 12, Top + fy * CellSize + 12, CellSize - 24, CellSize - 24, pixel);
+      for (auto [x, y] : game_.body) {
+        g.rect(Left + x * CellSize + 3, Top + y * CellSize + 3, CellSize - 6, CellSize - 6, pixel);
+      }
+    } else {
+      auto [fx, fy] = game_.food;
+      g.circle(Left + fx * CellSize + CellSize / 2, Top + fy * CellSize + CellSize / 2,
+               CellSize / 2 - 6, rgb(0xEF5350));
+      for (size_t i = 0; i < game_.body.size(); i++) {
+        auto [x, y] = game_.body[i];
+        const Color c = i == 0 ? rgb(0xC5E1A5) : rgb(0x7CB342);
+        g.roundRect(Left + x * CellSize + 2, Top + y * CellSize + 2, CellSize - 4,
+                    CellSize - 4, 8, c);
+      }
     }
     if (game_.dead || game_.won()) {
       overlay(g, game_.won() ? "Geschafft!" : "Game over",

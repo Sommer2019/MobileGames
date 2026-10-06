@@ -6,6 +6,7 @@
 #include "logic3.hpp"
 #include "save.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -26,10 +27,14 @@ std::string timeText(double t) {
 class LabyrinthScene : public Scene {
  public:
   LabyrinthScene()
-      : unlocked_(std::clamp(Save::get().getInt("labyrinth.unlocked", 0), 0,
-                             labyrinthLevelCount() - 1)),
-        level_(unlocked_),
-        game_(labyrinthLevel(level_)) {}
+      : unlocked_(secrets::on(Secret::LabyrinthEasy)
+                      ? labyrinthLevelCount() - 1
+                      : std::clamp(Save::get().getInt("labyrinth.unlocked", 0), 0,
+                                   labyrinthLevelCount() - 1)),
+        level_(std::clamp(Save::get().getInt("labyrinth.unlocked", 0), 0, labyrinthLevelCount() - 1)),
+        game_(labyrinthLevel(level_)) {
+    applySecrets();
+  }
 
   void update(const Input& in, double dt) override {
     if (in[BtnPlus] || in[BtnB]) {
@@ -75,6 +80,11 @@ class LabyrinthScene : public Scene {
       const double strength = std::min(1.0, len / 150);
       tiltScreenX = dx / len * strength;
       tiltScreenY = dy / len * strength;
+    }
+    if (secrets::on(Secret::Nightmare)) {
+      // Albtraum: everything mirrored.
+      tiltScreenX = -tiltScreenX;
+      tiltScreenY = -tiltScreenY;
     }
     game_.step(dt, tiltScreenY, tiltScreenX);
     if (game_.state == BallState::Won) {
@@ -138,6 +148,12 @@ class LabyrinthScene : public Scene {
   void load(int i) {
     level_ = i;
     game_ = Labyrinth(labyrinthLevel(i));
+    applySecrets();
+  }
+
+  void applySecrets() {
+    if (secrets::on(Secret::RubberBall)) game_.restitution = 0.9;
+    if (secrets::on(Secret::Nightmare)) game_.damping = 0.25;
   }
 
   int unlocked_, level_;

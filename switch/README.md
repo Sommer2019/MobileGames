@@ -22,6 +22,13 @@ X legt die Weiße (Ball in der Hand), Y wählt Effet.
 Würfelbecher: Y legt den gewählten Würfel beiseite, L/R ändern die Anzahl,
 X löscht den Verlauf. Im Handheld-Modus geht alles auch per Touch.
 
+## Geheimnisse
+Im Hauptmenü ↑ ↑ ↓ ↓ ← → ← → B A + drücken (wie der Konami-Code in der App, nur mit
+B, A und + statt Lautstärke und Ladekabel). Danach gibt es die Kachel „Geheimmenü“:
+Retro-Modus (Nokia-Snake, Pixel-Billard), Disco-Kugeln, Gummiball, Albtraum-Labyrinth,
+Großmeister (stärkerer Computer bei Schach und Dame), Glückspilz-Computer (Kniffel) und
+Easy Mode (alle Labyrinth-Level frei).
+
 ## Bauen
 - Switch: `make` mit devkitPro (`switch-sdl2`, `switch-sdl2_ttf`)
 - PC zum Ausprobieren: `make -f Makefile.pc && ./build_pc/mobilegames`

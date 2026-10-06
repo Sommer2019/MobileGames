@@ -127,6 +127,16 @@ static void chess() {
   std::mt19937 rng(2);
   ChessMove m = free.aiMove(rng);
   CHECK(m.from == sq("c8") && m.to == sq("g4"));
+
+  // The strong computer finds a mate in one (Scholar's mate: Qxf7#).
+  Chess mate;
+  for (auto [f, t] : {std::pair{"e2", "e4"}, {"e7", "e5"}, {"f1", "c4"}, {"b8", "c6"},
+                      {"d1", "h5"}, {"g8", "f6"}}) {
+    CHECK(mate.play({sq(f), sq(t)}));
+  }
+  ChessMove best = mate.strongMove(rng);
+  CHECK(best.from == sq("h5") && best.to == sq("f7"));
+  CHECK(mate.play(best) && mate.checkmate());
 }
 
 static void battleship() {

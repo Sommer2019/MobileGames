@@ -118,6 +118,10 @@ static void checkers() {
   ai.board[3][2] = {true, Side::White, false};
   ai.board[7][6] = {true, Side::White, false};
   CHECK(!ai.aiMove(rng).captured.empty());
+  CHECK(!ai.strongMove(rng).captured.empty());
+  // The strong computer plays a full opening move quickly enough.
+  Checkers start;
+  CHECK(!start.strongMove(rng).path.empty());
 }
 
 static void snake() {

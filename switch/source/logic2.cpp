@@ -675,6 +675,30 @@ double ChessPos::material(bool forWhite) const {
   return score;
 }
 
+double ChessPos::position(bool forWhite) const {
+  double score = 0;
+  for (int sq = 0; sq < 64; sq++) {
+    const char p = board[sq];
+    if (!p) continue;
+    const bool w = white(p);
+    const int f = fileOf(sq), r = rankOf(sq);
+    const int own = w ? r : 7 - r;  // rank from the owner's side
+    const double centre = 3.5 - std::max(std::abs(f - 3.5), std::abs(r - 3.5));
+    double v = 0;
+    switch (std::toupper(p)) {
+      case 'P': v = 1 + own * 0.05 + (f >= 3 && f <= 4 ? 0.1 : 0); break;
+      case 'N': v = 3 + centre * 0.08 + (own == 0 ? -0.25 : 0); break;
+      case 'B': v = 3.2 + centre * 0.08 + (own == 0 ? -0.25 : 0); break;
+      case 'R': v = 5 + centre * 0.02; break;
+      case 'Q': v = 9 + centre * 0.03; break;
+      default: v = (own == 0 ? 0.2 : -0.1 * own) + (f <= 2 || f >= 6 ? 0.2 : 0);  // king
+    }
+    score += w == forWhite ? v : -v;
+  }
+  if (inCheck()) score += whiteToMove == forWhite ? -0.3 : 0.3;
+  return score;
+}
+
 std::string ChessPos::key() const {
   std::string k(board.begin(), board.end());
   for (char& c : k) {
@@ -755,6 +779,52 @@ ChessMove Chess::aiMove(std::mt19937& rng) const {
     score += noise(rng);
     if (score > best) {
       best = score;
+      choice = m;
+    }
+  }
+  return choice;
+}
+
+namespace {
+double chessSearch(const ChessPos& p, int depth, double alpha, double beta, bool me) {
+  auto moves = p.legalMoves();
+  if (moves.empty()) return p.inCheck() ? (p.whiteToMove == me ? -1e6 - depth : 1e6 + depth) : 0;
+  if (depth == 0 || p.insufficientMaterial()) return p.position(me);
+  // Captures first: better pruning.
+  std::stable_sort(moves.begin(), moves.end(), [&](const ChessMove& a, const ChessMove& b) {
+    return (p.board[a.to] != 0) > (p.board[b.to] != 0);
+  });
+  const bool maximizing = p.whiteToMove == me;
+  double v = maximizing ? -1e18 : 1e18;
+  for (auto& m : moves) {
+    ChessPos c = p;
+    c.apply(m);
+    const double s = chessSearch(c, depth - 1, alpha, beta, me);
+    if (maximizing) {
+      v = std::max(v, s);
+      alpha = std::max(alpha, v);
+    } else {
+      v = std::min(v, s);
+      beta = std::min(beta, v);
+    }
+    if (alpha >= beta) break;
+  }
+  return v;
+}
+}  // namespace
+
+ChessMove Chess::strongMove(std::mt19937& rng) const {
+  const auto moves = legalMoves();
+  const bool me = whiteToMove;
+  std::uniform_real_distribution<double> noise(0, 0.02);
+  double best = -1e18;
+  ChessMove choice = moves.front();
+  for (auto& m : moves) {
+    ChessPos c = *this;
+    c.apply(m);
+    const double s = chessSearch(c, 2, -1e18, 1e18, me) + noise(rng);
+    if (s > best) {
+      best = s;
       choice = m;
     }
   }

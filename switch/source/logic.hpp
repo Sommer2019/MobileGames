@@ -76,6 +76,8 @@ class Checkers {
   void apply(const CheckersMove& m);
   // Simple computer player (prefers captures, avoids giving any).
   CheckersMove aiMove(std::mt19937& rng) const;
+  // "Großmeister": four moves deep.
+  CheckersMove strongMove(std::mt19937& rng) const;
 
  private:
   static bool inside(int r, int c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }

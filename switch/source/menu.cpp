@@ -1,7 +1,9 @@
 #include <tuple>
 #include <algorithm>
+#include <cstdlib>
 
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -122,9 +124,17 @@ class Menu : public Scene {
         {"Würfelbecher", "1–6 Würfel, beiseitelegen", rgb(0x33691E),
          [] { return makeDiceCup(); }},
     };
+    if (secrets::unlocked()) addSecretTile();
   }
 
-  void update(const Input& in, double) override {
+  void update(const Input& in, double dt) override {
+    celebrate_ = std::max(0.0, celebrate_ - dt);
+    for (auto& c : confetti_) {
+      c.y += c.vy * dt;
+      c.x += c.vx * dt;
+    }
+    // Konami code: ↑↑↓↓←→←→ B A + (A and + do not act while it is typed).
+    if (konami(in)) return;
     const int n = int(tiles_.size());
     if (in[BtnRight] && focus_ % Cols < Cols - 1 && focus_ + 1 < n) focus_++;
     if (in[BtnLeft] && focus_ % Cols > 0) focus_--;
@@ -162,10 +172,66 @@ class Menu : public Scene {
     }
     const int rows = (int(tiles_.size()) + Cols - 1) / Cols;
     if (firstRow_ + VisibleRows < rows) g.symbol("\u25BC", Gfx::W / 2, 650, 18, theme::muted);
+    if (celebrate_ > 0) {
+      for (auto& c : confetti_) g.rect(int(c.x), int(c.y), 10, 6, c.color);
+      g.roundRect(240, 300, 800, 120, 24, rgb(0x000000, 200));
+      g.text("Konami-Code! Geheimnisse freigeschaltet", Gfx::W / 2, 320, 32, theme::focus,
+             Align::Center);
+      g.text("Neue Kachel: Geheimmenü", Gfx::W / 2, 368, 24, theme::text, Align::Center);
+    }
     g.hints({{"A", "Starten"}, {"+", "Beenden"}});
   }
 
  private:
+  struct Bit {
+    float x, y, vx, vy;
+    Color color;
+  };
+
+  // Returns true when the input belongs to the code and was used up.
+  bool konami(const Input& in) {
+    static const Button code[] = {BtnUp,    BtnUp,   BtnDown,  BtnDown, BtnLeft, BtnRight,
+                                  BtnLeft,  BtnRight, BtnB,    BtnA,    BtnPlus};
+    constexpr int len = int(sizeof code / sizeof code[0]);
+    int pressed = -1;
+    for (int b = 0; b < BtnCount; b++) {
+      if (in.fresh[b]) pressed = b;
+    }
+    if (pressed < 0) return false;
+    if (pressed == code[konami_]) {
+      konami_++;
+      if (konami_ == len) {
+        konami_ = 0;
+        secrets::unlock();
+        addSecretTile();
+        celebrate_ = 3.5;
+        confetti_.clear();
+        for (int i = 0; i < 160; i++) {
+          confetti_.push_back({float(std::rand() % Gfx::W), float(-(std::rand() % 400)),
+                               float(std::rand() % 80 - 40), float(160 + std::rand() % 240),
+                               rgb(uint32_t(std::rand()) & 0xFFFFFF)});
+        }
+        return true;
+      }
+      // B, A and + are part of the code here, not menu actions.
+      return pressed == BtnA || pressed == BtnPlus || pressed == BtnB;
+    }
+    konami_ = pressed == code[0] ? 1 : 0;
+    return false;
+  }
+
+  void addSecretTile() {
+    for (auto& t : tiles_) {
+      if (std::string(t.title) == "Geheimmenü") return;
+    }
+    tiles_.push_back({"Geheimmenü", "Die Extras aus dem Konami-Code", rgb(0x6A1B9A),
+                      [] { return makeSecrets(); }});
+  }
+
+  int konami_ = 0;
+  double celebrate_ = 0;
+  std::vector<Bit> confetti_;
+
   static constexpr int Cols = 3, VisibleRows = 3;
 
   std::tuple<int, int, int, int> box(int i) const {
@@ -225,7 +291,47 @@ class Choices : public Scene {
   int focus_ = 0;
 };
 
+class SecretsScene : public Scene {
+ public:
+  void update(const Input& in, double) override {
+    const int n = int(Secret::Count);
+    if (in[BtnDown]) focus_ = (focus_ + 1) % n;
+    if (in[BtnUp]) focus_ = (focus_ + n - 1) % n;
+    for (int i = 0; i < n; i++) {
+      if (hit(in, 160, top(i), 960, 66)) {
+        focus_ = i;
+        toggle(i);
+        return;
+      }
+    }
+    if (in[BtnA]) toggle(focus_);
+    if (in[BtnB] || in[BtnPlus]) done = true;
+  }
+
+  void draw(Gfx& g) override {
+    g.header("Geheimmenü", "Konami-Code");
+    for (int i = 0; i < int(Secret::Count); i++) {
+      const Secret s = Secret(i);
+      const bool f = i == focus_, on = secrets::on(s);
+      tileBox(g, 160, top(i), 960, 66, f ? rgb(0x4A148C) : theme::surface, f);
+      g.text(secrets::title(s), 190, top(i) + 6, 26, theme::text);
+      g.text(secrets::description(s), 190, top(i) + 38, 19, theme::muted);
+      // Switch.
+      g.roundRect(1040, top(i) + 20, 56, 28, 14, on ? rgb(0x7CB342) : theme::surfaceHigh);
+      g.circle(on ? 1082 : 1054, top(i) + 34, 11, rgb(0xFFFFFF));
+    }
+    g.hints({{"A", "An/Aus"}, {"B", "Zurück"}});
+  }
+
+ private:
+  static int top(int i) { return 100 + i * 78; }
+  void toggle(int i) { secrets::set(Secret(i), !secrets::on(Secret(i))); }
+  int focus_ = 0;
+};
+
 }  // namespace
+
+std::unique_ptr<Scene> makeSecrets() { return std::make_unique<SecretsScene>(); }
 
 std::unique_ptr<Scene> makeMenu() { return std::make_unique<Menu>(); }
 

@@ -6,6 +6,7 @@
 
 #include "logic2.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -51,7 +52,7 @@ class ChessScene : public Scene {
       thinking_ += dt;
       if (thinking_ > 0.5) {
         thinking_ = 0;
-        play(game_.aiMove(rng_));
+        play(secrets::on(Secret::Grandmaster) ? game_.strongMove(rng_) : game_.aiMove(rng_));
       }
       return;
     }

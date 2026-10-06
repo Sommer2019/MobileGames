@@ -204,6 +204,7 @@ Input InputReader::poll(double dt) {
   for (int b = 0; b < BtnCount; b++) {
     in.held[b] = down_[b];
     in.pressed[b] = edge_[b];
+    in.fresh[b] = edge_[b];
     edge_[b] = false;
     // Directions repeat while held, for moving a cursor.
     const bool dir = b == BtnUp || b == BtnDown || b == BtnLeft || b == BtnRight;

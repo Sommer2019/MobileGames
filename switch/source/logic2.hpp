@@ -134,6 +134,8 @@ class ChessPos {
   void apply(const ChessMove& m);  // no legality check
   bool insufficientMaterial() const;
   double material(bool white) const;
+  // Material plus development, advanced pawns, centre, a sheltered king.
+  double position(bool forWhite) const;
   std::string key() const;
 
  private:
@@ -155,6 +157,8 @@ class Chess : public ChessPos {
   bool draw() const;
   bool isOver() const { return checkmate() || draw(); }
   ChessMove aiMove(std::mt19937& rng) const;
+  // "Großmeister": three half-moves deep with a positional evaluation.
+  ChessMove strongMove(std::mt19937& rng) const;
 
  private:
   std::map<std::string, int> seen_;

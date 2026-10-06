@@ -6,6 +6,7 @@
 #include "logic3.hpp"
 #include "save.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -29,6 +30,7 @@ class BilliardScene : public Scene {
       : mode_(mode), solo_(mode == 1 ? SoloMode::Rotation : SoloMode::EightLast) {}
 
   void update(const Input& in, double dt) override {
+    time_ += dt;
     if (in[BtnPlus]) {
       done = true;
       return;
@@ -170,10 +172,35 @@ class BilliardScene : public Scene {
     return s;
   }
 
+  // Disco: a colour that changes while the ball rolls.
+  static Color hue(double h) {
+    h = std::fmod(h, 1.0) * 6;
+    const double f = h - std::floor(h);
+    const uint8_t q = uint8_t(255 * (1 - f)), t = uint8_t(255 * f);
+    switch (int(h)) {
+      case 0: return {255, t, 0};
+      case 1: return {q, 255, 0};
+      case 2: return {0, 255, t};
+      case 3: return {0, q, 255};
+      case 4: return {t, 0, 255};
+      default: return {255, 0, q};
+    }
+  }
+
   void drawBall(Gfx& g, const PoolBall& b) {
     const int x = tx(b.x), y = ty(b.y), r = int(Billiard::Radius * S);
     g.circle(x + 2, y + 3, r, rgb(0x000000, 80));
-    const Color c = ballColor(b.number);
+    Color c = ballColor(b.number);
+    if (secrets::on(Secret::Disco) && b.number > 0 && b.moving()) {
+      c = hue(time_ * 0.8 + b.number * 0.13);
+    }
+    if (secrets::on(Secret::Retro)) {
+      // Pixel billiard: square balls, number as a dot pattern-free label.
+      g.rect(x - r, y - r, 2 * r, 2 * r, c);
+      if (b.number >= 9) g.rect(x - r, y - r, 2 * r, r / 2, rgb(0xFAFAFA));
+      if (b.number >= 9) g.rect(x - r, y + r / 2, 2 * r, r / 2, rgb(0xFAFAFA));
+      return;
+    }
     if (b.number >= 9) {
       // Stripe: white ball with a coloured band.
       for (int dy = -r; dy <= r; dy++) {
@@ -225,7 +252,7 @@ class BilliardScene : public Scene {
   Billiard game_;
   EightBall eight_;
   SoloRules solo_;
-  double angle_ = 0, chargeTime_ = 0;
+  double angle_ = 0, chargeTime_ = 0, time_ = 0;
   int spin_ = 0;
   bool charging_ = false, placing_ = false;
   int othersBefore_ = 0, targetBefore_ = -1;

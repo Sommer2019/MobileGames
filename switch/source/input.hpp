@@ -11,6 +11,7 @@ enum Button {
 
 struct Input {
   bool pressed[BtnCount] = {};  // this frame (directions with key repeat)
+  bool fresh[BtnCount] = {};    // this frame, without key repeat
   bool held[BtnCount] = {};
   bool quit = false;
   bool tapped = false;          // finger lifted without moving much

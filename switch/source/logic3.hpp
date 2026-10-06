@@ -71,6 +71,7 @@ class Labyrinth {
   explicit Labyrinth(LLevel level);
   static constexpr double Radius = 0.03, Gravity = 2.2;
   LLevel level;
+  double damping = 0.6, restitution = 0.35;
   double x = 0, y = 0, vx = 0, vy = 0;
   double elapsed = 0;
   BallState state = BallState::Rolling;

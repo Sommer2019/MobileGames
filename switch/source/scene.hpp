@@ -42,6 +42,7 @@ std::unique_ptr<Scene> makeKniffel(int humans, bool computer);
 std::unique_ptr<Scene> makeBattleship(bool vsComputer);
 std::unique_ptr<Scene> makeSolitaire(int drawCount);
 std::unique_ptr<Scene> makeMahjong(bool tower);
+std::unique_ptr<Scene> makeSecrets();
 std::unique_ptr<Scene> makeLabyrinth();
 std::unique_ptr<Scene> makeDarts(int mode, int players);  // 0 = 501, 1 = 301, 2 = Uhr
 std::unique_ptr<Scene> makeBilliard(int mode);  // 0 = 8 zum Schluss, 1 = Reihenfolge, 2 = zu zweit

@@ -5,6 +5,7 @@
 #include "logic.hpp"
 #include "logic2.hpp"
 #include "scene.hpp"
+#include "secrets.hpp"
 
 namespace {
 
@@ -190,6 +191,14 @@ class KniffelScene : public Scene {
     thinking_ = 0;
     if (!game_.hasRolled()) {
       roll();
+      // Glückspilz: once per game the computer gets a suspiciously good
+      // first roll.
+      if (secrets::on(Secret::LuckyComputer) && !luckyUsed_ &&
+          !game_.sheets[size_t(game_.current)].filled(Kniffel5) &&
+          std::uniform_int_distribution<int>(0, 3)(rng_) == 0) {
+        game_.dice.fill(game_.dice[0]);
+        luckyUsed_ = true;
+      }
       return;
     }
     if (game_.rollsLeft > 0) {
@@ -228,6 +237,7 @@ class KniffelScene : public Scene {
   }
 
   void restart() {
+    luckyUsed_ = false;
     game_ = KniffelGame(game_.players, uint32_t(std::time(nullptr)));
     catFocus_ = 0;
   }
@@ -241,6 +251,7 @@ class KniffelScene : public Scene {
   double rolling_ = 0, thinking_ = 0, time_ = 0;
   ShakeDetector shake_;
   bool hasMotion_ = false;
+  bool luckyUsed_ = false;
 };
 
 }  // namespace
