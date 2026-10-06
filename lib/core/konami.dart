@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:vibration/vibration.dart';
@@ -162,6 +163,8 @@ class _KonamiDetectorState extends State<KonamiDetector> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
+    // Volume keys and charger are not visible in the browser.
+    if (kIsWeb && widget.batteryStates == null) return;
     try {
       VolumeController.instance.showSystemUI = true;
       _volume = VolumeController.instance.addListener((v) {

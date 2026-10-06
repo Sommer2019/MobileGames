@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/background.dart';
 import 'core/chat.dart';
+import 'core/motion_permission.dart';
 import 'core/home_widgets.dart';
 import 'core/net/matchmaker.dart';
 import 'core/nostr/relay_pool.dart';
@@ -65,7 +67,8 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
             // After a longer break sockets are often silently dead; iOS
             // cuts them as soon as the app is in the background.
             client.reconnectNow(
-              force: Platform.isIOS || away > const Duration(minutes: 1),
+              force:
+                  kIsWeb || Platform.isIOS || away > const Duration(minutes: 1),
             );
           }
           Services.I.presence.announce();
@@ -255,7 +258,11 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      builder: (context, child) => SystemBarInsets(child: child!),
+      builder: (context, child) => Listener(
+        // Web (iOS Safari): motion sensors need a permission asked on a tap.
+        onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
+        child: SystemBarInsets(child: child!),
+      ),
       home: const HomeScreen(),
     );
   }

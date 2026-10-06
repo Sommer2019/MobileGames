@@ -148,6 +148,46 @@ jobs:
           name: MobileGames-ios-unsigned
           path: MobileGames-*-iOS-iPadOS-unsigned.ipa
 
+  web:
+    name: Web-App (GitHub Pages)
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build web app
+        # CanvasKit is bundled (no CDN), so the app also starts offline.
+        run: >
+          flutter build web --release --no-web-resources-cdn
+          --base-href /${{ github.event.repository.name }}/
+          --build-number=${{ github.run_number }}
+          --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+      - name: Add privacy policy
+        run: cp docs/datenschutz.html build/web/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - name: Deploy to GitHub Pages
+        id: deploy
+        # Needs Settings → Pages → Source "GitHub Actions" once.
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: steps.deploy.outcome == 'failure'
+        run: echo "::warning::GitHub Pages ist nicht aktiviert (Settings → Pages → Source → GitHub Actions)."
+
   release:
     name: GitHub Release
     needs: [android, ios]

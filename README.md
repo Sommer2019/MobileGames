@@ -38,6 +38,11 @@ Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
 * **iPhone & iPad:** Im selben Release liegt `MobileGames-N-iOS-iPadOS-unsigned.ipa`
   (eine universelle App für iOS und iPadOS). Sie ist *unsigniert* und lässt sich erst nach
   eigenem Signieren installieren (z. B. AltStore/Sideloadly oder Apple-Developer-Account).
+* **Web-App (ohne Installation, auch iPhone):** https://sommer2019.github.io/MobileGames/
+  in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Startet dann wie eine App im Vollbild und
+  ist nach jedem Push auf `main` automatisch aktuell. Ohne Widgets und ohne Benachrichtigungen
+  bei geschlossener App. Die Web-App hat ein eigenes Konto; über „Konto auf neues Handy
+  übertragen“ lässt sich das bisherige mitnehmen.
 
 ## Serverloser Multiplayer
 

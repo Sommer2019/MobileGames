@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -122,11 +123,12 @@ class _DiceCupScreenState extends State<DiceCupScreen> {
       appBar: AppBar(
         title: const Text('Würfelbecher'),
         actions: [
-          IconButton(
-            tooltip: 'Als Widget auf den Startbildschirm',
-            icon: const Icon(Icons.widgets_outlined),
-            onPressed: () => showWidgetsSheet(context),
-          ),
+          if (!kIsWeb)
+            IconButton(
+              tooltip: 'Als Widget auf den Startbildschirm',
+              icon: const Icon(Icons.widgets_outlined),
+              onPressed: () => showWidgetsSheet(context),
+            ),
         ],
       ),
       body: SafeArea(

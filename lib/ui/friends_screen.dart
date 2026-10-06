@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -278,7 +279,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   ),
                 ),
-              if (!widget.pickMode) const NotificationSettingsCard(),
+              if (!widget.pickMode && !kIsWeb) const NotificationSettingsCard(),
               if (!widget.pickMode)
                 Card(
                   child: ListenableBuilder(
@@ -366,7 +367,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   ),
                 ),
-              if (!widget.pickMode)
+              if (!widget.pickMode && !kIsWeb)
                 Card(
                   child: ListTile(
                     key: const ValueKey('widgetsTile'),
