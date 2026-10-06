@@ -21,6 +21,7 @@ import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'snake/snake_screen.dart';
 import 'solitaire/klondike_screen.dart';
+import 'stapelfix/stapelfix_screen.dart';
 import 'tournament/tournament_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
@@ -295,6 +296,29 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 6,
     playerCounts: const [2, 3, 4, 5, 6],
     multiplayerBuilder: (s) => LastCardScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'stapelfix',
+    title: 'Stapelfix',
+    description: 'Von 1 bis 12 stapeln, zuerst den eigenen Stapel leeren',
+    icon: Icons.filter_none,
+    color: const Color(0xFFEF6C00),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen 1 Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode(
+        'Gegen 3 Computer',
+        Icons.groups,
+        PlaySetup.local(players: 4, bots: {1, 2, 3}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 6,
+    playerCounts: const [2, 3, 4, 5, 6],
+    multiplayerBuilder: (s) => StapelfixScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
