@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Switch build outputs (the Switch version lives on branch switch)
+switch/build_pc/

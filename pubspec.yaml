@@ -1,5 +1,5 @@
 name: mobile_games
-description: "Mobile Games – Schach, Schiffe versenken, 4 gewinnt, Kniffel, Kugellabyrinth, Mahjong und Billard mit serverlosem P2P-Multiplayer."
+description: "Mobile Games – Schach, Schiffe versenken, Vier in einer Reihe, Würfelkönig, Kugellabyrinth, Mahjong und Billard mit serverlosem P2P-Multiplayer."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

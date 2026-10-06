@@ -253,7 +253,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
   Widget build(BuildContext context) {
     return OnlineGameFrame(
       setup: widget.setup,
-      title: 'Kniffel',
+      title: 'Würfelkönig',
       actions: [
         if (saveKey != null)
           RestartButton(

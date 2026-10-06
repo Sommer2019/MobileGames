@@ -20,7 +20,7 @@ Maintainer: Sommer2019 <noreply@github.com>
 Depends: libgtk-3-0 | libgtk-3-0t64, libsecret-1-0, libasound2 | libasound2t64, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0, gstreamer1.0-plugins-good
 Homepage: https://github.com/Sommer2019/MobileGames
 Description: Mobile Games
- Schach, Schiffe versenken, 4 gewinnt, Kniffel, Darts, Billard und mehr -
+ Schach, Schiffe versenken, Vier in einer Reihe, Würfelkönig, Darts, Billard und mehr -
  allein oder online mit Freunden, ohne eigenen Server.
 CONTROL
 dpkg-deb --build --root-owner-group "$root" "$out"

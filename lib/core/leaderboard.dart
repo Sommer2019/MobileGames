@@ -73,7 +73,7 @@ const boards = [
     max: 40000,
     legacyKey: 'klondike.best',
   ),
-  ScoreBoard('kniffel', 'yahtzee', 'Kniffel allein', 'Punkte', max: 1575),
+  ScoreBoard('kniffel', 'yahtzee', 'Würfelkönig allein', 'Punkte', max: 1575),
   ScoreBoard(
     'mahjong.tower',
     'mahjong',
@@ -190,7 +190,7 @@ const boards = [
   ScoreBoard(
     'kniffel.lucky',
     'yahtzee',
-    'Kniffel vs. Glückspilz 🎮',
+    'Würfelkönig vs. Glückspilz 🎮',
     'Siege',
     min: 1,
     max: 100000,

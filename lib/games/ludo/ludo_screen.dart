@@ -262,7 +262,7 @@ class _LudoScreenState extends State<LudoScreen>
         ludoColors[game.sideOf(game.isOver ? game.winner! : game.current)];
     return OnlineGameFrame(
       setup: setup,
-      title: 'Mensch ärgere dich nicht',
+      title: 'Ludo',
       actions: [
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),

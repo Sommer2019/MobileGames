@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Mobile Games
-Comment=Schach, Schiffe versenken, 4 gewinnt, Kniffel, Darts, Billard und mehr
+Comment=Schach, Schiffe versenken, Vier in einer Reihe, Würfelkönig, Darts, Billard und mehr
 Exec=/opt/mobile-games/mobile_games
 Icon=mobile-games
 Terminal=false

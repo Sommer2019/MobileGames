@@ -5,7 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// plug in the charger). Every extra can be switched on its own; none of
 /// them makes a game easier where it counts for the leaderboard.
 enum Secret {
-  retro('Retro-Modus', '8-Bit-Sounds, Snake im Nokia-Look, Pixel-Billard'),
+  retro(
+    'Retro-Modus',
+    '8-Bit-Sounds, Snake im Retro-Handy-Look, Pixel-Billard',
+  ),
   disco('Disco-Kugeln', 'Billardkugeln wechseln beim Rollen die Farbe'),
   rubberBall('Gummiball', 'Die Labyrinth-Kugel springt von den Wänden ab'),
   nightmare(
@@ -15,14 +18,11 @@ enum Secret {
   grandmaster('Großmeister', 'Schach und Dame: der Computer spielt stärker'),
   luckyComputer(
     'Glückspilz-Computer',
-    'Kniffel: der Computer würfelt einmal pro Spiel verdächtig gut',
+    'Würfelkönig: der Computer würfelt einmal pro Spiel verdächtig gut',
   ),
   labyrinthEasy('Easy Mode Labyrinth', 'Alle Labyrinth-Level freigeschaltet'),
   boxesPro('Käsekästchen-Profi', 'Der Computer spielt das Ende perfekt'),
-  ludoRage(
-    'Ärger-Effekt',
-    'Mensch ärgere dich nicht: Rauswerfen lässt das Brett wackeln',
-  ),
+  ludoRage('Ärger-Effekt', 'Ludo: Rauswerfen lässt das Brett wackeln'),
   halmaRainbow(
     'Regenbogen-Murmeln',
     'Sternhalma: schillernde Murmeln und Regenbogen-Sprungspur',

@@ -167,7 +167,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   Widget build(BuildContext context) {
     return OnlineGameFrame(
       setup: widget.setup,
-      title: '4 gewinnt',
+      title: 'Vier in einer Reihe',
       actions: [
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),

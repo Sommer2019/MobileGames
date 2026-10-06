@@ -26,7 +26,7 @@ Future<void> showSecretsSheet(BuildContext context) {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'Freigeschaltet mit dem Konami-Code. Deine Freunde sehen '
+                  'Freigeschaltet mit dem Geheimcode. Deine Freunde sehen '
                   'jetzt ein 🎮 neben deinem Namen.',
                 ),
               ),

@@ -12,7 +12,7 @@ enum KniffelCategory {
   fullHouse('Full House'),
   smallStraight('Kleine Straße'),
   largeStraight('Große Straße'),
-  kniffel('Kniffel'),
+  kniffel('Fünferpasch'),
   chance('Chance');
 
   const KniffelCategory(this.label);

@@ -106,7 +106,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'connect_four',
-    title: '4 gewinnt',
+    title: 'Vier in einer Reihe',
     description: 'Vier in einer Reihe gewinnt – 2 bis 4 Spieler',
     icon: Icons.grid_view_rounded,
     color: const Color(0xFFD32F2F),
@@ -153,7 +153,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'yahtzee',
-    title: 'Kniffel',
+    title: 'Würfelkönig',
     description: 'Würfelglück mit Taktik',
     icon: Icons.casino,
     color: const Color(0xFF2E7D32),
@@ -199,7 +199,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'ludo',
-    title: 'Mensch ärgere dich nicht',
+    title: 'Ludo',
     description: 'Der Klassiker für 2 bis 4 – mit Computer-Gegnern',
     icon: Icons.casino,
     color: const Color(0xFFD84315),

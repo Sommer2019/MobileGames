@@ -40,7 +40,7 @@ struct GameNightProvider: TimelineProvider {
   func placeholder(in context: Context) -> GameNightEntry {
     GameNightEntry(
       date: Date(), unread: 2, requests: 1, onlineCount: 2, online: "Anna, Ben",
-      recent: [RecentGame(id: "chess", title: "Schach"), RecentGame(id: "yahtzee", title: "Kniffel")],
+      recent: [RecentGame(id: "chess", title: "Schach"), RecentGame(id: "yahtzee", title: "Würfelkönig")],
       updated: Date())
   }
 
