@@ -45,6 +45,11 @@ void main() {
       'Mahjong',
       'Snake',
       'Solitär',
+      'Käsekästchen',
+      'Mensch ärgere dich nicht',
+      'Domino',
+      'Sternhalma',
+      'Bingo',
     ];
     for (final t in titles) {
       expect(find.text(t), findsWidgets);

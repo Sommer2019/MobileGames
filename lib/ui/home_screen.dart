@@ -201,12 +201,18 @@ class _GameCard extends StatelessWidget {
             children: [
               Icon(game.icon, size: 40, color: Colors.white),
               const Spacer(),
-              Text(
-                game.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              // Long titles shrink to one line.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  game.title,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
