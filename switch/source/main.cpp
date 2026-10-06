@@ -14,6 +14,9 @@
 #endif
 
 int main(int, char**) {
+#ifdef __SWITCH__
+  romfsInit();  // font with card suits and chess pieces
+#endif
   Gfx gfx;
   if (!gfx.init()) return 1;
   InputReader input;
@@ -30,6 +33,11 @@ int main(int, char**) {
     if (s == "c4ai") stack.push_back(makeConnectFour(2, true));
     if (s == "checkers") stack.push_back(makeCheckers(true));
     if (s == "dice") stack.push_back(makeDiceCup());
+    if (s == "chess") stack.push_back(makeChess(true));
+    if (s == "mill") stack.push_back(makeMill(true));
+    if (s == "kniffel") stack.push_back(makeKniffel(1, true));
+    if (s == "battleship") stack.push_back(makeBattleship(true));
+    if (s == "solitaire") stack.push_back(makeSolitaire(1));
   }
 #endif
   Uint64 last = SDL_GetPerformanceCounter();
@@ -102,5 +110,8 @@ int main(int, char**) {
   }
   stack.clear();
   gfx.shutdown();
+#ifdef __SWITCH__
+  romfsExit();
+#endif
   return 0;
 }

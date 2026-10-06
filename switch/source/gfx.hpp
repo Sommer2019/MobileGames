@@ -48,7 +48,12 @@ class Gfx {
   int text(const std::string& s, int x, int y, int size, Color c,
            Align align = Align::Left);
   int textWidth(const std::string& s, int size);
+  // Text in the bundled DejaVu font (card suits ♠♥♦♣, chess pieces ♔♚ …),
+  // centred on (cx, cy).
+  void symbol(const std::string& s, int cx, int cy, int size, Color c);
 
+  // A die with [value] pips; held dice are yellow.
+  void die(int x, int y, int size, int value, bool held);
   // A round controller button ("A", "B", "+" …) followed by a label.
   int hint(const std::string& button, const std::string& label, int x, int y);
   // Hints at the bottom right, e.g. {{"A", "Werfen"}, {"B", "Zurück"}}.
@@ -59,12 +64,12 @@ class Gfx {
   SDL_Renderer* renderer() const { return renderer_; }
 
  private:
-  TTF_Font* font(int size);
+  TTF_Font* font(int size, bool symbols = false);
   void setColor(Color c);
 
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
-  std::map<int, TTF_Font*> fonts_;
+  std::map<int, TTF_Font*> fonts_;  // key: size, negative = symbol font
   struct Cached {
     SDL_Texture* texture;
     int w, h;

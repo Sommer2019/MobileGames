@@ -89,7 +89,7 @@ class DiceScene : public Scene {
       if (i == focus_ && rolling_ <= 0) {
         g.roundRect(x - 7, y - 7, DieSize + 14, DieSize + 14, 26, theme::focus);
       }
-      drawDie(g, x, y, v, cup_.held[i]);
+      g.die(x, y, DieSize, v, cup_.held[i]);
     }
     const int sum = rolling_ > 0 ? 0 : cup_.sum();
     g.text(rolling_ > 0 ? "…" : "Summe " + std::to_string(sum), Gfx::W / 2, 404,
@@ -120,24 +120,6 @@ class DiceScene : public Scene {
     const int width = cup_.count * DieSize + (cup_.count - 1) * Gap;
     const int x = (Gfx::W - width) / 2 + i * (DieSize + Gap);
     return {x, cup_.held[i] ? HeldY : RowY};
-  }
-
-  void drawDie(Gfx& g, int x, int y, int v, bool held) {
-    g.roundRect(x, y + 6, DieSize, DieSize, 22, rgb(0x000000, 90));
-    g.roundRect(x, y, DieSize, DieSize, 22, held ? rgb(0xFFE082) : rgb(0xFAFAFA));
-    static const int pips[7][6][2] = {
-        {},
-        {{1, 1}},
-        {{0, 0}, {2, 2}},
-        {{0, 0}, {1, 1}, {2, 2}},
-        {{0, 0}, {2, 0}, {0, 2}, {2, 2}},
-        {{0, 0}, {2, 0}, {1, 1}, {0, 2}, {2, 2}},
-        {{0, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {2, 2}},
-    };
-    for (int k = 0; k < v; k++) {
-      const int px = x + 25 + pips[v][k][0] * 30, py = y + 25 + pips[v][k][1] * 30;
-      g.circle(px, py, 10, rgb(0x212121));
-    }
   }
 
   void setCount(int n) {

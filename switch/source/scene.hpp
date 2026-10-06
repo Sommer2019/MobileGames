@@ -36,3 +36,8 @@ std::unique_ptr<Scene> makeSnake(bool wrap);
 std::unique_ptr<Scene> makeConnectFour(int players, bool vsComputer);
 std::unique_ptr<Scene> makeCheckers(bool vsComputer);
 std::unique_ptr<Scene> makeDiceCup();
+std::unique_ptr<Scene> makeChess(bool vsComputer);
+std::unique_ptr<Scene> makeMill(bool vsComputer);
+std::unique_ptr<Scene> makeKniffel(int humans, bool computer);
+std::unique_ptr<Scene> makeBattleship(bool vsComputer);
+std::unique_ptr<Scene> makeSolitaire(int drawCount);

@@ -1,6 +1,7 @@
 # Mobile Games für die Nintendo Switch
 
-Homebrew-Version (offline) mit Snake, 4 gewinnt, Dame und Würfelbecher –
+Homebrew-Version (offline) mit Schach, Schiffe versenken, 4 gewinnt, Dame,
+Mühle, Kniffel, Snake, Solitär und Würfelbecher –
 Regeln wie in der App. C++17 mit SDL2/SDL2_ttf, Texte in der Systemschrift
 der Switch.
 

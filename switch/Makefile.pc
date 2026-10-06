@@ -14,7 +14,12 @@ build_pc/logic_test: tests/logic_test.cpp source/logic.cpp source/logic.hpp
 	@mkdir -p build_pc
 	$(CXX) $(CXXFLAGS) -Isource tests/logic_test.cpp source/logic.cpp -o $@
 
-test: build_pc/logic_test
+build_pc/logic2_test: tests/logic2_test.cpp source/logic2.cpp source/logic2.hpp source/logic.cpp
+	@mkdir -p build_pc
+	$(CXX) $(CXXFLAGS) -Isource tests/logic2_test.cpp source/logic2.cpp source/logic.cpp -o $@
+
+test: build_pc/logic_test build_pc/logic2_test
 	./build_pc/logic_test
+	./build_pc/logic2_test
 
 .PHONY: test

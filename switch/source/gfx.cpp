@@ -42,10 +42,21 @@ void Gfx::shutdown() {
   SDL_Quit();
 }
 
-TTF_Font* Gfx::font(int size) {
-  auto it = fonts_.find(size);
+TTF_Font* Gfx::font(int size, bool symbols) {
+  const int key = symbols ? -size : size;
+  auto it = fonts_.find(key);
   if (it != fonts_.end()) return it->second;
   TTF_Font* f = nullptr;
+  if (symbols) {
+#ifdef __SWITCH__
+    f = TTF_OpenFont("romfs:/DejaVuSans.ttf", size);
+#else
+    const char* dir = std::getenv("MG_ROMFS");
+    f = TTF_OpenFont((std::string(dir ? dir : "romfs") + "/DejaVuSans.ttf").c_str(), size);
+#endif
+    if (f) fonts_[key] = f;
+    return f ? f : font(size);
+  }
 #ifdef __SWITCH__
   // The console's own system font (has umlauts), no font file needed.
   PlFontData data;
@@ -57,7 +68,7 @@ TTF_Font* Gfx::font(int size) {
   f = TTF_OpenFont(path ? path : "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                    size);
 #endif
-  if (f) fonts_[size] = f;
+  if (f) fonts_[key] = f;
   return f;
 }
 
@@ -177,7 +188,8 @@ int Gfx::hint(const std::string& button, const std::string& label, int x,
               int y) {
   const int r = 15;
   circle(x + r, y + r, r, theme::text);
-  text(button, x + r, y + r - 12, 20, theme::background, Align::Center);
+  // Bundled font: the letters were not visible with the system font.
+  symbol(button, x + r, y + r, 19, theme::background);
   const int w = text(label, x + 2 * r + 8, y + 2, 22, theme::text);
   return 2 * r + 8 + w;
 }
@@ -196,4 +208,43 @@ void Gfx::header(const std::string& title, const std::string& right) {
   text(title, 48, 22, 36, theme::text);
   if (!right.empty()) text(right, W - 48, 30, 26, theme::muted, Align::Right);
   rect(0, 80, W, 1, theme::surfaceHigh);
+}
+
+void Gfx::symbol(const std::string& s, int cx, int cy, int size, Color c) {
+  TTF_Font* f = font(size, true);
+  if (!f || s.empty()) return;
+  const uint32_t packed = (uint32_t(c.r) << 24) | (c.g << 16) | (c.b << 8) | c.a;
+  // Separate cache entries from normal text of the same size.
+  auto key = std::make_tuple("\x01" + s, size, packed);
+  auto it = cache_.find(key);
+  if (it == cache_.end()) {
+    SDL_Surface* surf = TTF_RenderUTF8_Blended(f, s.c_str(), SDL_Color{c.r, c.g, c.b, c.a});
+    if (!surf) return;
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer_, surf);
+    it = cache_.emplace(key, Cached{tex, surf->w, surf->h, frame_}).first;
+    SDL_FreeSurface(surf);
+  }
+  Cached& t = it->second;
+  t.lastUse = frame_;
+  SDL_Rect dst{cx - t.w / 2, cy - t.h / 2, t.w, t.h};
+  SDL_RenderCopy(renderer_, t.texture, nullptr, &dst);
+}
+
+void Gfx::die(int x, int y, int size, int value, bool held) {
+  roundRect(x, y + size / 18, size, size, size / 5, rgb(0x000000, 90));
+  roundRect(x, y, size, size, size / 5, held ? rgb(0xFFE082) : rgb(0xFAFAFA));
+  static const int pips[7][6][2] = {
+      {},
+      {{1, 1}},
+      {{0, 0}, {2, 2}},
+      {{0, 0}, {1, 1}, {2, 2}},
+      {{0, 0}, {2, 0}, {0, 2}, {2, 2}},
+      {{0, 0}, {2, 0}, {1, 1}, {0, 2}, {2, 2}},
+      {{0, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {2, 2}},
+  };
+  const int margin = size * 23 / 100, gap = (size - 2 * margin) / 2;
+  for (int k = 0; k < value && value <= 6; k++) {
+    circle(x + margin + pips[value][k][0] * gap, y + margin + pips[value][k][1] * gap,
+           size / 11, rgb(0x212121));
+  }
 }

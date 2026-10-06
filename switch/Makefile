@@ -21,6 +21,7 @@ APP_TITLE   := Mobile Games
 APP_AUTHOR  := Sommer2019
 APP_VERSION ?= 1.0.0
 ICON        := icon.jpg
+ROMFS       := romfs
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -75,6 +76,9 @@ export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 export APP_ICON := $(TOPDIR)/$(ICON)
 export NROFLAGS += --icon=$(APP_ICON) --nacp=$(CURDIR)/$(TARGET).nacp
+ifneq ($(ROMFS),)
+export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
+endif
 
 .PHONY: $(BUILD) clean all
 

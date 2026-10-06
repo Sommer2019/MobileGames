@@ -69,6 +69,6 @@ jobs:
             Homebrew-Version für die Nintendo Switch (Konsole mit Custom Firmware, z. B. Atmosphère).
 
             `MobileGames-Switch-${{ github.run_number }}.nro` nach `sdmc:/switch/` auf die SD-Karte kopieren
-            und im Homebrew-Menü starten. Offline: Snake, 4 gewinnt (2–4 Spieler oder gegen Computer),
-            Dame und Würfelbecher.
+            und im Homebrew-Menü starten. Offline: Schach, Schiffe versenken, 4 gewinnt, Dame, Mühle,
+            Kniffel (gegen Computer oder zu mehreren an einer Switch), Snake, Solitär und Würfelbecher.
           files: dist/*.nro
