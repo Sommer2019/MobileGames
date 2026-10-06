@@ -50,6 +50,10 @@ Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:
 * **Linux:** `MobileGames-N-Linux-amd64.deb` (`sudo apt install ./MobileGames-N-Linux-amd64.deb`)
   oder `…-Linux-x64.tar.gz` entpacken und `MobileGames/mobile_games` starten.
   Am Computer gibt es keine Widgets; QR-Codes scannen geht nur am Mac (sonst Code eintippen).
+* **Nintendo Switch (Homebrew):** `MobileGames-N-Switch.nro` nach `sdmc:/switch/` auf die SD-Karte
+  kopieren und im Homebrew-Menü starten (Konsole mit Custom Firmware, z. B. Atmosphère).
+  Offline-Version mit Snake, 4 gewinnt (2–4 Spieler oder gegen Computer), Dame und Würfelbecher;
+  Quellcode in `switch/` (C++/SDL2, am PC testbar mit `make -C switch -f Makefile.pc`).
 * **Web-App (ohne Installation, auch iPhone):** https://sommer2019.github.io/MobileGames/
   in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Startet dann wie eine App im Vollbild und
   ist nach jedem Push auf `main` automatisch aktuell. Ohne Widgets und ohne Benachrichtigungen
