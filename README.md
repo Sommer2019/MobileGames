@@ -8,8 +8,8 @@ Eine Flutter-App (Android ab Version 10, iPhone und iPad) mit zwölf Spielen:
 | ⚪ Dame (+ Computer) | 2 | 🀄 Mahjong (immer lösbar) |
 | ⭕ Mühle (+ Computer) | 2 | 🐍 Snake • 🃏 Solitär (Klondike) |
 | 🚢 Schiffe versenken (+ Computer, Pass & Play) | 2 | 🎯 Darts allein (501/301/Rund um die Uhr) |
-| 🔴 4 gewinnt (+ Computer) | 2–4 | 🎱 Billard allein (8 zum Schluss / Reihenfolge 1–15) |
-| 🎲 Kniffel (+ Computer, Handy schütteln zum Würfeln) | 1–4 | |
+| 🔴 Vier in einer Reihe (+ Computer) | 2–4 | 🎱 Billard allein (8 zum Schluss / Reihenfolge 1–15) |
+| 🎲 Würfelkönig (+ Computer, Handy schütteln zum Würfeln) | 1–4 | |
 | 🎯 Darts | 2–4 | |
 | 🎱 Billard 8-Ball | 2 | |
 
@@ -17,7 +17,7 @@ Dazu: 🏆 **Turniermodus** (mehrere Spiele × mehrere Runden gegen Freunde, Pun
 **Freundschaftsanfragen** (beide stehen danach in der Liste des anderen), **Freundesliste mit Online-Status**, **Chat** mit Freunden (auch offline zugestellt),
 **Chat im Spiel**, Pop-up und System-Benachrichtigung bei Einladungen und Nachrichten.
 🏅 **Bestenliste** für die Einzelspieler-Spiele (Snake, Solitär, Mahjong, Kugellabyrinth,
-Kniffel allein, Darts allein, Billard allein): eigene Top 10, Freunde und weltweit.
+Würfelkönig allein, Darts allein, Billard allein): eigene Top 10, Freunde und weltweit.
 Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
 🔊 **Sounds** (Kugelklacken, Würfel, Karten, Spielsteine, Sieg …) – selbst erzeugt mit
 `tool/make_sounds.py`, abschaltbar oben auf der Startseite.

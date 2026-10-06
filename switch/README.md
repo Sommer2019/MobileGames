@@ -1,7 +1,7 @@
 # Mobile Games für die Nintendo Switch
 
 Homebrew-Version (offline) mit allen Spielen der App: Schach, Schiffe versenken,
-4 gewinnt, Dame, Mühle, Kniffel, Darts, Billard, Snake, Solitär, Kugellabyrinth,
+Vier in einer Reihe, Dame, Mühle, Würfelkönig, Darts, Billard, Snake, Solitär, Kugellabyrinth,
 Mahjong und Würfelbecher –
 Regeln wie in der App. C++17 mit SDL2/SDL2_ttf, Texte in der Systemschrift
 der Switch.
@@ -23,10 +23,10 @@ Würfelbecher: Y legt den gewählten Würfel beiseite, L/R ändern die Anzahl,
 X löscht den Verlauf. Im Handheld-Modus geht alles auch per Touch.
 
 ## Geheimnisse
-Im Hauptmenü ↑ ↑ ↓ ↓ ← → ← → B A + drücken (wie der Konami-Code in der App, nur mit
+Im Hauptmenü ↑ ↑ ↓ ↓ ← → ← → B A + drücken (wie der Geheimcode in der App, nur mit
 B, A und + statt Lautstärke und Ladekabel). Danach gibt es die Kachel „Geheimmenü“:
-Retro-Modus (Nokia-Snake, Pixel-Billard), Disco-Kugeln, Gummiball, Albtraum-Labyrinth,
-Großmeister (stärkerer Computer bei Schach und Dame), Glückspilz-Computer (Kniffel) und
+Retro-Modus (Retro-Handy-Snake, Pixel-Billard), Disco-Kugeln, Gummiball, Albtraum-Labyrinth,
+Großmeister (stärkerer Computer bei Schach und Dame), Glückspilz-Computer (Würfelkönig) und
 Easy Mode (alle Labyrinth-Level frei).
 
 ## Bauen

@@ -41,10 +41,10 @@ class Menu : public Scene {
          vs("Schach", rgb(0x6D4C41), makeChess)},
         {"Schiffe versenken", "Finde die gegnerische Flotte", rgb(0x1565C0),
          vs("Schiffe versenken", rgb(0x1565C0), makeBattleship)},
-        {"4 gewinnt", "Vier in einer Reihe – 2 bis 4", rgb(0xC62828),
+        {"Vier in einer Reihe", "Steine in eine Reihe bringen – 2 bis 4", rgb(0xC62828),
          [] {
            return makeChoices(
-               "4 gewinnt", rgb(0xC62828),
+               "Vier in einer Reihe", rgb(0xC62828),
                {{"Gegen Computer", "Du spielst Rot",
                  [] { return makeConnectFour(2, true); }},
                 {"2 Spieler", "Abwechselnd an einer Switch",
@@ -58,10 +58,10 @@ class Menu : public Scene {
          vs("Dame", rgb(0x4E342E), makeCheckers)},
         {"Mühle", "Drei in einer Reihe", rgb(0xE65100),
          vs("Mühle", rgb(0xE65100), makeMill)},
-        {"Kniffel", "Würfelglück mit Taktik", rgb(0x2E7D32),
+        {"Würfelkönig", "Würfelglück mit Taktik", rgb(0x2E7D32),
          [] {
            return makeChoices(
-               "Kniffel", rgb(0x2E7D32),
+               "Würfelkönig", rgb(0x2E7D32),
                {{"Allein", "Auf Rekordjagd", [] { return makeKniffel(1, false); }},
                 {"Gegen Computer", "Du und der Computer", [] { return makeKniffel(1, true); }},
                 {"2 Spieler", "Abwechselnd", [] { return makeKniffel(2, false); }},
@@ -175,7 +175,7 @@ class Menu : public Scene {
     if (celebrate_ > 0) {
       for (auto& c : confetti_) g.rect(int(c.x), int(c.y), 10, 6, c.color);
       g.roundRect(240, 300, 800, 120, 24, rgb(0x000000, 200));
-      g.text("Konami-Code! Geheimnisse freigeschaltet", Gfx::W / 2, 320, 32, theme::focus,
+      g.text("Geheimcode! Geheimnisse freigeschaltet", Gfx::W / 2, 320, 32, theme::focus,
              Align::Center);
       g.text("Neue Kachel: Geheimmenü", Gfx::W / 2, 368, 24, theme::text, Align::Center);
     }
@@ -224,7 +224,7 @@ class Menu : public Scene {
     for (auto& t : tiles_) {
       if (std::string(t.title) == "Geheimmenü") return;
     }
-    tiles_.push_back({"Geheimmenü", "Die Extras aus dem Konami-Code", rgb(0x6A1B9A),
+    tiles_.push_back({"Geheimmenü", "Die Extras aus dem Geheimcode", rgb(0x6A1B9A),
                       [] { return makeSecrets(); }});
   }
 
@@ -309,7 +309,7 @@ class SecretsScene : public Scene {
   }
 
   void draw(Gfx& g) override {
-    g.header("Geheimmenü", "Konami-Code");
+    g.header("Geheimmenü", "Geheimcode");
     for (int i = 0; i < int(Secret::Count); i++) {
       const Secret s = Secret(i);
       const bool f = i == focus_, on = secrets::on(s);

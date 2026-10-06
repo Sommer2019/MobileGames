@@ -78,7 +78,7 @@ class KniffelScene : public Scene {
   }
 
   void draw(Gfx& g) override {
-    g.header("Kniffel");
+    g.header("Würfelkönig");
     // Player to move and dice.
     const std::string who = names_[game_.current];
     g.text(game_.isOver() ? "Spiel vorbei" : who + (who == "Du" ? " bist dran" : " ist dran"),

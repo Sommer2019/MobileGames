@@ -59,7 +59,7 @@ class ConnectFourScene : public Scene {
       if (p) score += "  ·  ";
       score += std::string(PlayerNames[p]) + " " + std::to_string(wins_[p]);
     }
-    g.header("4 gewinnt", score);
+    g.header("Vier in einer Reihe", score);
 
     const int c = cell(), l = left(), t = top();
     const int w = game_.columns * c, h = game_.rows * c;

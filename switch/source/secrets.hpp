@@ -7,7 +7,7 @@
 #include "save.hpp"
 
 enum class Secret {
-  Retro,          // Snake im Nokia-Look, Pixel-Billard
+  Retro,          // Snake im Retro-Handy-Look, Pixel-Billard
   Disco,          // Billardkugeln wechseln beim Rollen die Farbe
   RubberBall,     // Labyrinth-Kugel springt von den Wänden ab
   Nightmare,      // Labyrinth spiegelverkehrt, mehr Schwung
@@ -27,12 +27,12 @@ inline const char* title(Secret s) {
 
 inline const char* description(Secret s) {
   static const char* d[] = {
-      "Snake im Nokia-Look, Pixel-Billard",
+      "Snake im Retro-Handy-Look, Pixel-Billard",
       "Billardkugeln wechseln beim Rollen die Farbe",
       "Die Labyrinth-Kugel springt von den Wänden ab",
       "Steuerung spiegelverkehrt, die Kugel hat mehr Schwung",
       "Schach und Dame: der Computer spielt stärker",
-      "Kniffel: der Computer würfelt einmal pro Spiel verdächtig gut",
+      "Würfelkönig: der Computer würfelt einmal pro Spiel verdächtig gut",
       "Alle Labyrinth-Level freigeschaltet"};
   return d[int(s)];
 }

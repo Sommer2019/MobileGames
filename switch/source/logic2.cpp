@@ -235,7 +235,7 @@ const char* kniffelLabel(int c) {
   static const char* labels[] = {"Einser", "Zweier", "Dreier", "Vierer", "Fünfer",
                                  "Sechser", "Dreierpasch", "Viererpasch",
                                  "Full House", "Kleine Straße", "Große Straße",
-                                 "Kniffel", "Chance"};
+                                 "Fünferpasch", "Chance"};
   return labels[c];
 }
 
