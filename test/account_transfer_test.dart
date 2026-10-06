@@ -19,7 +19,9 @@ void main() {
     // Friend codes and garbage are no account codes.
     expect(AccountTransfer.parse(pubKeyToNpub(KeyPair(k).publicKey)), isNull);
     expect(AccountTransfer.parse('mgkonto1abc'), isNull);
-    expect(AccountTransfer.parse(code.replaceRange(10, 11, 'q')), isNull);
+    // A typo (always a different character) breaks the checksum.
+    final typo = code[10] == 'q' ? 'p' : 'q';
+    expect(AccountTransfer.parse(code.replaceRange(10, 11, typo)), isNull);
   });
 
   test('a reinstall follows the redirect to the taken-over account', () async {
