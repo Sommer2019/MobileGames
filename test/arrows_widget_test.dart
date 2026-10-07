@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_games/games/arrows/arrows_logic.dart';
 import 'package:mobile_games/games/arrows/arrows_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +36,43 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Level 2'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getInt('arrows.level'), 2);
+    expect(prefs.getInt('arrows.level.easy'), 2);
+  });
+
+  testWidgets('choosing a difficulty keeps its own level', (tester) async {
+    SharedPreferences.setMockInitialValues({'arrows.level.hard': 7});
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: ArrowsScreen()));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Level 1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('arrowsDifficulty')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(find.byKey(const ValueKey('arrowsDiff-hard')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Level 7'), findsOneWidget);
+    expect(find.textContaining('SCHWER'), findsOneWidget);
+    // Schwer: 3 hints, the badge counts down.
+    expect(find.text('3'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('arrowsHint')));
+    await tester.pump();
+    expect(find.text('2'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('arrows.difficulty'), 'hard');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('harder difficulties are more tangled', () {
+    final easy = ArrowsLevel.generate(5, ArrowsDifficulty.easy);
+    final insane = ArrowsLevel.generate(5, ArrowsDifficulty.insane);
+    expect(insane.arrows.length, greaterThan(easy.arrows.length));
+    expect(insane.depth, greaterThan(easy.depth));
   });
 }

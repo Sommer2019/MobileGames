@@ -35,10 +35,13 @@ class _Flight {
 }
 
 class ArrowsScreen extends StatefulWidget {
-  const ArrowsScreen({super.key, this.startLevel});
+  const ArrowsScreen({super.key, this.startLevel, this.difficulty});
 
   /// For tests; otherwise the level reached last time.
   final int? startLevel;
+
+  /// For tests; otherwise the difficulty chosen last time.
+  final ArrowsDifficulty? difficulty;
 
   @override
   State<ArrowsScreen> createState() => _ArrowsScreenState();
@@ -46,9 +49,12 @@ class ArrowsScreen extends StatefulWidget {
 
 class _ArrowsScreenState extends State<ArrowsScreen>
     with SingleTickerProviderStateMixin {
-  static const _levelKey = 'arrows.level';
+  static const _difficultyKey = 'arrows.difficulty';
+  static String _levelKey(ArrowsDifficulty d) => 'arrows.level.${d.name}';
 
   int level = 1;
+  ArrowsDifficulty diff = ArrowsDifficulty.easy;
+  int _hintsUsed = 0;
   late ArrowsGame game;
   late final Ticker _ticker = createTicker(_tick);
   Duration _now = Duration.zero;
@@ -63,18 +69,71 @@ class _ArrowsScreenState extends State<ArrowsScreen>
   void initState() {
     super.initState();
     level = widget.startLevel ?? 1;
-    game = ArrowsGame(ArrowsLevel.generate(level));
+    diff = widget.difficulty ?? ArrowsDifficulty.easy;
+    _restart();
     if (widget.startLevel == null) _loadLevel();
     _ticker.start();
   }
 
   Future<void> _loadLevel() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getInt(_levelKey) ?? 1;
-    if (!mounted || saved == level) return;
+    // Progress from before there were difficulties counts for Leicht.
+    final old = prefs.getInt('arrows.level');
+    if (old != null) {
+      await prefs.setInt(_levelKey(ArrowsDifficulty.easy), old);
+      await prefs.remove('arrows.level');
+    }
+    final d =
+        widget.difficulty ??
+        ArrowsDifficulty.values.asNameMap()[prefs.getString(_difficultyKey)] ??
+        ArrowsDifficulty.easy;
+    final saved = prefs.getInt(_levelKey(d)) ?? 1;
+    if (!mounted || (saved == level && d == diff)) return;
     setState(() {
       level = saved;
-      game = ArrowsGame(ArrowsLevel.generate(level));
+      diff = d;
+      _restart();
+    });
+  }
+
+  Future<void> _chooseDifficulty() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<ArrowsDifficulty>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final d in ArrowsDifficulty.values)
+              ListTile(
+                key: ValueKey('arrowsDiff-${d.name}'),
+                selected: d == diff,
+                leading: Icon(
+                  d == diff
+                      ? Icons.radio_button_checked
+                      : Icons.circle_outlined,
+                ),
+                title: Text(d.label),
+                subtitle: Text(
+                  '${d.hearts} ${d.hearts == 1 ? 'Herz' : 'Herzen'} · '
+                  '${d.hints == null ? 'Tipps frei' : '${d.hints} ${d.hints == 1 ? 'Tipp' : 'Tipps'}'}'
+                  ' · bis ${d.maxWidth}×${d.maxHeight}',
+                ),
+                trailing: Text('Level ${prefs.getInt(_levelKey(d)) ?? 1}'),
+                onTap: () => Navigator.pop(context, d),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || picked == diff || !mounted) return;
+    await prefs.setString(_difficultyKey, picked.name);
+    setState(() {
+      diff = picked;
+      level = prefs.getInt(_levelKey(picked)) ?? 1;
+      _restart();
     });
   }
 
@@ -130,8 +189,8 @@ class _ArrowsScreenState extends State<ArrowsScreen>
   Future<void> _won() async {
     Sound.play(Sfx.win);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_levelKey, level + 1);
-    await Leaderboard.submit('arrows', level);
+    await prefs.setInt(_levelKey(diff), level + 1);
+    await Leaderboard.submit('arrows.${diff.name}', level);
     await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     await showDialog<void>(
@@ -182,16 +241,21 @@ class _ArrowsScreenState extends State<ArrowsScreen>
   }
 
   void _restart() {
-    game = ArrowsGame(ArrowsLevel.generate(level));
+    game = ArrowsGame(ArrowsLevel.generate(level, diff), hearts: diff.hearts);
+    _hintsUsed = 0;
     _flights.clear();
     _hint = null;
     _bumped = null;
   }
 
+  int? get _hintsLeft => diff.hints == null ? null : diff.hints! - _hintsUsed;
+
   void _showHint() {
+    if (_hintsLeft == 0 || _hint != null) return;
     final h = game.hint();
     if (h == null) return;
     setState(() {
+      _hintsUsed++;
       _hint = h;
       _hintUntil = _now + const Duration(seconds: 2);
     });
@@ -209,14 +273,6 @@ class _ArrowsScreenState extends State<ArrowsScreen>
   /// Cell size of the last layout.
   double _cell = 1;
 
-  String get _difficulty => level < 10
-      ? 'LEICHT'
-      : level < 30
-      ? 'MITTEL'
-      : level < 80
-      ? 'SCHWER'
-      : 'EXTRA SCHWER';
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -225,6 +281,20 @@ class _ArrowsScreenState extends State<ArrowsScreen>
       appBar: AppBar(
         title: const Text('Pfeile'),
         actions: [
+          Badge(
+            isLabelVisible: _hintsLeft != null,
+            label: Text('${_hintsLeft ?? ''}'),
+            offset: const Offset(-4, 4),
+            child: IconButton(
+              key: const ValueKey('arrowsHint'),
+              tooltip: 'Tipp',
+              onPressed: _hintsLeft == 0 ? null : _showHint,
+              icon: Icon(
+                Icons.lightbulb,
+                color: _hintsLeft == 0 ? null : Colors.amber.shade700,
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Level neu starten',
             onPressed: () => setState(_restart),
@@ -233,30 +303,17 @@ class _ArrowsScreenState extends State<ArrowsScreen>
           const LeaderboardButton(game: 'arrows'),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('arrowsHint'),
-        tooltip: 'Tipp',
-        backgroundColor: Colors.amber,
-        onPressed: _showHint,
-        child: const Icon(Icons.lightbulb, color: Colors.white),
-      ),
       body: Column(
         children: [
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: scheme.outline,
-              borderRadius: BorderRadius.circular(12),
+          ActionChip(
+            key: const ValueKey('arrowsDifficulty'),
+            avatar: const Icon(Icons.tune, size: 18),
+            label: Text(
+              '${diff.label.toUpperCase()}  ▾',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            child: Text(
-              _difficulty,
-              style: TextStyle(
-                color: scheme.surface,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
+            onPressed: _chooseDifficulty,
           ),
           Text(
             'Level $level',
@@ -266,7 +323,7 @@ class _ArrowsScreenState extends State<ArrowsScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var h = 0; h < 3; h++)
+              for (var h = 0; h < diff.hearts; h++)
                 AnimatedScale(
                   scale: h < game.hearts ? 1 : 0.7,
                   duration: const Duration(milliseconds: 250),

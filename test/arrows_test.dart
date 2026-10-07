@@ -3,9 +3,12 @@ import 'package:mobile_games/games/arrows/arrows_logic.dart';
 
 void main() {
   test('levels are deterministic, valid and always solvable', () {
-    for (final n in [1, 2, 10, 50, 120, 257]) {
-      final level = ArrowsLevel.generate(n);
-      final again = ArrowsLevel.generate(n);
+    for (final (n, d) in [
+      for (final d in ArrowsDifficulty.values)
+        for (final n in [1, 37, 257]) (n, d),
+    ]) {
+      final level = ArrowsLevel.generate(n, d);
+      final again = ArrowsLevel.generate(n, d);
       expect(again.arrows.length, level.arrows.length);
       expect(level.arrows.length, greaterThan(3));
       final seen = <(int, int)>{};
