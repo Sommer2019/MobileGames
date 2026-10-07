@@ -110,6 +110,28 @@ class _LudoScreenState extends State<LudoScreen>
   Duration _lastFly = Duration.zero;
   Offset? _panStart;
 
+  /// The whole screen area and the board in it, for pieces that fly off
+  /// the board.
+  final GlobalKey _stackKey = GlobalKey();
+  final GlobalKey _boardKey = GlobalKey();
+
+  /// Board origin in screen-area coordinates and cell size (pixels).
+  Offset _boardOrigin = Offset.zero;
+  double _cell = 1;
+
+  /// The screen area in cell units relative to the board.
+  Rect _flyBounds() {
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final board = _boardKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stack == null || board == null || !board.hasSize) {
+      return const Rect.fromLTWH(0, 0, 11, 11);
+    }
+    _boardOrigin = board.localToGlobal(Offset.zero, ancestor: stack);
+    _cell = board.size.width / 11;
+    final o = -_boardOrigin / _cell;
+    return o & (stack.size / _cell);
+  }
+
   @override
   PlaySetup get setup => widget.setup;
   int get players => setup.players;
@@ -155,8 +177,13 @@ class _LudoScreenState extends State<LudoScreen>
     for (var p = 0; p < players; p++) {
       for (var i = 0; i < 4; i++) {
         final a = _random.nextDouble() * 2 * pi;
-        final speed = 8 + _random.nextDouble() * 10;
-        _launch(p, i, Offset(cos(a), sin(a)) * speed);
+        final speed = 10 + _random.nextDouble() * 18;
+        _launch(
+          p,
+          i,
+          Offset(cos(a), sin(a)) * speed,
+          up: 6 + _random.nextDouble() * 6,
+        );
       }
     }
   }
@@ -167,12 +194,14 @@ class _LudoScreenState extends State<LudoScreen>
   }
 
   /// Flicks piece [i] of player [p] with [velocity] (cells per second).
-  void _launch(int p, int i, Offset velocity) {
+  void _launch(int p, int i, Offset velocity, {double up = 5}) {
     _flyers[(p, i)] = _Flyer.free(
       _flyers[(p, i)]?.pos ?? _cellCenter(p, i),
       velocity,
+      up: up,
       spin: (_random.nextDouble() - 0.5) * 20,
     );
+    _flyBounds();
     if (!_flyTicker.isActive) {
       _lastFly = Duration.zero;
       _flyTicker.start();
@@ -184,8 +213,9 @@ class _LudoScreenState extends State<LudoScreen>
         ? 1 / 60
         : (now - _lastFly).inMicroseconds / 1e6;
     _lastFly = now;
+    final bounds = _flyBounds();
     _flyers.removeWhere((key, f) {
-      f.step(min(dt, 0.05), _cellCenter(key.$1, key.$2));
+      f.step(min(dt, 0.05), _cellCenter(key.$1, key.$2), bounds);
       return f.done;
     });
     if (_flyers.isEmpty) _flyTicker.stop();
@@ -206,7 +236,7 @@ class _LudoScreenState extends State<LudoScreen>
           final v = d.velocity.pixelsPerSecond / cell;
           if (v.distance < 2) return;
           Sound.play(Sfx.click);
-          _launch(p, i, v * 0.9);
+          _launch(p, i, v, up: 3 + min(v.distance / 6, 8));
           return;
         }
       }
@@ -291,6 +321,7 @@ class _LudoScreenState extends State<LudoScreen>
         _cellCenter(mover, piece),
         _cellCenter(cap.$1, cap.$2),
       );
+      _flyBounds();
       if (!_flyTicker.isActive) {
         _lastFly = Duration.zero;
         _flyTicker.start();
@@ -370,79 +401,92 @@ class _LudoScreenState extends State<LudoScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: Stack(
+        key: _stackKey,
         children: [
-          TurnBanner(
-            text: _status(),
-            highlight: game.isOver || setup.humanControls(game.current),
-            color: color.withValues(alpha: 0.35),
-          ),
-          Expanded(
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _shake,
-                builder: (context, child) {
-                  final t = _shake.value;
-                  final dx = sin(t * pi * 10) * 12 * (1 - t);
-                  return Transform.translate(
-                    offset: Offset(dx, 0),
-                    child: child,
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: LayoutBuilder(
-                      builder: (context, box) => GestureDetector(
-                        key: const ValueKey('ludoBoard'),
-                        dragStartBehavior: DragStartBehavior.down,
-                        onPanStart: _panStarted,
-                        onPanEnd: (d) => _panEnded(d, box.maxWidth / 11),
-                        onTapUp: (d) {
-                          final cell = box.maxWidth / 11;
-                          _tapCell(
-                            (d.localPosition.dx / cell).floor(),
-                            (d.localPosition.dy / cell).floor(),
-                          );
-                        },
-                        child: CustomPaint(
-                          size: box.biggest,
-                          painter: _LudoPainter(this),
+          Column(
+            children: [
+              TurnBanner(
+                text: _status(),
+                highlight: game.isOver || setup.humanControls(game.current),
+                color: color.withValues(alpha: 0.35),
+              ),
+              Expanded(
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _shake,
+                    builder: (context, child) {
+                      final t = _shake.value;
+                      final dx = sin(t * pi * 10) * 12 * (1 - t);
+                      return Transform.translate(
+                        offset: Offset(dx, 0),
+                        child: child,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: LayoutBuilder(
+                          builder: (context, box) => GestureDetector(
+                            key: const ValueKey('ludoBoard'),
+                            dragStartBehavior: DragStartBehavior.down,
+                            onPanStart: _panStarted,
+                            onPanEnd: (d) => _panEnded(d, box.maxWidth / 11),
+                            onTapUp: (d) {
+                              final cell = box.maxWidth / 11;
+                              _tapCell(
+                                (d.localPosition.dx / cell).floor(),
+                                (d.localPosition.dy / cell).floor(),
+                              );
+                            },
+                            child: CustomPaint(
+                              key: _boardKey,
+                              size: box.biggest,
+                              painter: _LudoPainter(this),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          if (game.isOver)
-            GameOverActions(
-              setup: setup,
-              winnerSeats: [game.winner!],
-              onRematch: _reset,
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: GestureDetector(
-                key: const ValueKey('ludoDie'),
-                onTap: _myRoll ? () => _roll(game.current) : null,
-                child: Opacity(
-                  opacity: _myRoll || _rolling || !game.mustRoll ? 1 : 0.5,
-                  child: SizedBox(
-                    width: 72,
-                    height: 72,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(16),
+              if (game.isOver)
+                GameOverActions(
+                  setup: setup,
+                  winnerSeats: [game.winner!],
+                  onRematch: _reset,
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: GestureDetector(
+                    key: const ValueKey('ludoDie'),
+                    onTap: _myRoll ? () => _roll(game.current) : null,
+                    child: Opacity(
+                      opacity: _myRoll || _rolling || !game.mustRoll ? 1 : 0.5,
+                      child: SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: DieView(value: _shownDie),
+                        ),
                       ),
-                      child: DieView(value: _shownDie),
                     ),
                   ),
                 ),
+            ],
+          ),
+          // Pieces that fly off the board (secret), over everything.
+          if (_flyers.isNotEmpty)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(painter: _FlyPainter(this)),
               ),
             ),
         ],
@@ -526,22 +570,39 @@ class _LudoPainter extends CustomPainter {
         );
       }
     }
-    // Flying pieces (secret): above everything, bigger when higher.
+  }
+
+  @override
+  bool shouldRepaint(_LudoPainter old) => true;
+}
+
+/// Draws the flying pieces over the whole screen.
+class _FlyPainter extends CustomPainter {
+  _FlyPainter(this.s);
+  final _LudoScreenState s;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = s._cell;
     s._flyers.forEach((key, f) {
-      final c = f.pos * cell;
-      final r = cell * 0.3 * (1 + f.height * 0.6);
+      final c = s._boardOrigin + f.pos * cell;
+      // Higher pieces look bigger and cast their shadow further away.
+      final lift = f.height;
+      final r = cell * 0.3 * (1 + lift * 0.12);
       canvas.drawCircle(
-        c + Offset(cell * 0.15, cell * 0.25) * (1 + f.height * 2),
+        c + Offset(cell * 0.1, cell * 0.15) + Offset(lift, lift) * cell * 0.12,
         cell * 0.3,
-        Paint()..color = Colors.black.withValues(alpha: 0.2),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.25 / (1 + lift * 0.3)),
       );
+      final up = c - Offset(0, lift * cell * 0.25);
       canvas.save();
-      canvas.translate(c.dx, c.dy);
+      canvas.translate(up.dx, up.dy);
       canvas.rotate(f.angle);
       canvas.drawCircle(
         Offset.zero,
         r,
-        Paint()..color = ludoColors[g.sideOf(key.$1)],
+        Paint()..color = ludoColors[s.game.sideOf(key.$1)],
       );
       canvas.drawCircle(
         Offset.zero,
@@ -561,62 +622,82 @@ class _LudoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LudoPainter old) => true;
+  bool shouldRepaint(_FlyPainter old) => true;
 }
 
-/// A piece flying around (secret „Flugfiguren“), in cell units.
+/// A piece flying around (secret „Flugfiguren“), in cell units relative to
+/// the board; it may leave the board and bounces off the screen edges.
 class _Flyer {
-  _Flyer.free(this.pos, this.vel, {this.spin = 0}) : _arc = null;
+  _Flyer.free(this.pos, this.vel, {double up = 5, this.spin = 0})
+    : vz = up,
+      _arc = null;
 
   _Flyer.arc(Offset from, Offset to)
     : pos = from,
       vel = Offset.zero,
+      vz = 0,
       spin = 9,
       _arc = (from, to);
 
   Offset pos;
   Offset vel;
+
+  /// Height above the table (cells) and its speed.
+  double height = 0;
+  double vz;
   double spin;
   double angle = 0;
   double age = 0;
-  double height = 0;
   bool done = false;
+  Offset? _returnFrom;
   final (Offset, Offset)? _arc;
 
-  static const _freeTime = 1.8, _returnTime = 0.45, _arcTime = 0.9;
+  static const _freeTime = 2.6, _returnTime = 0.6, _arcTime = 1.0;
+  static const _gravity = 30.0;
 
-  /// Moves on by [dt] seconds; [home] is where the piece belongs.
-  void step(double dt, Offset home) {
+  /// Moves on by [dt] seconds; [home] is where the piece belongs, [bounds]
+  /// the screen in the same units.
+  void step(double dt, Offset home, Rect bounds) {
     age += dt;
     angle += spin * dt;
     final arc = _arc;
     if (arc != null) {
       final t = (age / _arcTime).clamp(0.0, 1.0);
       pos = Offset.lerp(arc.$1, home, Curves.easeInOut.transform(t))!;
-      height = sin(t * pi) * 1.4;
+      height = sin(t * pi) * 9;
       done = t >= 1;
       return;
     }
     if (age < _freeTime) {
-      // Slides over the board, bounces off the edges, slows down.
       pos += vel * dt;
-      if (pos.dx < 0.3 || pos.dx > 10.7) {
-        vel = Offset(-vel.dx * 0.85, vel.dy);
-        pos = Offset(pos.dx.clamp(0.3, 10.7), pos.dy);
+      final b = bounds.deflate(0.35);
+      if (pos.dx < b.left || pos.dx > b.right) {
+        vel = Offset(-vel.dx * 0.8, vel.dy);
+        pos = Offset(pos.dx.clamp(b.left, b.right), pos.dy);
+        spin = -spin;
       }
-      if (pos.dy < 0.3 || pos.dy > 10.7) {
-        vel = Offset(vel.dx, -vel.dy * 0.85);
-        pos = Offset(pos.dx, pos.dy.clamp(0.3, 10.7));
+      if (pos.dy < b.top || pos.dy > b.bottom) {
+        vel = Offset(vel.dx, -vel.dy * 0.8);
+        pos = Offset(pos.dx, pos.dy.clamp(b.top, b.bottom));
+        spin = -spin;
       }
-      vel *= pow(0.35, dt).toDouble();
-      spin *= pow(0.5, dt).toDouble();
-      height = (sin(age * 7).abs() * 0.5) * (1 - age / _freeTime);
+      // Up in the air and bouncing back down on the table.
+      vz -= _gravity * dt;
+      height += vz * dt;
+      if (height < 0) {
+        height = 0;
+        vz = -vz * 0.55;
+        vel *= 0.8;
+      }
+      // Rolling on the table slows down.
+      if (height == 0 && vz.abs() < 1) vel *= pow(0.2, dt).toDouble();
       return;
     }
     // Glides back home.
+    final from = _returnFrom ??= pos;
     final t = ((age - _freeTime) / _returnTime).clamp(0.0, 1.0);
-    pos = Offset.lerp(pos, home, t)!;
-    height = sin(t * pi) * 0.3;
+    pos = Offset.lerp(from, home, Curves.easeInOut.transform(t))!;
+    height = sin(t * pi) * 2;
     done = t >= 1;
   }
 }
