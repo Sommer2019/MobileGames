@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:sensors_plus/sensors_plus.dart';
 
@@ -38,11 +41,16 @@ class ShakeDetector {
     return false;
   }
 
+  /// No sensor plugin in widget tests.
+  static final bool _testing =
+      !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
   /// Listens to the device sensor and calls [onShake]. Returns null when the
   /// device has no such sensor (e.g. in tests or emulators).
   static StreamSubscription<UserAccelerometerEvent>? listen(
     void Function() onShake,
   ) {
+    if (_testing) return null;
     final detector = ShakeDetector();
     try {
       return userAccelerometerEventStream(
