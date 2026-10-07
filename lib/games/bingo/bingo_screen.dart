@@ -46,7 +46,11 @@ class _BingoScreenState extends State<BingoScreen> {
   /// The host calls the numbers (offline: this device).
   bool get _caller => !setup.online || setup.isHost;
 
-  int? get _me => setup.spectator ? null : setup.mySeat;
+  int? get _me =>
+      setup.spectator || setup.isBot(setup.mySeat) ? null : setup.mySeat;
+
+  /// Bot-Arena (only computers): watch the first computer's card.
+  bool get _watching => !setup.online && _me == null;
 
   /// Bingo turbo (secret): balls come twice as fast.
   bool get _turbo => Secrets.on(Secret.bingoTurbo);
@@ -263,7 +267,7 @@ class _BingoScreenState extends State<BingoScreen> {
               alignment: WrapAlignment.center,
               children: [
                 for (var p = 0; p < players; p++)
-                  if (p != me)
+                  if (p != (me ?? (_watching ? 0 : null)))
                     Chip(
                       visualDensity: VisualDensity.compact,
                       label: Text(
@@ -280,7 +284,11 @@ class _BingoScreenState extends State<BingoScreen> {
               padding: const EdgeInsets.all(12),
               child: AspectRatio(
                 aspectRatio: 5 / 6,
-                child: me == null ? const SizedBox() : _card(context, g, me),
+                child: me != null
+                    ? _card(context, g, me)
+                    : _watching
+                    ? _card(context, g, 0)
+                    : const SizedBox(),
               ),
             ),
           ),
@@ -291,7 +299,7 @@ class _BingoScreenState extends State<BingoScreen> {
             winnerSeats: [g.winner!],
             onRematch: _again,
           )
-        else
+        else if (me != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: SizedBox(
@@ -357,7 +365,9 @@ class _BingoScreenState extends State<BingoScreen> {
 
   Widget _cell(int n, Set<int> drawn, ColorScheme scheme) {
     final free = n == 0;
-    final marked = free || _marked.contains(n);
+    // Watching the computers: their card marks itself.
+    final marked =
+        free || _marked.contains(n) || (_watching && drawn.contains(n));
     return GestureDetector(
       key: ValueKey('bingoCell$n'),
       onTap: () => _tapCell(n),

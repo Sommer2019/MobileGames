@@ -27,7 +27,8 @@ class HomeScreen extends StatelessWidget {
         actions: [
           ListenableBuilder(
             listenable: Secrets.I,
-            builder: (context, _) => Secrets.I.unlocked
+            builder: (context, _) =>
+                Secrets.I.unlocked || Secrets.I.arenaUnlocked
                 ? IconButton(
                     key: const ValueKey('secretsButton'),
                     tooltip: 'Geheimnisse',
@@ -85,6 +86,18 @@ class HomeScreen extends StatelessWidget {
         onUnlocked: () async {
           await Secrets.I.unlock();
           if (context.mounted) await showSecretsSheet(context);
+        },
+        onArena: () async {
+          await Secrets.I.unlockArena();
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '🤖 Bot-Arena freigeschaltet! Bei „Spieler & Computer '
+                'wählen“ dürfen jetzt alle Plätze Computer sein.',
+              ),
+            ),
+          );
         },
         child: CustomScrollView(
           slivers: [

@@ -23,21 +23,24 @@ Future<void> showSecretsSheet(BuildContext context) {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'Freigeschaltet mit dem Geheimcode. Deine Freunde sehen '
-                  'jetzt ein 🎮 neben deinem Namen.',
+                  Secrets.I.unlocked
+                      ? 'Freigeschaltet mit dem Geheimcode. Deine Freunde '
+                            'sehen jetzt ein 🎮 neben deinem Namen.'
+                      : 'Freigeschaltet mit dem Geheimcode rückwärts.',
                 ),
               ),
               for (final s in Secret.values)
-                SwitchListTile(
-                  key: ValueKey('secret-${s.name}'),
-                  title: Text(s.title),
-                  subtitle: Text(s.description),
-                  value: Secrets.I.isOn(s),
-                  onChanged: (v) => Secrets.I.set(s, v),
-                ),
+                if (Secrets.I.available(s))
+                  SwitchListTile(
+                    key: ValueKey('secret-${s.name}'),
+                    title: Text(s.title),
+                    subtitle: Text(s.description),
+                    value: Secrets.I.isOn(s),
+                    onChanged: (v) => Secrets.I.set(s, v),
+                  ),
             ],
           ),
         ),

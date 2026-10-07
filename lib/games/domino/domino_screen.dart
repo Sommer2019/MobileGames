@@ -89,6 +89,8 @@ class _DominoScreenState extends State<DominoScreen>
       for (var p = 0; p < players; p++)
         if (!setup.isBot(p)) p,
     ];
+    // Only computers (Bot-Arena): nobody's hand is shown.
+    if (humans.isEmpty) return null;
     if (humans.length == 1) return humans.single;
     final c = match.toMove;
     return c != null && !setup.isBot(c) ? c : humans.first;

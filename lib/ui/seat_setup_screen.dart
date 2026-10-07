@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/secrets.dart';
 import '../games/registry.dart';
 import 'play_setup.dart';
 
@@ -30,7 +31,8 @@ class _SeatSetupScreenState extends State<SeatSetupScreen> {
     setState(() {
       if (bots.contains(seat)) {
         if (_canBePerson(seat)) bots.remove(seat);
-      } else if (humans > 1) {
+      } else if (humans > 1 || Secrets.on(Secret.botArena)) {
+        // Bot-Arena: the last person may leave too, then you only watch.
         bots.add(seat);
       }
     });
@@ -81,7 +83,8 @@ class _SeatSetupScreenState extends State<SeatSetupScreen> {
               Text('Wer spielt?', style: theme.textTheme.titleMedium),
               Text(
                 'Tippe einen Platz an, um zwischen Mensch und Computer zu '
-                'wechseln. Menschen spielen abwechselnd auf diesem Gerät.',
+                'wechseln. Menschen spielen abwechselnd auf diesem Gerät.'
+                '${Secrets.on(Secret.botArena) ? ' Bot-Arena: Nur Computer geht auch – dann schaust du zu.' : ''}',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -105,8 +108,8 @@ class _SeatSetupScreenState extends State<SeatSetupScreen> {
               FilledButton.icon(
                 key: const ValueKey('seatStart'),
                 onPressed: _start,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Spielen'),
+                icon: Icon(humans == 0 ? Icons.visibility : Icons.play_arrow),
+                label: Text(humans == 0 ? 'Zuschauen 🤖' : 'Spielen'),
               ),
             ],
           ),

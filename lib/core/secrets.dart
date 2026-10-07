@@ -40,7 +40,12 @@ enum Secret {
     'Joker-Regen',
     'Stapelfix: doppelt so viele Joker im Spiel (gilt für deine Runden)',
   ),
-  arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün');
+  arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün'),
+  botArena(
+    'Bot-Arena',
+    'Bei „Spieler & Computer wählen“ dürfen alle Plätze Computer sein – '
+        'zurücklehnen und zuschauen',
+  );
 
   const Secret(this.title, this.description);
   final String title;
@@ -52,6 +57,7 @@ class Secrets extends ChangeNotifier {
   static final Secrets I = Secrets._();
 
   static const _unlockedKey = 'secret.konami';
+  static const _arenaKey = 'secret.arenaCode';
   static String _key(Secret s) =>
       s == Secret.labyrinthEasy ? 'labyrinth.cheat' : 'secret.${s.name}';
 
@@ -61,14 +67,23 @@ class Secrets extends ChangeNotifier {
   /// Whether the code was ever entered (shows the 🎮 badge).
   bool get unlocked => _unlocked;
 
+  bool _arena = false;
+
+  /// Whether the second code (backwards) was entered.
+  bool get arenaUnlocked => _arena;
+
+  /// Whether [s] can be switched on: the Bot-Arena has its own code.
+  bool available(Secret s) => s == Secret.botArena ? _arena : _unlocked;
+
   /// Whether [s] is switched on (only possible once unlocked).
-  bool isOn(Secret s) => _unlocked && _on.contains(s);
+  bool isOn(Secret s) => available(s) && _on.contains(s);
 
   static bool on(Secret s) => I.isOn(s);
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _unlocked = prefs.getBool(_unlockedKey) ?? false;
+    _arena = prefs.getBool(_arenaKey) ?? false;
     _on
       ..clear()
       ..addAll([
@@ -91,6 +106,17 @@ class Secrets extends ChangeNotifier {
     return first;
   }
 
+  /// The code backwards was entered: unlocks and switches on the
+  /// Bot-Arena. Returns true the first time.
+  Future<bool> unlockArena() async {
+    final first = !_arena;
+    _arena = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_arenaKey, true);
+    await set(Secret.botArena, true);
+    return first;
+  }
+
   Future<void> set(Secret s, bool value) async {
     if (value) {
       _on.add(s);
@@ -105,6 +131,7 @@ class Secrets extends ChangeNotifier {
   @visibleForTesting
   void reset() {
     _unlocked = false;
+    _arena = false;
     _on.clear();
   }
 }

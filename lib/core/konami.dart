@@ -38,8 +38,31 @@ bool isKonamiText(String text) {
 }
 
 /// The secret: swipe ↑ ↑ ↓ ↓ ← → ← →, volume up, volume down, plug in.
+/// With [steps] = [arenaSequence] it is the second code (Bot-Arena).
 class KonamiCode {
-  KonamiCode({this.timeout = const Duration(seconds: 60)});
+  KonamiCode({
+    this.timeout = const Duration(seconds: 60),
+    this.steps = sequence,
+  });
+
+  /// The code backwards: swipe ↓ ↓ ↑ ↑ → ← → ←, volume down, volume up,
+  /// plug in. Unlocks the Bot-Arena.
+  static const arenaSequence = [
+    KonamiInput.down,
+    KonamiInput.down,
+    KonamiInput.up,
+    KonamiInput.up,
+    KonamiInput.right,
+    KonamiInput.left,
+    KonamiInput.right,
+    KonamiInput.left,
+    KonamiInput.volumeDown,
+    KonamiInput.volumeUp,
+    KonamiInput.plugIn,
+  ];
+
+  /// Inputs of this code.
+  final List<KonamiInput> steps;
 
   static const sequence = [
     KonamiInput.up,
@@ -70,10 +93,10 @@ class KonamiCode {
   bool add(KonamiInput input, {DateTime? now}) {
     now ??= DateTime.now();
     if (_pos > 0 && now.difference(_started!) > timeout) _pos = 0;
-    if (sequence[_pos] == input) {
+    if (steps[_pos] == input) {
       if (_pos == 0) _started = now;
       _pos++;
-      if (_pos == sequence.length) {
+      if (_pos == steps.length) {
         _pos = 0;
         return true;
       }
@@ -81,14 +104,14 @@ class KonamiCode {
     }
     // A wrong input may itself be the start of a new attempt (and ↑ ↑ ↑
     // still works, like in the original).
-    if (_pos == 2 && input == KonamiInput.up) return false;
+    if (_pos == 2 && input == steps[0] && steps[0] == steps[1]) return false;
     // Some phones need two presses before the volume changes (the first
     // only shows the slider): repeated volume presses count once.
-    if (_pos > 0 && _isVolume(input) && sequence[_pos - 1] == input) {
+    if (_pos > 0 && _isVolume(input) && steps[_pos - 1] == input) {
       return false;
     }
     _pos = 0;
-    if (input == sequence.first) {
+    if (input == steps.first) {
       _started = now;
       _pos = 1;
     }
@@ -132,17 +155,20 @@ Future<void> playKonamiJingle() async {
 }
 
 /// Listens for swipes on [child], the volume buttons and the charger and
-/// calls [onUnlocked] when the [KonamiCode] was entered.
+/// calls [onUnlocked] when the [KonamiCode] was entered, [onArena] for the
+/// code backwards.
 class KonamiDetector extends StatefulWidget {
   const KonamiDetector({
     super.key,
     required this.child,
     required this.onUnlocked,
+    this.onArena,
     this.batteryStates,
   });
 
   final Widget child;
   final VoidCallback onUnlocked;
+  final VoidCallback? onArena;
 
   /// Charger states; by default from the device.
   @visibleForTesting
@@ -154,6 +180,7 @@ class KonamiDetector extends StatefulWidget {
 
 class _KonamiDetectorState extends State<KonamiDetector> {
   final KonamiCode _code = KonamiCode();
+  final KonamiCode _arena = KonamiCode(steps: KonamiCode.arenaSequence);
   final Map<int, Offset> _down = {};
   StreamSubscription<double>? _volume;
   StreamSubscription<BatteryState>? _battery;
@@ -224,6 +251,10 @@ class _KonamiDetectorState extends State<KonamiDetector> {
     if (_code.add(input)) {
       playKonamiJingle();
       widget.onUnlocked();
+    }
+    if (_arena.add(input)) {
+      playKonamiJingle();
+      widget.onArena?.call();
     }
   }
 
