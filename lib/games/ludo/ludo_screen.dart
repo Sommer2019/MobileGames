@@ -104,7 +104,7 @@ class _LudoScreenState extends State<LudoScreen>
   int _shownDie = 1;
   StreamSubscription<Object>? _shakeSub;
 
-  /// Flying pieces (secret), by (player, piece).
+  /// Flying pieces (shaken, flicked or thrown out), by (player, piece).
   final Map<(int, int), _Flyer> _flyers = {};
   late final Ticker _flyTicker = createTicker(_fly);
   Duration _lastFly = Duration.zero;
@@ -159,17 +159,13 @@ class _LudoScreenState extends State<LudoScreen>
     scheduleBot();
   }
 
-  /// Shaking rolls the die; with the secret on it also throws all pieces
-  /// into the air when it is not your roll.
+  /// Shaking throws all pieces into the air – and rolls the die when it is
+  /// your roll.
   void _onShake() {
     if (!mounted) return;
-    if (_myRoll) {
-      HapticFeedback.mediumImpact();
-      _roll(game.current);
-    } else if (Secrets.on(Secret.ludoFling)) {
-      HapticFeedback.heavyImpact();
-      _whirl();
-    }
+    HapticFeedback.mediumImpact();
+    _whirl();
+    if (_myRoll) _roll(game.current);
   }
 
   /// Throws every piece into the air.
@@ -227,7 +223,7 @@ class _LudoScreenState extends State<LudoScreen>
   void _panEnded(DragEndDetails d, double cell) {
     final start = _panStart;
     _panStart = null;
-    if (start == null || !Secrets.on(Secret.ludoFling)) return;
+    if (start == null) return;
     final at = start / cell;
     for (var p = 0; p < players; p++) {
       for (var i = 0; i < 4; i++) {
@@ -315,7 +311,7 @@ class _LudoScreenState extends State<LudoScreen>
     final mover = game.current;
     setState(() => game.move(piece));
     final cap = game.lastCapture;
-    if (cap != null && Secrets.on(Secret.ludoFling)) {
+    if (cap != null) {
       // The captured piece flies home in a high arc from where it was hit.
       _flyers[cap] = _Flyer.arc(
         _cellCenter(mover, piece),
@@ -482,7 +478,7 @@ class _LudoScreenState extends State<LudoScreen>
                 ),
             ],
           ),
-          // Pieces that fly off the board (secret), over everything.
+          // Pieces that fly off the board, over everything.
           if (_flyers.isNotEmpty)
             Positioned.fill(
               child: IgnorePointer(
@@ -625,7 +621,7 @@ class _FlyPainter extends CustomPainter {
   bool shouldRepaint(_FlyPainter old) => true;
 }
 
-/// A piece flying around (secret „Flugfiguren“), in cell units relative to
+/// A piece flying around, in cell units relative to
 /// the board; it may leave the board and bounces off the screen edges.
 class _Flyer {
   _Flyer.free(this.pos, this.vel, {double up = 5, this.spin = 0})

@@ -40,12 +40,7 @@ enum Secret {
     'Joker-Regen',
     'Stapelfix: doppelt so viele Joker im Spiel (gilt für deine Runden)',
   ),
-  arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün'),
-  ludoFling(
-    'Flugfiguren',
-    'Ludo: Figuren wegschnipsen, Rausgeworfene fliegen im Bogen heim, '
-        'Schütteln wirbelt alle durch die Luft',
-  );
+  arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün');
 
   const Secret(this.title, this.description);
   final String title;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_games/core/secrets.dart';
 import 'package:mobile_games/games/ludo/ludo_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,11 +25,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('secret: pieces can be flicked and fly back', (tester) async {
-    Secrets.I.reset();
-    await Secrets.I.unlock();
-    await Secrets.I.set(Secret.ludoFling, true);
-    addTearDown(Secrets.I.reset);
+  testWidgets('pieces can be flicked and fly back', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: LudoScreen(setup: PlaySetup.local(players: 2))),
     );
