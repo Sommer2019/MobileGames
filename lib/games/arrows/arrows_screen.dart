@@ -300,7 +300,7 @@ class _ArrowsScreenState extends State<ArrowsScreen>
             onPressed: () => setState(_restart),
             icon: const Icon(Icons.restart_alt),
           ),
-          const LeaderboardButton(game: 'arrows'),
+          LeaderboardButton(game: 'arrows', board: 'arrows.${diff.name}'),
         ],
       ),
       body: Column(

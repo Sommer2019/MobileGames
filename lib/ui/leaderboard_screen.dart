@@ -2,32 +2,54 @@ import 'package:flutter/material.dart';
 
 import '../core/leaderboard.dart';
 import '../core/services.dart';
+import '../games/registry.dart';
 
-/// Opens the leaderboard, preselecting the first board of [game].
-void openLeaderboard(BuildContext context, {String? game}) {
+/// Opens the leaderboard, preselecting [board] or the first board of [game].
+void openLeaderboard(BuildContext context, {String? game, String? board}) {
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => LeaderboardScreen(game: game)),
+    MaterialPageRoute<void>(
+      builder: (_) => LeaderboardScreen(game: game, board: board),
+    ),
   );
 }
 
 /// App-bar button for single player games.
 class LeaderboardButton extends StatelessWidget {
-  const LeaderboardButton({super.key, required this.game});
+  const LeaderboardButton({super.key, required this.game, this.board});
   final String game;
+
+  /// Board to open with (e.g. the difficulty being played).
+  final String? board;
 
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: 'Bestenliste',
     icon: const Icon(Icons.leaderboard),
-    onPressed: () => openLeaderboard(context, game: game),
+    onPressed: () => openLeaderboard(context, game: game, board: board),
   );
 }
 
+/// Name of a board inside its game ("Pfeile Schwer" → "Schwer").
+String variantLabel(ScoreBoard b) {
+  final gameTitle = gameById(b.game)?.title ?? '';
+  if (b.title == gameTitle) return 'Normal';
+  final words = b.title.split(' ');
+  // Drop the leading game name ("Labyrinth …" for "Kugellabyrinth").
+  if (words.length > 1 &&
+      gameTitle.toLowerCase().contains(words.first.toLowerCase())) {
+    final rest = words.skip(1).join(' ');
+    return rest[0].toUpperCase() + rest.substring(1);
+  }
+  return b.title;
+}
+
 /// Rankings for the single player games: own results, friends and everybody.
+/// First the game, then (if it has several) the mode or difficulty.
 class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({super.key, this.game});
+  const LeaderboardScreen({super.key, this.game, this.board});
   final String? game;
+  final String? board;
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
@@ -35,9 +57,20 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   late ScoreBoard board = visibleBoards().firstWhere(
-    (b) => b.game == widget.game,
-    orElse: () => visibleBoards().first,
+    (b) => b.id == widget.board,
+    orElse: () => visibleBoards().firstWhere(
+      (b) => b.game == widget.game,
+      orElse: () => visibleBoards().first,
+    ),
   );
+
+  /// Games with rankings, in list order.
+  List<String> get _games => {for (final b in visibleBoards()) b.game}.toList();
+
+  List<ScoreBoard> _boardsOf(String game) => [
+    for (final b in visibleBoards())
+      if (b.game == game) b,
+  ];
   List<ScoreEntry> mine = [];
   List<RemoteScores>? everyone;
   List<RemoteScores>? friends;
@@ -86,6 +119,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     });
   }
 
+  Future<void> _pickGame() async {
+    final g = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final g in _games)
+              ListTile(
+                key: ValueKey('lbGame-$g'),
+                leading: Icon(gameById(g)?.icon),
+                title: Text(gameById(g)?.title ?? g),
+                subtitle: _boardsOf(g).length > 1
+                    ? Text(_boardsOf(g).map(variantLabel).join(' · '))
+                    : null,
+                selected: g == board.game,
+                onTap: () => Navigator.pop(context, g),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (g != null && g != board.game) _select(_boardsOf(g).first);
+  }
+
   void _select(ScoreBoard b) {
     setState(() {
       board = b;
@@ -110,31 +170,63 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(104),
+            preferredSize: Size.fromHeight(
+              _boardsOf(board.game).length > 1 ? 152 : 104,
+            ),
             child: Column(
               children: [
-                SizedBox(
-                  height: 56,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    children: [
-                      for (final b in visibleBoards())
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
+                // The game …
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('lbGamePicker'),
+                      onPressed: _pickGame,
+                      icon: Icon(gameById(board.game)?.icon),
+                      label: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              gameById(board.game)?.title ?? board.game,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          child: ChoiceChip(
-                            key: ValueKey('board-${b.id}'),
-                            label: Text(b.title),
-                            selected: b == board,
-                            onSelected: (_) => _select(b),
-                          ),
-                        ),
-                    ],
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
+                // … then its modes or difficulties.
+                if (_boardsOf(board.game).length > 1)
+                  SizedBox(
+                    height: 48,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      children: [
+                        for (final b in _boardsOf(board.game))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 6,
+                            ),
+                            child: ChoiceChip(
+                              key: ValueKey('board-${b.id}'),
+                              visualDensity: VisualDensity.compact,
+                              label: Text(variantLabel(b)),
+                              selected: b == board,
+                              onSelected: (_) => _select(b),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 const TabBar(
                   tabs: [
                     Tab(text: 'Ich'),

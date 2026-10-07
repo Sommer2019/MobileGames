@@ -81,8 +81,39 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('1234 Punkte'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('board-snake')));
-    await tester.pumpAndSettle();
+    Future<void> pick(String game) async {
+      await tester.tap(find.byKey(const ValueKey('lbGamePicker')));
+      await tester.pumpAndSettle();
+      final tile = find.byKey(ValueKey('lbGame-$game'));
+      await tester.scrollUntilVisible(
+        tile,
+        100,
+        scrollable: find
+            .descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+    }
+
+    await pick('snake');
     expect(find.textContaining('Noch kein Ergebnis'), findsOneWidget);
+    // Games with several boards show their modes in a second row.
+    expect(find.byKey(const ValueKey('board-darts.x301')), findsNothing);
+    await pick('darts');
+
+    await tester.pumpAndSettle();
+    expect(find.text('301'), findsOneWidget);
+    expect(find.text('Rund um die Uhr'), findsOneWidget);
+  });
+
+  test('variant names drop the game name', () {
+    expect(variantLabel(boardById('arrows.hard')), 'Schwer');
+    expect(variantLabel(boardById('labyrinth')), 'Normal');
+    expect(variantLabel(boardById('labyrinth.rubber')), 'Gummiball 🎮');
+    expect(variantLabel(boardById('kniffel')), 'Allein');
   });
 }
