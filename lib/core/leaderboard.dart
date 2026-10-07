@@ -92,6 +92,7 @@ const boards = [
     min: 10,
     time: true,
   ),
+  ScoreBoard('arrows', 'arrows', 'Pfeile', 'Level', min: 1, max: 100000),
   ScoreBoard(
     'labyrinth',
     'labyrinth',

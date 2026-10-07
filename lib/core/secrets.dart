@@ -39,7 +39,8 @@ enum Secret {
   jokerRain(
     'Joker-Regen',
     'Stapelfix: doppelt so viele Joker im Spiel (gilt für deine Runden)',
-  );
+  ),
+  arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün');
 
   const Secret(this.title, this.description);
   final String title;

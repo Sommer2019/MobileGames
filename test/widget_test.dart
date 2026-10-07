@@ -52,6 +52,7 @@ void main() {
       'Bingo',
       'Letzte Karte',
       'Stapelfix',
+      'Pfeile',
     ];
     for (final t in titles) {
       expect(find.text(t), findsWidgets);

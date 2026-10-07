@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui/play_setup.dart';
+import 'arrows/arrows_screen.dart';
 import 'battleship/battleship_local_screen.dart';
 import 'bingo/bingo_screen.dart';
 import 'boxes/boxes_screen.dart';
@@ -351,6 +352,14 @@ final List<GameInfo> games = [
     icon: Icons.blur_circular,
     color: const Color(0xFF8D6E63),
     singleplayerBuilder: () => const LabyrinthLevelsScreen(),
+  ),
+  GameInfo(
+    id: 'arrows',
+    title: 'Pfeile',
+    description: 'Tippe die Pfeile in der richtigen Reihenfolge hinaus',
+    icon: Icons.north_east,
+    color: const Color(0xFF6D4C75),
+    singleplayerBuilder: () => const ArrowsScreen(),
   ),
   GameInfo(
     id: 'dice',
