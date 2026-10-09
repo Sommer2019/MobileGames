@@ -233,6 +233,22 @@ void main() {
     );
   });
 
+  test('too big for the direct path: relays carry it, order stays', () async {
+    final bus = FakeRelayBus();
+    final (sa, sb) = await connect(bus, withP2p: true);
+    expect(sb.isDirect, isTrue);
+    final got = <String>[];
+    sa.messages.listen((m) => got.add(m['v'] as String));
+    final big = 'z' * (GameSession.maxP2pMessage + 10);
+    sb.send({'v': 'a'});
+    sb.send({'v': big});
+    sb.send({'v': 'c'});
+    for (var i = 0; i < 40 && got.length < 3; i++) {
+      await pump();
+    }
+    expect(got, ['a', big, 'c']);
+  });
+
   test('relay keepalive: idle but alive players stay connected', () async {
     final bus = FakeRelayBus();
     final a = Player(bus, 'A'), b = Player(bus, 'B');

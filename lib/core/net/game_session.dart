@@ -178,13 +178,22 @@ class GameSession {
     }
   }
 
+  /// Largest message sent over the direct connection.
+  static const maxP2pMessage = 64 * 1024;
+
   /// Sends a game message to the opponent.
   void send(Map<String, dynamic> payload) {
     if (_closed) return;
     final seq = _sendSeq++;
     final p2p = this.p2p;
-    if (p2p != null && p2p.isOpen) {
-      p2p.send(jsonEncode({'c': 'msg', 'seq': seq, 'd': payload}));
+    final text = p2p != null && p2p.isOpen
+        ? jsonEncode({'c': 'msg', 'seq': seq, 'd': payload})
+        : null;
+    // Data channels refuse big messages (e.g. the whole game for a new
+    // spectator); those go through the relays, which split them. The
+    // sequence number keeps the order.
+    if (text != null && text.length <= maxP2pMessage) {
+      p2p!.send(text);
     } else {
       _control({'type': 'msg', 'seq': seq, 'd': payload});
     }

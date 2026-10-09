@@ -182,6 +182,53 @@ void main() {
     await gerdRoom.close();
   });
 
+  test('joining a long game over relays gets the whole history', () async {
+    final bus = FakeRelayBus();
+    final gerd = await Account.load(prefix: 'g', recover: () async => null);
+    final wanda = await Account.load(prefix: 'w', recover: () async => null);
+    await gerd.addFriend(wanda.keys.publicKey, name: 'Wanda');
+    final hostMsg = newMessenger(bus);
+    final gerdMsg = Messenger(bus.client(), gerd.keys)..start();
+    final wandaMsg = Messenger(bus.client(), wanda.keys)..start();
+    final (hostRoom, gerdRoom) = await chessRoom(bus, hostMsg, gerdMsg);
+    final hub = SpectatorHub(gerdMsg, gerd, factoryFor(gerdMsg));
+    hub.attach(gerdRoom);
+
+    // ~300 KB of history, far beyond one NIP-44 message.
+    for (var i = 0; i < 150; i++) {
+      (i.isEven ? hostRoom : gerdRoom).send({
+        't': 'note',
+        'i': i,
+        'pad': 'ö' * 1000,
+      });
+    }
+    for (var i = 0; i < 100 && gerdRoom.log.length < 150; i++) {
+      await pump();
+    }
+    expect(gerdRoom.log, hasLength(150));
+
+    final watched = await watchFriend(
+      messenger: wandaMsg,
+      sessionFactory: factoryFor(wandaMsg),
+      friend: Friend(gerd.keys.publicKey, 'Gerd'),
+      timeout: const Duration(seconds: 10),
+    );
+    final seen = <RoomMessage>[];
+    watched.messages.listen(seen.add);
+    await pump();
+    expect(seen, hasLength(150));
+    expect(
+      [for (final m in seen) m.data['i']],
+      [for (final e in gerdRoom.log) (e['d'] as Map)['i']],
+      reason: 'same order as on Gerd’s device',
+    );
+
+    hub.detach(gerdRoom);
+    await watched.close();
+    await hostRoom.close();
+    await gerdRoom.close();
+  });
+
   test('strangers and games without a running room are refused', () async {
     final bus = FakeRelayBus();
     final gerd = await Account.load(prefix: 'g', recover: () async => null);
