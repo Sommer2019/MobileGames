@@ -52,6 +52,15 @@ void main() {
     }
   });
 
+  test('chat spam is slowed down', () async {
+    final rooms = await buildRoom(FakeRelayBus(), 1);
+    final sent = [for (var i = 0; i < 20; i++) rooms[1].sendChat('Nochmal?')];
+    expect(sent.where((ok) => ok), hasLength(5));
+    await pump(300);
+    expect(rooms[0].chat, hasLength(5));
+    expect(rooms[1].chat, hasLength(5));
+  });
+
   test('a player leaving is announced to everybody', () async {
     final rooms = await buildRoom(FakeRelayBus(), 2);
     await rooms[1].close();

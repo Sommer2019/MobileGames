@@ -53,7 +53,7 @@ void main() {
     ];
     Widget app() => MaterialApp(
       home: Scaffold(
-        body: ChatView(lines: lines, onSend: (_) {}),
+        body: ChatView(lines: lines, onSend: (_) => true),
       ),
     );
     await tester.pumpWidget(app());

@@ -1,3 +1,5 @@
+import '../flood_guard.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -248,6 +250,8 @@ class GameRoom extends ChangeNotifier {
       case 'c':
         final text = m['text'];
         if (text is! String || seat >= size) return;
+        // Flooding is dropped here and not passed on.
+        if (!_chatGuard.allow(seat)) return;
         _addChat(ChatLine(seat, names[seat], text));
         if (isHost && !spectator) {
           _forward(linkIndex, {'k': 'c', 's': seat, 'text': text});
@@ -297,14 +301,20 @@ class GameRoom extends ChangeNotifier {
     }
   }
 
-  void sendChat(String text) {
+  /// Chat messages per player (see [FloodGuard]).
+  final _chatGuard = FloodGuard();
+
+  /// Sends a chat line; false if it was too many too fast.
+  bool sendChat(String text) {
     final t = text.trim();
-    if (t.isEmpty || _closed || spectator) return;
+    if (t.isEmpty || _closed || spectator) return true;
+    if (!_chatGuard.allow(mySeat)) return false;
     final msg = t.length > 500 ? t.substring(0, 500) : t;
     for (final l in _links) {
       l.send({'k': 'c', 's': mySeat, 'text': msg});
     }
     _addChat(ChatLine(mySeat, names[mySeat], msg));
+    return true;
   }
 
   Future<void> close() async {

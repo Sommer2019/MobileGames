@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/konami.dart';
@@ -30,7 +32,9 @@ class ChatView extends StatefulWidget {
   });
 
   final List<ChatEntry> lines;
-  final void Function(String text) onSend;
+
+  /// Sends a line; false means too many too fast (a hint is shown).
+  final FutureOr<bool> Function(String text) onSend;
   final List<String> quickReplies;
   final bool showAuthors;
   final String emptyText;
@@ -69,11 +73,21 @@ class _ChatViewState extends State<ChatView> {
     super.dispose();
   }
 
-  void _send([String? text]) {
+  Future<void> _send([String? text]) async {
     final t = (text ?? _controller.text).trim();
     if (t.isEmpty) return;
-    widget.onSend(t);
-    if (text == null) _controller.clear();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (!await widget.onSend(t)) {
+      messenger?.hideCurrentSnackBar();
+      messenger?.showSnackBar(
+        const SnackBar(
+          content: Text('Nicht so schnell 🙂 Warte kurz.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    if (text == null && _controller.text.trim() == t) _controller.clear();
   }
 
   String _time(DateTime t) =>

@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/core/chat.dart';
+import 'package:mobile_games/core/nostr/event.dart';
 import 'package:mobile_games/core/nostr/keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,6 +42,46 @@ void main() {
     chatB.markRead(a.publicKey);
     expect(chatB.totalUnread, 0);
     expect(chatB.conversations, [a.publicKey]);
+  });
+
+  test('spam: sending is slowed down, floods are dropped', () async {
+    final bus = FakeRelayBus();
+    final prefs = await SharedPreferences.getInstance();
+    final a = KeyPair.generate(), b = KeyPair.generate();
+    final chatA = ChatService(bus.client(), a, prefs: prefs);
+    final chatB = ChatService(bus.client(), b, prefs: prefs);
+    await chatA.start();
+    await chatB.start();
+
+    final sent = [
+      for (var i = 0; i < 8; i++)
+        await chatA.send(b.publicKey, 'Gutes Spiel!', myName: 'A'),
+    ];
+    expect(sent, [...List.filled(5, true), ...List.filled(3, false)]);
+    await pump();
+    expect(chatB.messages(a.publicKey), hasLength(5));
+
+    // A changed app skipping the limit: the receiver drops the flood.
+    final c = KeyPair.generate();
+    final client = bus.client();
+    for (var i = 0; i < 30; i++) {
+      await client.publish(
+        NostrEvent.create(
+          keys: c,
+          kind: ChatService.kind,
+          content: nip44Encrypt(
+            c.privateKey,
+            b.publicKey,
+            jsonEncode({'mg': 1, 'text': 'Nochmal? $i', 'name': 'C'}),
+          ),
+          tags: [
+            ['p', b.publicKey],
+          ],
+        ),
+      );
+    }
+    await pump();
+    expect(chatB.messages(c.publicKey), hasLength(5));
   });
 
   test('history survives a restart', () async {

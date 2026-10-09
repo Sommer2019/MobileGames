@@ -1,3 +1,5 @@
+import 'flood_guard.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -206,6 +208,9 @@ class ChatService extends ChangeNotifier {
     } catch (_) {
       return;
     }
+    // A flood of messages from one friend is dropped.
+    final at = DateTime.fromMillisecondsSinceEpoch(e.createdAt * 1000);
+    if (!_receiveGuard.allow(e.pubkey, at)) return;
     final msg = ChatMessage(
       id: e.id,
       mine: false,
@@ -242,9 +247,14 @@ class ChatService extends ChangeNotifier {
     return client.publish(event);
   }
 
-  Future<void> send(String to, String text, {required String myName}) async {
+  final _receiveGuard = FloodGuard();
+  final _sendGuard = FloodGuard();
+
+  /// Sends [text] to [to]; false if it was too many too fast.
+  Future<bool> send(String to, String text, {required String myName}) async {
     final t = text.trim();
-    if (t.isEmpty) return;
+    if (t.isEmpty) return true;
+    if (!_sendGuard.allow(to)) return false;
     final content = nip44Encrypt(
       keys.privateKey,
       to,
@@ -266,6 +276,7 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
     await _save();
     await client.publish(event);
+    return true;
   }
 
   void markRead(String pubkey) {
