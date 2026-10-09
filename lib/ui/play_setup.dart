@@ -361,7 +361,9 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
     _chatSub?.cancel();
     _room?.removeListener(_onRoomChanged);
     final r = _room;
-    if (r != null && Services.isReady) Services.I.spectators.detach(r);
+    if (r != null && Services.isReady) {
+      Services.I.spectators.detach(r, scope: widget.setup.scope);
+    }
     // In a tournament the room lives on for the next games.
     if (!widget.setup.inTournament) _room?.close();
     super.dispose();

@@ -60,6 +60,16 @@ class SpectatorHub {
   late final StreamSubscription<DirectMessage> _sub;
 
   GameRoom? _room;
+
+  /// The game played in [_room] (differs from the room's in a tournament).
+  String? _game;
+
+  /// Tournament: the tag of the current game's messages (see
+  /// [PlaySetup.scope]); spectators get only this game's moves.
+  String? _scope;
+
+  /// Tournament: the round counter the current game started with.
+  int _firstRound = 0;
   final List<_Watcher> _watchers = [];
 
   /// The game we are playing online and that friends can watch (for the
@@ -69,16 +79,35 @@ class SpectatorHub {
   /// Number of friends watching right now.
   final ValueNotifier<int> watchers = ValueNotifier(0);
 
-  /// Our current online game (called by the game screen).
-  void attach(GameRoom room) {
-    if (room.spectator || !watchable.contains(room.gameId)) return;
+  /// Our current online game (called by the game screen). In a tournament
+  /// the room plays several games one after another: [game] is the current
+  /// one and [scope] tags its messages.
+  void attach(
+    GameRoom room, {
+    String? game,
+    String? scope,
+    int firstRound = 0,
+  }) {
+    final id = game ?? room.gameId;
+    if (room.spectator || !watchable.contains(id)) return;
+    if (_room != room || _scope != scope) {
+      // Spectators of the previous game are done.
+      for (final w in List.of(_watchers)) {
+        w.close();
+      }
+    }
     _room = room;
-    playing.value = room.gameId;
+    _game = id;
+    _scope = scope;
+    _firstRound = firstRound;
+    playing.value = id;
   }
 
-  void detach(GameRoom room) {
-    if (_room != room) return;
+  void detach(GameRoom room, {String? scope}) {
+    if (_room != room || _scope != scope) return;
     _room = null;
+    _game = null;
+    _scope = null;
     playing.value = Mirrors.current.value?.mirrorGame;
     for (final w in List.of(_watchers)) {
       w.close();
@@ -117,13 +146,13 @@ class SpectatorHub {
     final session = sessionFactory(
       MatchInfo(
         matchId: matchId,
-        gameId: room.gameId,
+        gameId: _game!,
         opponent: m.from,
         opponentName: friend.name,
         isHost: true,
       ),
     );
-    final w = _Watcher(session, room, this);
+    final w = _Watcher(session, room, this, _game!, _scope, _firstRound);
     _watchers.add(w);
     watchers.value = _watchers.length + _mirrorWatchers.length;
     w.start();
@@ -152,10 +181,20 @@ class SpectatorHub {
 }
 
 class _Watcher {
-  _Watcher(this.session, this.room, this.hub);
+  _Watcher(
+    this.session,
+    this.room,
+    this.hub,
+    this.game,
+    this.scope,
+    this.firstRound,
+  );
   final GameSession session;
   final GameRoom room;
   final SpectatorHub hub;
+  final String game;
+  final String? scope;
+  final int firstRound;
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _sentSnapshot = false;
   bool _closed = false;
@@ -176,17 +215,31 @@ class _Watcher {
     session.start();
   }
 
+  /// Moves of the watched game only, without the tournament tag (the
+  /// spectator plays it as a game of its own).
+  Map<String, dynamic>? _own(Map<String, dynamic> e) {
+    if (scope == null) return e;
+    final d = e['d'];
+    if (d is! Map || d['_s'] != scope) return null;
+    return {...e, 'd': Map<String, dynamic>.from(d)..remove('_s')};
+  }
+
   void _snapshot() {
     _sentSnapshot = true;
     session.send({
       'k': 'w',
-      'game': room.gameId,
+      'game': game,
       'names': room.names,
       'seat': room.mySeat,
-      'options': room.options,
-      'log': room.log,
+      'options': {...room.options, if (firstRound != 0) '_round': firstRound},
+      'log': [for (final e in room.log) ?_own(e)],
     });
-    _subs.add(room.feed.listen((e) => session.send({'k': 'g', ...e})));
+    _subs.add(
+      room.feed.listen((e) {
+        final own = _own(e);
+        if (own != null) session.send({'k': 'g', ...own});
+      }),
+    );
     _subs.add(room.reactionMessages.listen(session.send));
   }
 

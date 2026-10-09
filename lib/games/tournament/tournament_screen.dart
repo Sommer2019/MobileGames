@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/services.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/room_screens.dart';
 import '../registry.dart';
@@ -202,6 +203,15 @@ class _TournamentScreenState extends State<TournamentScreen> {
     }
     setState(() => _started = i);
     final game = gameById(tournament.schedule[i])!;
+    // Friends can watch this game (not the standings).
+    if (Services.isReady) {
+      Services.I.spectators.attach(
+        room,
+        game: game.id,
+        scope: 'm$i',
+        firstRound: i,
+      );
+    }
     final nav = Navigator.of(context);
     // Close a previous game screen that is still open.
     nav.popUntil((r) => r.settings.name == _routeName || r.isFirst);

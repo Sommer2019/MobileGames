@@ -229,6 +229,68 @@ void main() {
     await gerdRoom.close();
   });
 
+  test('tournament: friends watch the current game only', () async {
+    final bus = FakeRelayBus();
+    final gerd = await Account.load(prefix: 'g', recover: () async => null);
+    final wanda = await Account.load(prefix: 'w', recover: () async => null);
+    await gerd.addFriend(wanda.keys.publicKey, name: 'Wanda');
+    final hostMsg = newMessenger(bus);
+    final gerdMsg = Messenger(bus.client(), gerd.keys)..start();
+    final wandaMsg = Messenger(bus.client(), wanda.keys)..start();
+    // The tournament room (its game id is the tournament, not chess).
+    final (hostRoom, gerdRoom) = await chessRoom(bus, hostMsg, gerdMsg);
+    final hub = SpectatorHub(gerdMsg, gerd, factoryFor(gerdMsg));
+
+    // Game 1 was connect four, game 2 is chess.
+    hostRoom.send({'t': 'drop', 'col': 3, '_s': 'm0'});
+    await pump(100);
+    hub.attach(gerdRoom, game: 'chess', scope: 'm1', firstRound: 1);
+    expect(hub.playing.value, 'chess');
+    hostRoom.send({'t': 'move', 'from': 'e2', 'to': 'e4', '_s': 'm1'});
+    await pump(100);
+
+    final watched = await watchFriend(
+      messenger: wandaMsg,
+      sessionFactory: factoryFor(wandaMsg),
+      friend: Friend(gerd.keys.publicKey, 'Gerd'),
+      timeout: const Duration(seconds: 5),
+    );
+    expect(watched.gameId, 'chess');
+    expect(watched.options['_round'], 1, reason: 'who begins in game 2');
+    final seen = <RoomMessage>[];
+    watched.messages.listen(seen.add);
+    await pump();
+    expect(
+      [for (final m in seen) m.data],
+      [
+        {'t': 'move', 'from': 'e2', 'to': 'e4'},
+      ],
+    );
+
+    // Live moves of this game arrive, without the tournament tag.
+    gerdRoom.send({'t': 'move', 'from': 'e7', 'to': 'e5', '_s': 'm1'});
+    for (var i = 0; i < 40 && seen.length < 2; i++) {
+      await pump();
+    }
+    expect(seen.last.data, {'t': 'move', 'from': 'e7', 'to': 'e5'});
+
+    // The standings screen closing does not end the watched game.
+    hub.detach(gerdRoom);
+    expect(hub.playing.value, 'chess');
+
+    // The next game starts: this spectator's game is over.
+    hub.attach(gerdRoom, game: 'connect_four', scope: 'm2', firstRound: 2);
+    expect(hub.playing.value, 'connect_four');
+    expect(hub.watchers.value, 0);
+    hub.detach(gerdRoom, scope: 'm2');
+    expect(hub.playing.value, isNull);
+
+    await watched.close();
+    await hostRoom.close();
+    await gerdRoom.close();
+    await hub.dispose();
+  });
+
   test('strangers and games without a running room are refused', () async {
     final bus = FakeRelayBus();
     final gerd = await Account.load(prefix: 'g', recover: () async => null);

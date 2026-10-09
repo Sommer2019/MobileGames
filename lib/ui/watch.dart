@@ -69,7 +69,15 @@ Future<void> watchFriendGame(BuildContext context, Friend friend) async {
       return;
     }
     await nav.push(
-      MaterialPageRoute<void>(builder: (_) => builder(PlaySetup.online(room))),
+      MaterialPageRoute<void>(
+        builder: (_) => builder(
+          // Tournament games start with their own round (who begins).
+          PlaySetup.online(
+            room,
+            firstRound: room.options['_round'] as int? ?? 0,
+          ),
+        ),
+      ),
     );
   } catch (e) {
     if (cancelled) return;
