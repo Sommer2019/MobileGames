@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -27,8 +28,22 @@ class DirectMessage {
 
 /// End-to-end encrypted (NIP-44) JSON messages between two players,
 /// transported through public Nostr relays.
+///
+/// NIP-44 carries at most 64 KB and relays limit event sizes, so bigger
+/// messages are split into pieces that are encrypted one by one and put
+/// back together by the receiver.
 class Messenger {
   Messenger(this.client, this.keys);
+
+  /// Largest message (UTF-8 bytes) sent in one event; one piece of a split
+  /// message carries this many bytes, too.
+  static const maxPlain = 24000;
+
+  /// Pieces of an incomplete message are dropped after this time.
+  static const pieceTimeout = Duration(seconds: 60);
+
+  final _pieces = <String, _Pieces>{};
+  final _random = Random.secure();
 
   final NostrClient client;
   final KeyPair keys;
@@ -57,7 +72,10 @@ class Messenger {
     try {
       final plain = nip44Decrypt(keys.privateKey, e.pubkey, e.content);
       final data = jsonDecode(plain);
-      if (data is Map<String, dynamic>) {
+      if (data is! Map<String, dynamic>) return;
+      if (data['type'] == '_part') {
+        _onPiece(e.pubkey, data);
+      } else {
         _controller.add(DirectMessage(e.pubkey, data));
       }
     } catch (_) {
@@ -65,12 +83,55 @@ class Messenger {
     }
   }
 
-  Future<void> send(String to, Map<String, dynamic> data) {
+  void _onPiece(String from, Map<String, dynamic> data) {
+    final id = data['id'], i = data['i'], n = data['n'], d = data['d'];
+    if (id is! String || i is! int || n is! int || d is! String) return;
+    if (n < 2 || n > 1000 || i < 0 || i >= n) return;
+    final now = DateTime.now();
+    _pieces.removeWhere((_, p) => now.difference(p.started) > pieceTimeout);
+    final key = '$from:$id';
+    final p = _pieces.putIfAbsent(key, () => _Pieces(n, now));
+    if (p.parts.length != n) return;
+    p.parts[i] = base64Decode(d);
+    if (p.parts.any((part) => part == null)) return;
+    _pieces.remove(key);
+    final bytes = [for (final part in p.parts) ...part!];
+    final whole = jsonDecode(utf8.decode(bytes));
+    if (whole is Map<String, dynamic>) {
+      _controller.add(DirectMessage(from, whole));
+    }
+  }
+
+  Future<void> send(String to, Map<String, dynamic> data) async {
+    final bytes = utf8.encode(jsonEncode(data));
+    if (bytes.length <= maxPlain) {
+      return _publish(to, jsonEncode(data));
+    }
+    final n = (bytes.length + maxPlain - 1) ~/ maxPlain;
+    final id = List.generate(
+      8,
+      (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    for (var i = 0; i < n; i++) {
+      final end = min((i + 1) * maxPlain, bytes.length);
+      await _publish(
+        to,
+        jsonEncode({
+          'type': '_part',
+          'id': id,
+          'i': i,
+          'n': n,
+          'd': base64Encode(bytes.sublist(i * maxPlain, end)),
+        }),
+      );
+    }
+  }
+
+  Future<void> _publish(String to, String plain) {
     final String content;
     try {
-      content = nip44Encrypt(keys.privateKey, to, jsonEncode(data));
+      content = nip44Encrypt(keys.privateKey, to, plain);
     } on FormatException catch (e) {
-      // NIP-44 carries at most 64 KB (relays would refuse more anyway).
       debugPrint('Message to $to not sent: $e');
       return Future.value();
     }
@@ -90,4 +151,11 @@ class Messenger {
     await _sub?.cancel();
     _sub = null;
   }
+}
+
+/// The pieces of a split message received so far.
+class _Pieces {
+  _Pieces(int n, this.started) : parts = List.filled(n, null);
+  final List<List<int>?> parts;
+  final DateTime started;
 }
