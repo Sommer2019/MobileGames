@@ -8,6 +8,7 @@ import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'checkers_logic.dart';
 
 class CheckersScreen extends StatefulWidget {
@@ -148,7 +149,7 @@ class _CheckersScreenState extends State<CheckersScreen>
       return;
     }
     setState(() => _aiThinking = true);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(BotSpeed.ms(500));
     if (!mounted) return;
     final m = game.aiMove(null, Secrets.on(Secret.grandmaster));
     setState(() {

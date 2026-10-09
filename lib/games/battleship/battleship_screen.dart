@@ -8,6 +8,7 @@ import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
 
@@ -232,7 +233,7 @@ class _BattleshipScreenState extends State<BattleshipScreen>
   Future<void> _aiTurn() async {
     if (widget.setup.spectator) return;
     while (mounted && phase == _Phase.playing && !myTurn) {
-      await Future<void>.delayed(const Duration(milliseconds: 700));
+      await Future<void>.delayed(BotSpeed.ms(700));
       if (!mounted) return;
       final (x, y) = ai!.nextShot();
       final o = fleet.receiveShot(x, y);

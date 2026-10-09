@@ -7,6 +7,7 @@ import '../core/moderation.dart';
 import '../core/sound.dart';
 import '../core/net/room.dart';
 import '../core/services.dart';
+import 'bot_speed.dart';
 import 'chat_view.dart';
 import 'moderation_ui.dart';
 import 'reactions.dart';
@@ -568,7 +569,7 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
-            if (r != null && !watching && Services.isReady)
+            if (!widget.setup.spectator && Services.isReady)
               ValueListenableBuilder<int>(
                 valueListenable: Services.I.spectators.watchers,
                 builder: (context, n, _) => n == 0
@@ -586,6 +587,12 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
                   child: const Icon(Icons.chat_bubble_outline),
                 ),
               ),
+            // Computers on this device: fast-forward on request.
+            if (!widget.setup.spectator &&
+                (widget.setup.kind == PlayKind.ai ||
+                    widget.setup.botSeats.isNotEmpty) &&
+                (r == null || r.isHost))
+              const FastForwardButton(),
             if (!watching) ...?widget.actions,
           ],
         ),

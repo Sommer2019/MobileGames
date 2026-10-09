@@ -13,6 +13,7 @@ import '../../core/secrets.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
+import '../../ui/bot_speed.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import 'ludo_logic.dart';
@@ -300,7 +301,7 @@ class _LudoScreenState extends State<LudoScreen>
     setState(() => _rolling = true);
     Sound.play(Sfx.dice);
     for (var i = 0; i < 6; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await Future<void>.delayed(BotSpeed.ms(60));
       if (!mounted) return;
       setState(() => _shownDie = _random.nextInt(6) + 1);
     }

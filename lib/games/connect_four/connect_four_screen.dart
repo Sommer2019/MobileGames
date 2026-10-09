@@ -7,6 +7,7 @@ import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'connect_four_logic.dart';
 
 class ConnectFourScreen extends StatefulWidget {
@@ -121,7 +122,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       return;
     }
     setState(() => _aiThinking = true);
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future<void>.delayed(BotSpeed.ms(400));
     if (!mounted) return;
     final col = ConnectFourAi().bestMove(game);
     setState(() {

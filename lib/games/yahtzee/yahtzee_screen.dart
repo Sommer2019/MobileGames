@@ -13,6 +13,7 @@ import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'yahtzee_logic.dart';
 
 class YahtzeeScreen extends StatefulWidget {
@@ -100,8 +101,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     if (!vsAi || widget.setup.spectator) return;
     if (_aiRunning || game.isOver || game.currentPlayer == me) return;
     _aiRunning = true;
-    Future<void> pause(int ms) =>
-        Future<void>.delayed(Duration(milliseconds: ms));
+    Future<void> pause(int ms) => Future<void>.delayed(BotSpeed.ms(ms));
     await pause(600);
     while (mounted && !game.isOver && game.currentPlayer != me) {
       final heldBefore = List<bool>.from(game.held);

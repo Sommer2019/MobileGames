@@ -8,6 +8,7 @@ import '../../core/mirror.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'bingo_logic.dart';
 
 const bingoColors = [
@@ -121,7 +122,16 @@ class _BingoScreenState extends State<BingoScreen> with GameMirror {
     final seed = _random.nextInt(1 << 30);
     setup.send({'t': 'start', 'seed': seed});
     _newGame(seed);
-    _drawTimer = Timer.periodic(_interval, (_) => _draw());
+    _scheduleDraw();
+  }
+
+  /// The next ball, sooner with fast-forward on.
+  void _scheduleDraw() {
+    _drawTimer = Timer(BotSpeed.of(_interval), () {
+      _draw();
+      final g = game;
+      if (g != null && !g.isOver && !g.allDrawn) _scheduleDraw();
+    });
   }
 
   void _newGame(int seed) {
@@ -152,7 +162,7 @@ class _BingoScreenState extends State<BingoScreen> with GameMirror {
     for (final b in setup.botSeats) {
       if (_botClaims.containsKey(b) || !g.hasBingo(b)) continue;
       _botClaims[b] = Timer(
-        Duration(milliseconds: 1200 + _random.nextInt(2500)),
+        BotSpeed.ms(1200 + _random.nextInt(2500)),
         () => _judge(b),
       );
     }

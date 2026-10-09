@@ -154,6 +154,20 @@ Future<void> playKonamiJingle() async {
   await HapticFeedback.heavyImpact();
 }
 
+/// Keyboard keys for the code on a computer (no volume keys or charger
+/// there): arrows, B and A for the volume buttons, Enter ("Start") for
+/// plugging in. The second code is the same backwards: ↓↓↑↑→←→← A B Enter.
+final keyboardInputs = {
+  LogicalKeyboardKey.arrowUp: KonamiInput.up,
+  LogicalKeyboardKey.arrowDown: KonamiInput.down,
+  LogicalKeyboardKey.arrowLeft: KonamiInput.left,
+  LogicalKeyboardKey.arrowRight: KonamiInput.right,
+  LogicalKeyboardKey.keyB: KonamiInput.volumeUp,
+  LogicalKeyboardKey.keyA: KonamiInput.volumeDown,
+  LogicalKeyboardKey.enter: KonamiInput.plugIn,
+  LogicalKeyboardKey.numpadEnter: KonamiInput.plugIn,
+};
+
 /// Listens for swipes on [child], the volume buttons and the charger and
 /// calls [onUnlocked] when the [KonamiCode] was entered, [onArena] for the
 /// code backwards.
@@ -229,10 +243,14 @@ class _KonamiDetectorState extends State<KonamiDetector> {
 
   bool _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) return false;
-    if (e.logicalKey == LogicalKeyboardKey.audioVolumeUp) {
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.audioVolumeUp) {
       _volumeInput(KonamiInput.volumeUp);
-    } else if (e.logicalKey == LogicalKeyboardKey.audioVolumeDown) {
+    } else if (k == LogicalKeyboardKey.audioVolumeDown) {
       _volumeInput(KonamiInput.volumeDown);
+    } else if (keyboardInputs[k] case final input?) {
+      // On a computer: the classic code ↑↑↓↓←→←→ B A Enter.
+      _input(input);
     }
     // Never swallow the key: the volume should still change.
     return false;

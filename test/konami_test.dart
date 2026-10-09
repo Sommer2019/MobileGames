@@ -103,6 +103,41 @@ void main() {
     await battery.close();
   });
 
+  testWidgets('on a computer: the classic code on the keyboard', (
+    tester,
+  ) async {
+    var unlocked = 0, arena = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KonamiDetector(
+          batteryStates: const Stream.empty(),
+          onUnlocked: () => unlocked++,
+          onArena: () => arena++,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    const k = LogicalKeyboardKey.arrowUp, d = LogicalKeyboardKey.arrowDown;
+    const l = LogicalKeyboardKey.arrowLeft, r = LogicalKeyboardKey.arrowRight;
+    for (final key in [k, k, d, d, l, r, l, r]) {
+      await tester.sendKeyEvent(key);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    expect(unlocked, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(unlocked, 1);
+    // Backwards: the Bot-Arena.
+    for (final key in [d, d, k, k, r, l, r, l]) {
+      await tester.sendKeyEvent(key);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(arena, 1);
+    expect(unlocked, 1);
+  });
+
   testWidgets('easy mode unlocks all levels in the list', (tester) async {
     SharedPreferences.setMockInitialValues({'labyrinth.cheat': true});
     Secrets.I.reset();

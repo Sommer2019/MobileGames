@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'bot_speed.dart';
 import 'play_setup.dart';
 
 /// Lets the computer players of a game move: offline every device plays
@@ -23,7 +24,7 @@ mixin BotTurns<T extends StatefulWidget> on State<T> {
     if (seat == null || _botScheduled) return;
     if (!setup.isBot(seat) || !setup.controls(seat)) return;
     _botScheduled = true;
-    Future<void>.delayed(botDelay, () {
+    Future<void>.delayed(BotSpeed.of(botDelay), () {
       _botScheduled = false;
       if (!mounted || seatToMove != seat) return;
       botAct(seat);

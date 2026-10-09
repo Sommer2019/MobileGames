@@ -7,6 +7,7 @@ import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'mill_logic.dart';
 
 /// Board coordinates (0..6 grid) of the 24 points.
@@ -150,7 +151,7 @@ class _MillScreenState extends State<MillScreen>
     }
     setState(() => _aiThinking = true);
     while (mounted && !game.isOver && game.turn != me) {
-      await Future<void>.delayed(const Duration(milliseconds: 550));
+      await Future<void>.delayed(BotSpeed.ms(550));
       if (!mounted) return;
       final a = game.aiAction();
       if (a == null) break;

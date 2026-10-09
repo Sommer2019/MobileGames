@@ -166,15 +166,14 @@ class _CueControlsState extends State<CueControls> {
 
   @override
   Widget build(BuildContext context) {
-    const fine = 0.4 * pi / 180;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _repeatButton(Icons.rotate_left, () => widget.onRotate(-fine)),
-            _repeatButton(Icons.rotate_right, () => widget.onRotate(fine)),
+            _repeatButton(Icons.rotate_left, (f) => widget.onRotate(-f)),
+            _repeatButton(Icons.rotate_right, (f) => widget.onRotate(f)),
           ],
         ),
         if (widget.onSpin != null) ...[
@@ -250,26 +249,34 @@ class _CueControlsState extends State<CueControls> {
     );
   }
 
-  Widget _repeatButton(IconData icon, VoidCallback onStep) => GestureDetector(
-    onTap: widget.enabled ? onStep : null,
-    onLongPressStart: widget.enabled ? (_) => _repeat(onStep) : null,
-    onLongPressEnd: (_) => _repeating = false,
-    child: Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white12,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(icon, color: Colors.white),
-    ),
-  );
+  /// One tap turns the cue by a tenth of a degree; holding the button
+  /// starts just as finely and then gets faster.
+  static const _fineStep = 0.1 * pi / 180;
+
+  Widget _repeatButton(IconData icon, ValueChanged<double> onStep) =>
+      GestureDetector(
+        onTap: widget.enabled ? () => onStep(_fineStep) : null,
+        onLongPressStart: widget.enabled ? (_) => _repeat(onStep) : null,
+        onLongPressEnd: (_) => _repeating = false,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+      );
 
   bool _repeating = false;
 
-  Future<void> _repeat(VoidCallback step) async {
+  Future<void> _repeat(ValueChanged<double> step) async {
     _repeating = true;
+    var n = 0;
     while (_repeating && mounted) {
-      step();
+      // 0.1° steps for the first second, up to 1° when held longer.
+      step(_fineStep * min(10, 1 + max(0, n - 25) / 5));
+      n++;
       await Future<void>.delayed(const Duration(milliseconds: 40));
     }
   }

@@ -9,6 +9,7 @@ import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
+import '../../ui/bot_speed.dart';
 import '../../ui/play_setup.dart';
 import 'halma_logic.dart';
 
@@ -135,7 +136,7 @@ class _HalmaScreenState extends State<HalmaScreen>
       _pathPlayer = player;
     });
     _hop
-      ..duration = Duration(milliseconds: 200 * (path.length - 1))
+      ..duration = BotSpeed.ms(200 * (path.length - 1))
       ..forward(from: 0);
     Sound.play(path.length > 2 ? Sfx.clack : Sfx.place);
     persistGame();

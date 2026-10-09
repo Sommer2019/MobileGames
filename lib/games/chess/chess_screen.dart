@@ -9,6 +9,7 @@ import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'chess_logic.dart';
 
 /// Vector chess piece for a letter (uppercase = white).
@@ -187,7 +188,7 @@ class _ChessScreenState extends State<ChessScreen>
       return;
     }
     setState(() => _aiThinking = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(BotSpeed.ms(300));
     final m = game.aiMove(null, Secrets.on(Secret.grandmaster));
     if (!mounted) return;
     setState(() {

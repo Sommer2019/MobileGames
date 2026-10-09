@@ -9,6 +9,7 @@ import '../../core/net/room.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../ui/play_setup.dart';
+import '../../ui/bot_speed.dart';
 import 'billiard_logic.dart';
 import 'billiard_controls.dart';
 
@@ -205,7 +206,12 @@ class _EightBallScreenState extends State<EightBallScreen>
     if (dt <= 0) return;
     if (game.moving) {
       final before = game.balls.where((b) => b.pocketed).length;
-      setState(() => game.step(min(dt, 0.05)));
+      // The computer's shots roll faster with fast-forward.
+      final speed =
+          BotSpeed.fast.value && widget.setup.isBot(_seatOf(rules.current))
+          ? BotSpeed.factor / 2
+          : 1.0;
+      setState(() => game.step(min(dt, 0.05) * speed));
       playTableSounds(game);
       if (game.balls.where((b) => b.pocketed).length > before) {
         HapticFeedback.lightImpact();
@@ -270,7 +276,7 @@ class _EightBallScreenState extends State<EightBallScreen>
   Future<void> _botShot() async {
     _botBusy = true;
     final plan = _ai.plan(game.toJson(), rules);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await Future<void>.delayed(BotSpeed.ms(600));
     if (!mounted || !_botTurn) return _botDone();
     if (plan.cueX != null) _placeCueFor(plan.cueX!, plan.cueY!);
     // Turn the cue smoothly (the short way round).
@@ -278,16 +284,16 @@ class _EightBallScreenState extends State<EightBallScreen>
     var delta = (plan.angle - from) % (2 * pi);
     if (delta > pi) delta -= 2 * pi;
     for (var i = 1; i <= 20; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 35));
+      await Future<void>.delayed(BotSpeed.ms(35));
       if (!mounted) return;
       setState(() => aimAngle = from + delta * i / 20);
     }
     for (var i = 1; i <= 10; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 40));
+      await Future<void>.delayed(BotSpeed.ms(40));
       if (!mounted) return;
       setState(() => power = plan.power * i / 10);
     }
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await Future<void>.delayed(BotSpeed.ms(250));
     if (!mounted || !_tableReady || !_botTurn) return _botDone();
     setState(() {
       aimAngle = plan.angle;
