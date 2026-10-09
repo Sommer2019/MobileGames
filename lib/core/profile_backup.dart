@@ -36,7 +36,7 @@ class ProfileBackup {
       NostrEvent.create(
         keys: me,
         kind: kind,
-        content: nip04Encrypt(me.privateKey, me.publicKey, plain),
+        content: nip44Encrypt(me.privateKey, me.publicKey, plain),
         tags: [
           ['d', _d],
         ],
@@ -64,9 +64,7 @@ class ProfileBackup {
     final e = latest;
     if (e == null) return false;
     try {
-      final j = jsonDecode(
-        nip04Decrypt(me.privateKey, me.publicKey, e.content),
-      ) as Map<String, dynamic>;
+      final j = jsonDecode(_decrypt(me, e.content)) as Map<String, dynamic>;
       var changed = false;
       final name = cleanNameOrNull(j['name']);
       if (name != null && account.name.startsWith('Spieler ')) {
@@ -84,5 +82,15 @@ class ProfileBackup {
     } catch (_) {
       return false;
     }
+  }
+}
+
+/// Backups are NIP-44; older versions wrote NIP-04, which can still be read
+/// once so friends are not lost.
+String _decrypt(KeyPair me, String content) {
+  try {
+    return nip44Decrypt(me.privateKey, me.publicKey, content);
+  } on FormatException {
+    return legacyNip04Decrypt(me.privateKey, me.publicKey, content);
   }
 }

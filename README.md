@@ -67,7 +67,7 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
   *Konto & Freunde → Freund* einfügen. Ob Freunde online sind, sieht man am grünen Punkt.
 * **Gegner finden:** Für die Vermittlung (Matchmaking, Einladungen, Online-Status) werden
   öffentliche, kostenlose [Nostr](https://nostr.com)-Relays genutzt. Nachrichten sind
-  signiert und Ende-zu-Ende verschlüsselt (NIP-04) und werden von den Relays nicht
+  signiert und Ende-zu-Ende verschlüsselt (NIP-44) und werden von den Relays nicht
   gespeichert (ephemere Events).
 * **Freunde:** Wer einen Freundescode hinzufügt, schickt eine Anfrage (auch an Offline-Freunde).
   Nimmt der andere an, sind beide gegenseitig befreundet.
@@ -78,7 +78,7 @@ Es gibt **kein eigenes Backend**, nichts muss betrieben oder bezahlt werden.
 * **Bestenliste:** Jeder veröffentlicht seine Bestwerte als ersetzbaren Nostr-Eintrag
   (NIP-78). Ohne Server lassen sich die Werte nicht prüfen; die Freunde-Ansicht ist daher die
   aussagekräftigste, offensichtlich unmögliche Werte werden ausgefiltert.
-* **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-04). Diese
+* **Chat:** Freundes-Chats sind verschlüsselte Nostr-Direktnachrichten (NIP-44). Diese
   speichern die Relays, damit sie auch ankommen, wenn der Freund gerade offline ist.
 * **Benachrichtigungen:** Läuft die App im Hintergrund, kommen Einladungen und Nachrichten als
   System-Benachrichtigung. Auf Android hält ein kleiner Vordergrund-Dienst die Verbindung offen

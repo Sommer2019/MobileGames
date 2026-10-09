@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../moderation.dart';
 import '../nostr/event.dart';
 import '../nostr/keys.dart';
@@ -23,7 +25,7 @@ class DirectMessage {
   String get type => data['type'] as String? ?? '';
 }
 
-/// End-to-end encrypted (NIP-04) JSON messages between two players,
+/// End-to-end encrypted (NIP-44) JSON messages between two players,
 /// transported through public Nostr relays.
 class Messenger {
   Messenger(this.client, this.keys);
@@ -53,7 +55,7 @@ class Messenger {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if ((now - e.createdAt).abs() > 120) return;
     try {
-      final plain = nip04Decrypt(keys.privateKey, e.pubkey, e.content);
+      final plain = nip44Decrypt(keys.privateKey, e.pubkey, e.content);
       final data = jsonDecode(plain);
       if (data is Map<String, dynamic>) {
         _controller.add(DirectMessage(e.pubkey, data));
@@ -64,7 +66,14 @@ class Messenger {
   }
 
   Future<void> send(String to, Map<String, dynamic> data) {
-    final content = nip04Encrypt(keys.privateKey, to, jsonEncode(data));
+    final String content;
+    try {
+      content = nip44Encrypt(keys.privateKey, to, jsonEncode(data));
+    } on FormatException catch (e) {
+      // NIP-44 carries at most 64 KB (relays would refuse more anyway).
+      debugPrint('Message to $to not sent: $e');
+      return Future.value();
+    }
     return client.publish(
       NostrEvent.create(
         keys: keys,

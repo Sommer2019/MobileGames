@@ -81,7 +81,7 @@ class AccountTransfer {
       NostrEvent.create(
         keys: keys,
         kind: kind,
-        content: nip04Encrypt(deviceKey, keys.publicKey, target),
+        content: nip44Encrypt(deviceKey, keys.publicKey, target),
         tags: [
           ['d', _d],
         ],
@@ -118,7 +118,7 @@ class AccountTransfer {
     final e = latest;
     if (e == null) return deviceKey;
     try {
-      final target = nip04Decrypt(deviceKey, keys.publicKey, e.content);
+      final target = nip44Decrypt(deviceKey, keys.publicKey, e.content);
       KeyPair(target);
       return target;
     } on Object {

@@ -39,7 +39,7 @@ class Report {
 ///
 /// Each admin publishes one replaceable, signed ban list; every app follows
 /// the lists of the admins built into it and drops banned players like
-/// blocked ones. Reports are separate events, encrypted (NIP-04) for one
+/// blocked ones. Reports are separate events, encrypted (NIP-44) for one
 /// admin each, so only that admin can read them.
 class ModerationSync extends ChangeNotifier {
   ModerationSync(this.client, this.keys, {List<String>? admins})
@@ -133,7 +133,7 @@ class ModerationSync extends ChangeNotifier {
     }
     try {
       final j = jsonDecode(
-        nip04Decrypt(keys.privateKey, e.pubkey, e.content),
+        nip44Decrypt(keys.privateKey, e.pubkey, e.content),
       ) as Map<String, dynamic>;
       final pubkey = j['pubkey'];
       _reports[e.id] = Report(
@@ -173,7 +173,7 @@ class ModerationSync extends ChangeNotifier {
         NostrEvent.create(
           keys: keys,
           kind: kind,
-          content: nip04Encrypt(keys.privateKey, admin, plain),
+          content: nip44Encrypt(keys.privateKey, admin, plain),
           tags: [
             ['d', '$_reportD${randomHex(8)}'],
             ['p', admin],

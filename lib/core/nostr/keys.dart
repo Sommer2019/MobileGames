@@ -34,7 +34,7 @@ ECPoint _liftX(String xOnlyPubKey) {
   return _secp256k1.curve.decodePoint(compressed)!;
 }
 
-/// ECDH shared secret (x coordinate) as used by NIP-04.
+/// ECDH shared secret (x coordinate), the input of the NIP-44 key.
 Uint8List sharedSecret(String privateKey, String otherPublicKey) {
   final d = BigInt.parse(privateKey, radix: 16);
   final p = (_liftX(otherPublicKey) * d)!;
@@ -42,29 +42,131 @@ Uint8List sharedSecret(String privateKey, String otherPublicKey) {
   return Uint8List.fromList(hex.decode(x));
 }
 
-/// NIP-04 encryption: AES-256-CBC with the ECDH shared x coordinate as key.
-String nip04Encrypt(
+// ---------------------------------------------------------------------------
+// NIP-44 v2: ChaCha20 + HMAC-SHA256 with padding. All messages between
+// players, chats, backups and transfers are encrypted this way.
+
+/// Conversation keys are derived once per pair of keys (ECDH is slow).
+final Map<String, Uint8List> _conversationKeys = {};
+
+/// NIP-44 conversation key: HKDF-extract(salt "nip44-v2", shared x).
+Uint8List nip44ConversationKey(String privateKey, String otherPublicKey) {
+  final id = '$privateKey:$otherPublicKey';
+  final known = _conversationKeys[id];
+  if (known != null) return known;
+  final shared = sharedSecret(privateKey, otherPublicKey);
+  final key = Uint8List.fromList(
+    Hmac(sha256, utf8.encode('nip44-v2')).convert(shared).bytes,
+  );
+  if (_conversationKeys.length > 500) _conversationKeys.clear();
+  return _conversationKeys[id] = key;
+}
+
+/// HKDF-expand with SHA-256.
+Uint8List _hkdfExpand(List<int> prk, List<int> info, int length) {
+  final out = <int>[];
+  var t = <int>[];
+  for (var i = 1; out.length < length; i++) {
+    t = Hmac(sha256, prk).convert([...t, ...info, i]).bytes;
+    out.addAll(t);
+  }
+  return Uint8List.fromList(out.sublist(0, length));
+}
+
+/// Length the plaintext is padded to (hides the exact length).
+int nip44PaddedLength(int length) {
+  if (length <= 32) return 32;
+  final nextPower = 1 << (length - 1).bitLength;
+  final chunk = nextPower <= 256 ? 32 : nextPower ~/ 8;
+  return chunk * ((length - 1) ~/ chunk + 1);
+}
+
+Uint8List _chacha20(List<int> key, List<int> nonce, List<int> data) {
+  final engine = ChaCha7539Engine()
+    ..init(
+      true,
+      ParametersWithIV(
+        KeyParameter(Uint8List.fromList(key)),
+        Uint8List.fromList(nonce),
+      ),
+    );
+  return engine.process(Uint8List.fromList(data));
+}
+
+/// NIP-44 v2 encryption from [privateKey] to [otherPublicKey].
+String nip44Encrypt(
   String privateKey,
   String otherPublicKey,
   String plain, [
   Random? random,
+  List<int>? fixedNonce,
 ]) {
-  final key = sharedSecret(privateKey, otherPublicKey);
+  final bytes = utf8.encode(plain);
+  if (bytes.isEmpty || bytes.length > 65535) {
+    throw const FormatException('nip44: message too short or too long');
+  }
   final r = random ?? Random.secure();
-  final iv = Uint8List.fromList(List.generate(16, (_) => r.nextInt(256)));
-  final cipher =
-      PaddedBlockCipherImpl(PKCS7Padding(), CBCBlockCipher(AESEngine()))..init(
-        true,
-        PaddedBlockCipherParameters(
-          ParametersWithIV(KeyParameter(key), iv),
-          null,
-        ),
-      );
-  final out = cipher.process(Uint8List.fromList(utf8.encode(plain)));
-  return '${base64.encode(out)}?iv=${base64.encode(iv)}';
+  final nonce = fixedNonce ?? List<int>.generate(32, (_) => r.nextInt(256));
+  final keys = _hkdfExpand(
+    nip44ConversationKey(privateKey, otherPublicKey),
+    nonce,
+    76,
+  );
+  final padded = Uint8List(2 + nip44PaddedLength(bytes.length))
+    ..[0] = bytes.length >> 8
+    ..[1] = bytes.length & 0xff
+    ..setRange(2, 2 + bytes.length, bytes);
+  final cipher = _chacha20(keys.sublist(0, 32), keys.sublist(32, 44), padded);
+  final mac = Hmac(sha256, keys.sublist(44, 76)).convert([...nonce, ...cipher]);
+  return base64.encode([2, ...nonce, ...cipher, ...mac.bytes]);
 }
 
-String nip04Decrypt(String privateKey, String otherPublicKey, String payload) {
+/// NIP-44 v2 decryption; throws [FormatException] for anything tampered.
+String nip44Decrypt(String privateKey, String otherPublicKey, String payload) {
+  if (payload.isEmpty || payload.startsWith('#')) {
+    throw const FormatException('nip44: unknown version');
+  }
+  if (payload.length < 132 || payload.length > 87472) {
+    throw const FormatException('nip44: invalid payload size');
+  }
+  final data = base64.decode(payload);
+  if (data.length < 99 || data.length > 65603 || data[0] != 2) {
+    throw const FormatException('nip44: invalid payload');
+  }
+  final nonce = data.sublist(1, 33);
+  final cipher = data.sublist(33, data.length - 32);
+  final mac = data.sublist(data.length - 32);
+  final keys = _hkdfExpand(
+    nip44ConversationKey(privateKey, otherPublicKey),
+    nonce,
+    76,
+  );
+  final expected = Hmac(
+    sha256,
+    keys.sublist(44, 76),
+  ).convert([...nonce, ...cipher]).bytes;
+  var diff = 0;
+  for (var i = 0; i < 32; i++) {
+    diff |= expected[i] ^ mac[i];
+  }
+  if (diff != 0) throw const FormatException('nip44: invalid MAC');
+  final padded = _chacha20(keys.sublist(0, 32), keys.sublist(32, 44), cipher);
+  final length = padded[0] << 8 | padded[1];
+  if (length < 1 ||
+      length > 65535 ||
+      padded.length != 2 + nip44PaddedLength(length)) {
+    throw const FormatException('nip44: invalid padding');
+  }
+  return utf8.decode(padded.sublist(2, 2 + length));
+}
+
+/// Only for reading profile backups written by older versions (NIP-04,
+/// AES-256-CBC). Nothing is encrypted this way any more.
+String legacyNip04Decrypt(
+  String privateKey,
+  String otherPublicKey,
+  String payload,
+) {
   final parts = payload.split('?iv=');
   if (parts.length != 2) throw const FormatException('invalid nip04 payload');
   final key = sharedSecret(privateKey, otherPublicKey);

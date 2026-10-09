@@ -57,7 +57,7 @@ class IncomingChat {
 
 /// Direct messages between players.
 ///
-/// Uses encrypted Nostr direct messages (kind 4, NIP-04). Unlike game
+/// Uses encrypted Nostr direct messages (kind 4, NIP-44). Unlike game
 /// signaling these events are stored by the relays, so messages also reach
 /// friends who are offline right now; they are fetched on the next start.
 class ChatService extends ChangeNotifier {
@@ -176,7 +176,7 @@ class ChatService extends ChangeNotifier {
     String text;
     String? name;
     try {
-      final plain = nip04Decrypt(keys.privateKey, e.pubkey, e.content);
+      final plain = nip44Decrypt(keys.privateKey, e.pubkey, e.content);
       try {
         final j = jsonDecode(plain);
         if (j is Map && j['mg'] == 1 && j['type'] is String) {
@@ -225,7 +225,7 @@ class ChatService extends ChangeNotifier {
 
   /// Sends a stored control message (see [signals]).
   Future<void> sendSignal(String to, String type, {required String myName}) {
-    final content = nip04Encrypt(
+    final content = nip44Encrypt(
       keys.privateKey,
       to,
       jsonEncode({'mg': 1, 'type': type, 'name': myName}),
@@ -245,7 +245,7 @@ class ChatService extends ChangeNotifier {
   Future<void> send(String to, String text, {required String myName}) async {
     final t = text.trim();
     if (t.isEmpty) return;
-    final content = nip04Encrypt(
+    final content = nip44Encrypt(
       keys.privateKey,
       to,
       jsonEncode({'mg': 1, 'text': t, 'name': myName}),
