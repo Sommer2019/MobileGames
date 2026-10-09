@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/saved_games.dart';
@@ -20,7 +21,8 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
   MahjongGame? game;
   MahjongTile? selected;
   (MahjongTile, MahjongTile)? hint;
-  bool? _portrait;
+  MahjongShape? _shape;
+  static const _shapeKey = 'mahjong.shape';
   final Stopwatch _clock = Stopwatch();
   Timer? _timer;
 
@@ -35,24 +37,49 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
   Map<String, dynamic>? saveGame() {
     final g = game;
     if (g == null || g.won || g.history.isEmpty) return null;
-    return {'portrait': _portrait, 'game': g.toJson(), 'seconds': _seconds};
+    return {'shape': _shape!.name, 'game': g.toJson(), 'seconds': _seconds};
   }
 
   @override
   void restoreGame(Map<String, dynamic> data) {
-    final portrait = data['portrait'] as bool;
+    // Older saves only knew portrait (pyramid) or landscape (wide).
+    final shape =
+        MahjongShape.values.asNameMap()[data['shape']] ??
+        (data['portrait'] == false ? MahjongShape.wide : MahjongShape.pyramid);
     game = MahjongGame.fromJson(
-      portrait ? towerLayout() : pyramidLayout(),
+      shape.layout(),
       data['game'] as Map<String, dynamic>,
     );
-    _portrait = portrait;
+    _shape = shape;
     _offset = data['seconds'] as int;
     _clock.start();
+  }
+
+  /// The shape chosen last time (null: by screen orientation).
+  MahjongShape? _savedShape;
+
+  Future<void> _loadShape() async {
+    final prefs = await SharedPreferences.getInstance();
+    _savedShape = MahjongShape.values.asNameMap()[prefs.getString(_shapeKey)];
+    // A fresh game (nothing played yet) switches to the remembered shape.
+    final saved = _savedShape;
+    if (!mounted || saved == null || saved == _shape) return;
+    if (game != null && game!.history.isEmpty && !restoredGame) {
+      setState(() => _newGame(saved));
+    }
+  }
+
+  Future<void> _chooseShape(MahjongShape s) async {
+    setState(() => _newGame(s));
+    _savedShape = s;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_shapeKey, s.name);
   }
 
   @override
   void initState() {
     super.initState();
+    _loadShape();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -64,11 +91,9 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
     super.dispose();
   }
 
-  void _newGame(bool portrait) {
-    _portrait = portrait;
-    game = MahjongGame.generate(
-      layout: portrait ? towerLayout() : pyramidLayout(),
-    );
+  void _newGame(MahjongShape shape) {
+    _shape = shape;
+    game = MahjongGame.generate(layout: shape.layout());
     selected = null;
     hint = null;
     _offset = 0;
@@ -92,10 +117,7 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
         Sound.play(g.won ? Sfx.win : Sfx.click);
         if (g.won) {
           _clock.stop();
-          Leaderboard.submit(
-            _portrait ?? true ? 'mahjong.tower' : 'mahjong.pyramid',
-            _seconds,
-          );
+          Leaderboard.submit(_shape!.board, _seconds);
           _showWin();
         } else if (g.stuck) {
           _showStuck();
@@ -117,7 +139,7 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
             FilledButton(
               onPressed: () {
                 Navigator.pop(c);
-                setState(() => _newGame(_portrait ?? true));
+                setState(() => _newGame(_shape!));
               },
               child: const Text('Neues Spiel'),
             ),
@@ -168,7 +190,22 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
       appBar: AppBar(
         title: const Text('Mahjong'),
         actions: [
-          const LeaderboardButton(game: 'mahjong'),
+          PopupMenuButton<MahjongShape>(
+            key: const ValueKey('mahjongShape'),
+            tooltip: 'Form',
+            icon: const Icon(Icons.view_quilt),
+            onSelected: _chooseShape,
+            itemBuilder: (_) => [
+              for (final s in MahjongShape.values)
+                CheckedPopupMenuItem(
+                  key: ValueKey('shape-${s.name}'),
+                  value: s,
+                  checked: s == _shape,
+                  child: Text(s.label),
+                ),
+            ],
+          ),
+          LeaderboardButton(game: 'mahjong', board: _shape?.board),
           IconButton(
             tooltip: 'Rückgängig',
             icon: const Icon(Icons.undo),
@@ -185,21 +222,29 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
           IconButton(
             tooltip: 'Neues Spiel',
             icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() => _newGame(_portrait ?? true)),
+            onPressed: () => setState(() => _newGame(_shape!)),
           ),
         ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, c) {
-            if (game == null) _newGame(c.maxHeight >= c.maxWidth);
+            if (game == null) {
+              _newGame(
+                _savedShape ??
+                    (c.maxHeight >= c.maxWidth
+                        ? MahjongShape.pyramid
+                        : MahjongShape.wide),
+              );
+            }
             final g = game!;
             return Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(
-                    'Steine: ${g.remaining}   •   Zeit: ${_formatTime()}',
+                    '${_shape!.label}   •   Steine: ${g.remaining}   •   '
+                    'Zeit: ${_formatTime()}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),

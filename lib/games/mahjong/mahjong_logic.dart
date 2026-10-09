@@ -47,7 +47,39 @@ final List<TileFace> allFaces = [
   for (var r = 0; r < 3; r++) TileFace('dragon', r),
 ];
 
-/// Tall pyramid for portrait screens: 108 tiles in 4 layers.
+/// The shapes to choose from; [id] is the ranking board.
+enum MahjongShape {
+  pyramid('Pyramide', 'mahjong.tower'),
+  wide('Breit', 'mahjong.pyramid'),
+  tower('Turm', 'mahjong.turm');
+
+  const MahjongShape(this.label, this.board);
+  final String label;
+  final String board;
+
+  List<Slot> layout() => switch (this) {
+    pyramid => towerLayout(),
+    wide => pyramidLayout(),
+    tower => realTowerLayout(),
+  };
+}
+
+/// A narrow, high tower: 104 tiles in 5 layers.
+List<Slot> realTowerLayout() => [
+  for (var y = 0; y < 10; y++)
+    for (var x = 0; x < 4; x++) Slot(x * 2, y * 2, 0),
+  for (var y = 0; y < 8; y++)
+    for (var x = 0; x < 4; x++) Slot(x * 2, 2 + y * 2, 1),
+  for (var y = 0; y < 8; y++)
+    for (var x = 0; x < 2; x++) Slot(2 + x * 2, 2 + y * 2, 2),
+  for (var y = 0; y < 6; y++)
+    for (var x = 0; x < 2; x++) Slot(2 + x * 2, 4 + y * 2, 3),
+  for (var y = 0; y < 2; y++)
+    for (var x = 0; x < 2; x++) Slot(2 + x * 2, 8 + y * 2, 4),
+];
+
+/// Tall pyramid (portrait friendly): 108 tiles in 4 layers. Shown as
+/// "Pyramide"; the name is historical.
 List<Slot> towerLayout() => [
   for (var y = 0; y < 10; y++)
     for (var x = 0; x < 6; x++) Slot(x * 2, y * 2, 0),
@@ -59,7 +91,7 @@ List<Slot> towerLayout() => [
     for (var x = 0; x < 2; x++) Slot(4 + x * 2, 8 + y * 2, 3),
 ];
 
-/// Wide pyramid for landscape screens: 120 tiles in 4 layers.
+/// Wide pyramid ("Breit"): 120 tiles in 4 layers.
 List<Slot> pyramidLayout() => [
   for (var y = 0; y < 6; y++)
     for (var x = 0; x < 12; x++) Slot(x * 2, y * 2, 0),

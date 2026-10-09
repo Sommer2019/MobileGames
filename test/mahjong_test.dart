@@ -37,6 +37,21 @@ void main() {
     expect(g.won, isTrue);
   });
 
+  test('the tower is a real tower and always solvable', () {
+    final slots = realTowerLayout();
+    expect(slots.length, 104);
+    expect(slots.map((s) => s.z).reduce((a, b) => a > b ? a : b), 4);
+    for (var seed = 0; seed < 5; seed++) {
+      final g = MahjongGame.generate(layout: slots, random: Random(seed));
+      for (final (a, b) in g.solution) {
+        expect(g.match(g.tiles[a], g.tiles[b]), isTrue, reason: 'seed $seed');
+      }
+      expect(g.won, isTrue);
+    }
+    // Every shape has its own ranking.
+    expect(MahjongShape.values.map((s) => s.board).toSet().length, 3);
+  });
+
   test('generated games are always solvable', () {
     for (var seed = 0; seed < 5; seed++) {
       final g = MahjongGame.generate(random: Random(seed));

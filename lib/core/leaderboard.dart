@@ -77,7 +77,7 @@ const boards = [
   ScoreBoard(
     'mahjong.tower',
     'mahjong',
-    'Mahjong Turm',
+    'Mahjong Pyramide',
     's',
     lowerIsBetter: true,
     min: 10,
@@ -86,7 +86,16 @@ const boards = [
   ScoreBoard(
     'mahjong.pyramid',
     'mahjong',
-    'Mahjong Pyramide',
+    'Mahjong Breit',
+    's',
+    lowerIsBetter: true,
+    min: 10,
+    time: true,
+  ),
+  ScoreBoard(
+    'mahjong.turm',
+    'mahjong',
+    'Mahjong Turm',
     's',
     lowerIsBetter: true,
     min: 10,
