@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import 'billiard_controls.dart';
 import 'billiard_logic.dart';
@@ -18,7 +19,7 @@ class BilliardScreen extends StatefulWidget {
 }
 
 class _BilliardScreenState extends State<BilliardScreen>
-    with SingleTickerProviderStateMixin, SavedGameState {
+    with SingleTickerProviderStateMixin, SavedGameState, GameMirror {
   final BilliardGame game = BilliardGame();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
@@ -51,6 +52,48 @@ class _BilliardScreenState extends State<BilliardScreen>
     if (game.moving && _beforeShot != null) return _beforeShot;
     if (!_inGame) return null;
     return {'game': game.toJson(), 'rules': rules.toJson()};
+  }
+
+  /// The running shot (for watching friends).
+  Map<String, dynamic>? _lastShot;
+
+  @override
+  String? get mirrorGame => 'billiard';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => const {'players': 1};
+
+  @override
+  Map<String, dynamic>? mirrorState() {
+    final moving = game.moving && _beforeShot != null && _lastShot != null;
+    return {
+      ...(moving
+          ? _beforeShot!
+          : {'game': game.toJson(), 'rules': rules.toJson()}),
+      'shot': moving ? _lastShot : null,
+    };
+  }
+
+  /// A friend's shot is animated here from the same start.
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final shot = state['shot'] as Map<String, dynamic>?;
+    if (shot == null) {
+      _beforeShot = null;
+      _lastShot = null;
+      restoreGame(state);
+      return;
+    }
+    if (_lastShot?['n'] == shot['n']) return;
+    restoreGame(state);
+    _beforeShot = Map<String, dynamic>.from(state)..remove('shot');
+    _lastShot = shot;
+    game.shoot(
+      (shot['a'] as num).toDouble(),
+      (shot['p'] as num).toDouble(),
+      spinX: (shot['sx'] as num).toDouble(),
+      spinY: (shot['sy'] as num).toDouble(),
+    );
   }
 
   @override
@@ -124,6 +167,13 @@ class _BilliardScreenState extends State<BilliardScreen>
     _targetBefore = rules.target(game);
     if (game.shoot(angle, power, spinX: spin.dx, spinY: spin.dy)) {
       _shotRunning = true;
+      _lastShot = {
+        'a': angle,
+        'p': power,
+        'sx': spin.dx,
+        'sy': spin.dy,
+        'n': game.shots,
+      };
     }
   }
 

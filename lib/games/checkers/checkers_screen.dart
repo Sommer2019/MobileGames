@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -17,7 +18,14 @@ class CheckersScreen extends StatefulWidget {
   State<CheckersScreen> createState() => _CheckersScreenState();
 }
 
-class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
+class _CheckersScreenState extends State<CheckersScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'checkers';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   CheckersGame game = CheckersGame();
   late int round = widget.setup.firstRound;
   List<(int, int)> _partial = [];
@@ -36,7 +44,7 @@ class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.history.isEmpty) return null;
+    if (!savingForMirror && (game.isOver || game.history.isEmpty)) return null;
     return {'round': round, 'moves': game.history};
   }
 
@@ -133,6 +141,7 @@ class _CheckersScreenState extends State<CheckersScreen> with SavedGameState {
   }
 
   Future<void> _maybeAi() async {
+    if (widget.setup.spectator) return;
     if (widget.setup.kind != PlayKind.ai ||
         game.isOver ||
         game.turn == mySide) {

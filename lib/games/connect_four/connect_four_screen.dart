@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -17,7 +18,13 @@ class ConnectFourScreen extends StatefulWidget {
 }
 
 class _ConnectFourScreenState extends State<ConnectFourScreen>
-    with SavedGameState {
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'connect_four';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   late ConnectFourGame game = ConnectFourGame(players: widget.setup.players);
   late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
@@ -50,7 +57,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.moves.isEmpty) return null;
+    if (!savingForMirror && (game.isOver || game.moves.isEmpty)) return null;
     return {'round': round, 'moves': game.moves};
   }
 
@@ -107,6 +114,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   }
 
   Future<void> _maybeAi() async {
+    if (widget.setup.spectator) return;
     if (widget.setup.kind != PlayKind.ai ||
         game.isOver ||
         game.currentPlayer == humanPlayer) {

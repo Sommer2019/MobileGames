@@ -9,6 +9,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../core/sphere.dart';
@@ -115,7 +116,44 @@ class LabyrinthScreen extends StatefulWidget {
 }
 
 class _LabyrinthScreenState extends State<LabyrinthScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, GameMirror {
+  @override
+  String? get mirrorGame => 'labyrinth';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => {'level': levelIndex};
+
+  @override
+  Duration get mirrorInterval => const Duration(milliseconds: 100);
+
+  @override
+  Map<String, dynamic>? mirrorState() => {
+    'level': levelIndex,
+    'x': game.x,
+    'y': game.y,
+    'vx': game.vx,
+    'vy': game.vy,
+    'state': game.state.name,
+    'falls': falls,
+  };
+
+  /// A friend's ball; between updates it rolls on by itself here.
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final l = state['level'] as int;
+    if (l != levelIndex) {
+      levelIndex = l;
+      game = _newGame();
+    }
+    game
+      ..x = (state['x'] as num).toDouble()
+      ..y = (state['y'] as num).toDouble()
+      ..vx = (state['vx'] as num).toDouble()
+      ..vy = (state['vy'] as num).toDouble()
+      ..state = BallState.values.byName(state['state'] as String);
+    falls = state['falls'] as int;
+  }
+
   late int levelIndex = widget.levelIndex;
   late LabyrinthGame game = _newGame();
 
@@ -178,6 +216,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     loadCalibration();
     _ticker = createTicker(_tick)..start();
+    if (mirroring) return;
     try {
       _accel =
           accelerometerEventStream(
@@ -220,7 +259,9 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
         minGap: const Duration(milliseconds: 80),
       );
     }
-    if (before == BallState.rolling && game.state != BallState.rolling) {
+    if (!mirroring &&
+        before == BallState.rolling &&
+        game.state != BallState.rolling) {
       HapticFeedback.mediumImpact();
       Sound.play(game.state == BallState.fell ? Sfx.fall : Sfx.win);
       if (game.state == BallState.fell) {

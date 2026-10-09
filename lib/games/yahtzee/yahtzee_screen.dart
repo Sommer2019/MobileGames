@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/shake.dart';
@@ -22,7 +23,14 @@ class YahtzeeScreen extends StatefulWidget {
   State<YahtzeeScreen> createState() => _YahtzeeScreenState();
 }
 
-class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
+class _YahtzeeScreenState extends State<YahtzeeScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'yahtzee';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   late KniffelGame game = KniffelGame(widget.setup.players);
   late int round = widget.setup.firstRound;
   StreamSubscription<RoomMessage>? _sub;
@@ -51,7 +59,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.isFresh) return null;
+    if (!savingForMirror && (game.isOver || game.isFresh)) return null;
     return {
       'round': round,
       'game': game.toJson(),
@@ -89,7 +97,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen> with SavedGameState {
 
   /// Plays the computer's turn step by step so it can be followed.
   Future<void> _maybeAi() async {
-    if (!vsAi || _aiRunning || game.isOver || game.currentPlayer == me) return;
+    if (!vsAi || widget.setup.spectator) return;
+    if (_aiRunning || game.isOver || game.currentPlayer == me) return;
     _aiRunning = true;
     Future<void> pause(int ms) =>
         Future<void>.delayed(Duration(milliseconds: ms));

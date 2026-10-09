@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'mirror.dart';
+
 /// Games in progress, kept when leaving a game so it can be continued.
 ///
 /// Read synchronously (the preferences are loaded at startup), so a screen
@@ -66,11 +68,31 @@ mixin SavedGameState<T extends StatefulWidget> on State<T> {
   /// True if a saved round was restored in initState.
   bool restoredGame = false;
 
+  /// Showing a friend's game: nothing is read or written here.
+  bool _mirrorView = false;
+
+  /// Set while [saveGame] is asked for the mirror: then finished rounds
+  /// are returned too (friends should see the last move).
+  bool savingForMirror = false;
+
+  /// [saveGame] for watching friends, including finished rounds.
+  Map<String, dynamic>? saveForMirror() {
+    savingForMirror = true;
+    try {
+      return saveGame();
+    } catch (_) {
+      return null;
+    } finally {
+      savingForMirror = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _mirrorView = MirrorScope.of(context) != null;
     final key = saveKey;
-    if (key == null) return;
+    if (key == null || _mirrorView) return;
     _lifecycle = AppLifecycleListener(onHide: persistGame);
     final data = SavedGames.read(key);
     if (data == null) return;
@@ -96,7 +118,7 @@ mixin SavedGameState<T extends StatefulWidget> on State<T> {
   /// Writes the current round now.
   void persistGame() {
     final key = saveKey;
-    if (key == null) return;
+    if (key == null || _mirrorView) return;
     Map<String, dynamic>? data;
     try {
       data = saveGame();
@@ -112,6 +134,17 @@ mixin SavedGameState<T extends StatefulWidget> on State<T> {
     _lifecycle?.dispose();
     super.dispose();
   }
+}
+
+/// Saved games are also what friends see when they watch: the state
+/// [saveForMirror] is sent and shown with [restoreGame].
+mixin SavedGameMirror<T extends StatefulWidget>
+    on SavedGameState<T>, GameMirror<T> {
+  @override
+  Map<String, dynamic>? mirrorState() => saveForMirror();
+
+  @override
+  void applyMirror(Map<String, dynamic> state) => restoreGame(state);
 }
 
 /// App-bar button: starts the round over after asking.

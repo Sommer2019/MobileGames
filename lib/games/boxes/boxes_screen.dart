@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -27,7 +28,13 @@ class BoxesScreen extends StatefulWidget {
 }
 
 class _BoxesScreenState extends State<BoxesScreen>
-    with SavedGameState, BotTurns {
+    with SavedGameState, GameMirror, SavedGameMirror, BotTurns {
+  @override
+  String? get mirrorGame => setup.online ? null : 'boxes';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
   late int round = widget.setup.firstRound;
   late BoxesGame game = _newGame();
   StreamSubscription<RoomMessage>? _sub;
@@ -44,7 +51,7 @@ class _BoxesScreenState extends State<BoxesScreen>
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.moves.isEmpty) return null;
+    if (!savingForMirror && (game.isOver || game.moves.isEmpty)) return null;
     return {'round': round, 'moves': game.moves};
   }
 

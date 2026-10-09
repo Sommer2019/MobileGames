@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/shake.dart';
+import '../../core/mirror.dart';
 import '../../core/sound.dart';
 import '../../ui/dice.dart';
 import '../../ui/widgets_sheet.dart';
@@ -23,7 +24,33 @@ class DiceCupScreen extends StatefulWidget {
   State<DiceCupScreen> createState() => _DiceCupScreenState();
 }
 
-class _DiceCupScreenState extends State<DiceCupScreen> {
+class _DiceCupScreenState extends State<DiceCupScreen> with GameMirror {
+  @override
+  String? get mirrorGame => 'dice';
+
+  @override
+  Map<String, dynamic>? mirrorState() => {
+    'count': count,
+    'values': values,
+    'held': held,
+    'rolled': rolled,
+    'history': history,
+  };
+
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final v = [for (final x in state['values'] as List) x as int];
+    if (rolled && v.join() != values.join()) Sound.play(Sfx.dice);
+    count = state['count'] as int;
+    values = v;
+    held = [for (final x in state['held'] as List) x as bool];
+    rolled = state['rolled'] as bool;
+    history = [
+      for (final r in state['history'] as List)
+        [for (final x in r as List) x as int],
+    ];
+  }
+
   static const _countKey = 'dice.count';
   static const _historyKey = 'dice.history';
   static const historyLength = 10;
@@ -43,6 +70,7 @@ class _DiceCupScreenState extends State<DiceCupScreen> {
   @override
   void initState() {
     super.initState();
+    if (mirroring) return;
     SharedPreferences.getInstance().then((p) {
       if (!mounted) return;
       setState(() {

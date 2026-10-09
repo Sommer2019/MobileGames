@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -27,7 +28,41 @@ class BingoScreen extends StatefulWidget {
   State<BingoScreen> createState() => _BingoScreenState();
 }
 
-class _BingoScreenState extends State<BingoScreen> {
+class _BingoScreenState extends State<BingoScreen> with GameMirror {
+  @override
+  String? get mirrorGame => setup.online ? null : 'bingo';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
+  @override
+  Map<String, dynamic>? mirrorState() {
+    final g = game;
+    if (g == null) return null;
+    return {
+      'seed': g.seed,
+      'drawn': g.drawn,
+      'winner': g.winner,
+      'marked': _marked.toList(),
+    };
+  }
+
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final seed = state['seed'] as int;
+    if (game?.seed != seed) {
+      game = BingoGame(players: players, seed: seed);
+    }
+    final drawn = state['drawn'] as int;
+    if (drawn > game!.drawn) Sound.play(Sfx.click);
+    game!
+      ..drawn = drawn
+      ..winner = state['winner'] as int?;
+    _marked
+      ..clear()
+      ..addAll([for (final n in state['marked'] as List) n as int]);
+  }
+
   BingoGame? game;
   StreamSubscription<RoomMessage>? _sub;
   final Random _random = Random();
@@ -44,7 +79,7 @@ class _BingoScreenState extends State<BingoScreen> {
   int get players => setup.players;
 
   /// The host calls the numbers (offline: this device).
-  bool get _caller => !setup.online || setup.isHost;
+  bool get _caller => setup.runsGame;
 
   int? get _me =>
       setup.spectator || setup.isBot(setup.mySeat) ? null : setup.mySeat;
@@ -369,9 +404,12 @@ class _BingoScreenState extends State<BingoScreen> {
 
   Widget _cell(int n, Set<int> drawn, ColorScheme scheme) {
     final free = n == 0;
-    // Watching the computers: their card marks itself.
+    // Watching others: their card marks itself (a friend's game at their
+    // device shows the friend's own marks).
     final marked =
-        free || _marked.contains(n) || (_watching && drawn.contains(n));
+        free ||
+        _marked.contains(n) ||
+        (_watching && !mirroring && drawn.contains(n));
     return GestureDetector(
       key: ValueKey('bingoCell$n'),
       onTap: () => _tapCell(n),

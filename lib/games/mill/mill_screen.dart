@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -35,7 +36,14 @@ class MillScreen extends StatefulWidget {
   State<MillScreen> createState() => _MillScreenState();
 }
 
-class _MillScreenState extends State<MillScreen> with SavedGameState {
+class _MillScreenState extends State<MillScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'mill';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   MillGame game = MillGame();
   late int round = widget.setup.firstRound;
   int? selected;
@@ -50,7 +58,7 @@ class _MillScreenState extends State<MillScreen> with SavedGameState {
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.isFresh) return null;
+    if (!savingForMirror && (game.isOver || game.isFresh)) return null;
     return {'round': round, 'game': game.toJson()};
   }
 
@@ -136,6 +144,7 @@ class _MillScreenState extends State<MillScreen> with SavedGameState {
   }
 
   Future<void> _maybeAi() async {
+    if (widget.setup.spectator) return;
     if (widget.setup.kind != PlayKind.ai || game.isOver || game.turn == me) {
       return;
     }

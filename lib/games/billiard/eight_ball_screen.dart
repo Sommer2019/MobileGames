@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../ui/play_setup.dart';
 import 'billiard_logic.dart';
@@ -25,7 +26,17 @@ class EightBallScreen extends StatefulWidget {
 }
 
 class _EightBallScreenState extends State<EightBallScreen>
-    with SingleTickerProviderStateMixin, SavedGameState {
+    with
+        SingleTickerProviderStateMixin,
+        SavedGameState,
+        GameMirror,
+        SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'billiard';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   BilliardGame game = BilliardGame();
   EightBallRules rules = EightBallRules();
   late int round = widget.setup.firstRound;
@@ -76,6 +87,40 @@ class _EightBallScreenState extends State<EightBallScreen>
     if (game.moving && _beforeShot != null) return _beforeShot;
     if (rules.isOver || game.shots == 0) return null;
     return _state;
+  }
+
+  /// The running shot (for watching friends): its start and the stroke.
+  Map<String, dynamic>? _lastShot;
+
+  @override
+  Map<String, dynamic>? mirrorState() {
+    final moving = game.moving && _beforeShot != null && _lastShot != null;
+    return {
+      ...(moving ? _beforeShot! : _state),
+      'shot': moving ? _lastShot : null,
+    };
+  }
+
+  /// A friend's shot is animated here from the same start.
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final shot = state['shot'] as Map<String, dynamic>?;
+    if (shot == null) {
+      _beforeShot = null;
+      _lastShot = null;
+      restoreGame(state);
+      return;
+    }
+    if (_lastShot?['n'] == shot['n']) return; // already rolling
+    restoreGame(state);
+    _beforeShot = Map<String, dynamic>.from(state)..remove('shot');
+    _lastShot = shot;
+    game.shoot(
+      (shot['a'] as num).toDouble(),
+      (shot['p'] as num).toDouble(),
+      spinX: (shot['sx'] as num).toDouble(),
+      spinY: (shot['sy'] as num).toDouble(),
+    );
   }
 
   @override
@@ -263,6 +308,13 @@ class _EightBallScreenState extends State<EightBallScreen>
     final cx = game.cue.x, cy = game.cue.y;
     _beforeShot = _state;
     if (game.shoot(aimAngle, p, spinX: spin.dx, spinY: spin.dy)) {
+      _lastShot = {
+        'a': aimAngle,
+        'p': p,
+        'sx': spin.dx,
+        'sy': spin.dy,
+        'n': game.shots,
+      };
       _myShotRunning = true;
       widget.setup.send({
         't': 'cue',

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -28,7 +29,13 @@ class LastCardScreen extends StatefulWidget {
 }
 
 class _LastCardScreenState extends State<LastCardScreen>
-    with SavedGameState, BotTurns {
+    with SavedGameState, GameMirror, SavedGameMirror, BotTurns {
+  @override
+  String? get mirrorGame => setup.online ? null : 'lastcard';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
   late int round = widget.setup.firstRound;
   late LastCardGame game = LastCardGame(players: players, first: round);
   StreamSubscription<RoomMessage>? _sub;
@@ -41,14 +48,14 @@ class _LastCardScreenState extends State<LastCardScreen>
   PlaySetup get setup => widget.setup;
   int get players => setup.players;
 
-  bool get _canDeal => !setup.online || setup.isHost;
+  bool get _canDeal => setup.runsGame;
 
   @override
   String? get saveKey => setup.saveKey('lastcard');
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || !game.dealt) return null;
+    if (!savingForMirror && (game.isOver || !game.dealt)) return null;
     return {'round': round, 'events': game.events};
   }
 
@@ -88,7 +95,7 @@ class _LastCardScreenState extends State<LastCardScreen>
   }
 
   bool get _needsHandover {
-    if (setup.online) return false;
+    if (setup.online || setup.spectator) return false;
     final c = game.toMove;
     return c != null && !setup.isBot(c) && c != _viewer;
   }

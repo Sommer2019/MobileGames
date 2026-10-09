@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/core/account.dart';
+import 'package:mobile_games/core/mirror.dart';
 import 'package:mobile_games/core/net/game_session.dart';
 import 'package:mobile_games/games/chess/chess_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
@@ -52,8 +53,62 @@ Future<(GameRoom, GameRoom)> chessRoom(
   return (hostRoom, await guest.room);
 }
 
+class _FakeSource implements MirrorSource {
+  Map<String, dynamic> state = {'score': 1};
+  @override
+  String? get mirrorGame => 'snake';
+  @override
+  Map<String, dynamic> get mirrorSetup => const {};
+  @override
+  Map<String, dynamic>? mirrorState() => state;
+  @override
+  Duration get mirrorInterval => const Duration(milliseconds: 20);
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('a friend watches a game played on one device', () async {
+    final bus = FakeRelayBus();
+    final gerd = await Account.load(prefix: 'g', recover: () async => null);
+    final wanda = await Account.load(prefix: 'w', recover: () async => null);
+    await gerd.addFriend(wanda.keys.publicKey, name: 'Wanda');
+    final gerdMsg = Messenger(bus.client(), gerd.keys)..start();
+    final wandaMsg = Messenger(bus.client(), wanda.keys)..start();
+    final hub = SpectatorHub(gerdMsg, gerd, factoryFor(gerdMsg));
+    final source = _FakeSource();
+    Mirrors.current.value = source;
+    expect(hub.playing.value, 'snake', reason: 'friends see "spielt Snake"');
+
+    final watched = await connectToFriendGame(
+      messenger: wandaMsg,
+      sessionFactory: factoryFor(wandaMsg),
+      friend: Friend(gerd.keys.publicKey, 'Gerd'),
+      timeout: const Duration(seconds: 5),
+    );
+    expect(watched, isA<MirrorFeed>());
+    final feed = watched as MirrorFeed;
+    expect(feed.gameId, 'snake');
+    expect(feed.state.value, {'score': 1});
+    expect(hub.watchers.value, 1);
+
+    // Changes arrive live.
+    source.state = {'score': 2};
+    for (var i = 0; i < 40 && feed.state.value?['score'] != 2; i++) {
+      await pump();
+    }
+    expect(feed.state.value, {'score': 2});
+
+    // The game is closed on Gerd's device.
+    Mirrors.current.value = null;
+    for (var i = 0; i < 40 && !feed.ended.value; i++) {
+      await pump();
+    }
+    expect(feed.ended.value, isTrue);
+    expect(hub.playing.value, isNull);
+    await feed.close();
+    await hub.dispose();
+  });
 
   test('a friend watches: earlier moves, live moves and cheers', () async {
     final bus = FakeRelayBus();

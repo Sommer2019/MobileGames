@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -24,7 +25,17 @@ class DartsScreen extends StatefulWidget {
 }
 
 class _DartsScreenState extends State<DartsScreen>
-    with SingleTickerProviderStateMixin, SavedGameState {
+    with
+        SingleTickerProviderStateMixin,
+        SavedGameState,
+        GameMirror,
+        SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'darts';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   DartsGame? game;
   DartsMode mode = DartsMode.x501;
   bool doubleOut = true;
@@ -68,7 +79,9 @@ class _DartsScreenState extends State<DartsScreen>
   @override
   Map<String, dynamic>? saveGame() {
     final g = game;
-    if (g == null || g.isOver || g.isFresh) return null;
+    if (g == null || (!savingForMirror && (g.isOver || g.isFresh))) {
+      return null;
+    }
     return {'round': round, 'game': g.toJson()};
   }
 

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
 import '../account.dart';
+import '../mirror.dart';
 import 'game_session.dart';
 import 'matchmaker.dart';
 import 'messenger.dart';
@@ -17,7 +19,20 @@ import 'room.dart';
 class SpectatorHub {
   SpectatorHub(this.messenger, this.account, this.sessionFactory) {
     _sub = messenger.messages.where((m) => m.type == 'watch').listen(_onWatch);
+    Mirrors.current.addListener(_mirrorChanged);
+    _mirrorChanged();
   }
+
+  /// A game on this device (no room) started or stopped.
+  void _mirrorChanged() {
+    final source = Mirrors.current.value;
+    for (final w in List.of(_mirrorWatchers)) {
+      if (w.source != source) w.end();
+    }
+    if (_room == null) playing.value = source?.mirrorGame;
+  }
+
+  final List<_MirrorWatcher> _mirrorWatchers = [];
 
   /// Games whose moves can be replayed for spectators.
   static const watchable = {
@@ -64,7 +79,7 @@ class SpectatorHub {
   void detach(GameRoom room) {
     if (_room != room) return;
     _room = null;
-    playing.value = null;
+    playing.value = Mirrors.current.value?.mirrorGame;
     for (final w in List.of(_watchers)) {
       w.close();
     }
@@ -75,11 +90,28 @@ class SpectatorHub {
     if (matchId is! String) return;
     final room = _room;
     final friend = account.friend(m.from);
-    if (room == null ||
-        room.isClosed ||
-        friend == null ||
-        _watchers.length >= maxWatchers) {
+    final mirror = Mirrors.current.value;
+    final full = _watchers.length + _mirrorWatchers.length >= maxWatchers;
+    if (friend == null ||
+        full ||
+        ((room == null || room.isClosed) && mirror?.mirrorGame == null)) {
       messenger.send(m.from, {'type': 'watch-no', 'matchId': matchId});
+      return;
+    }
+    if (room == null || room.isClosed) {
+      final session = sessionFactory(
+        MatchInfo(
+          matchId: matchId,
+          gameId: mirror!.mirrorGame!,
+          opponent: m.from,
+          opponentName: friend.name,
+          isHost: true,
+        ),
+      );
+      final w = _MirrorWatcher(session, mirror, this);
+      _mirrorWatchers.add(w);
+      watchers.value = _watchers.length + _mirrorWatchers.length;
+      w.start();
       return;
     }
     final session = sessionFactory(
@@ -93,17 +125,26 @@ class SpectatorHub {
     );
     final w = _Watcher(session, room, this);
     _watchers.add(w);
-    watchers.value = _watchers.length;
+    watchers.value = _watchers.length + _mirrorWatchers.length;
     w.start();
   }
 
   void _remove(_Watcher w) {
     _watchers.remove(w);
-    watchers.value = _watchers.length;
+    watchers.value = _watchers.length + _mirrorWatchers.length;
+  }
+
+  void _removeMirror(_MirrorWatcher w) {
+    _mirrorWatchers.remove(w);
+    watchers.value = _watchers.length + _mirrorWatchers.length;
   }
 
   Future<void> dispose() async {
     await _sub.cancel();
+    Mirrors.current.removeListener(_mirrorChanged);
+    for (final w in List.of(_mirrorWatchers)) {
+      w.end();
+    }
     for (final w in List.of(_watchers)) {
       w.close();
     }
@@ -160,6 +201,66 @@ class _Watcher {
   }
 }
 
+/// A friend watching a game that is played on this device only: the
+/// state is sent whenever it changed.
+class _MirrorWatcher {
+  _MirrorWatcher(this.session, this.source, this.hub);
+  final GameSession session;
+  final MirrorSource source;
+  final SpectatorHub hub;
+  StreamSubscription<LinkState>? _state;
+  Timer? _timer;
+  String? _last;
+  bool _closed = false;
+
+  void start() {
+    _state = session.stateChanges.listen((s) {
+      if (s == LinkState.connected && _timer == null) _begin();
+      if (s == LinkState.opponentLeft) close();
+    });
+    session.start();
+  }
+
+  void _begin() {
+    final state = source.mirrorState();
+    _last = jsonEncode(state);
+    session.send({
+      'k': 'm',
+      'game': source.mirrorGame,
+      'setup': source.mirrorSetup,
+      'state': state,
+    });
+    _timer = Timer.periodic(source.mirrorInterval, (_) => _tick());
+  }
+
+  void _tick() {
+    final state = source.mirrorState();
+    if (state == null) return;
+    final text = jsonEncode(state);
+    if (text == _last) return;
+    _last = text;
+    session.send({'k': 'm', 'state': state});
+  }
+
+  /// The game on this device was closed.
+  void end() {
+    if (_closed) return;
+    session.send({'k': 'm', 'end': true});
+    // Give the message a moment before the connection goes.
+    Timer(const Duration(seconds: 2), close);
+    _timer?.cancel();
+  }
+
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    _timer?.cancel();
+    _state?.cancel();
+    session.close();
+    hub._removeMirror(this);
+  }
+}
+
 /// Why watching did not work.
 class WatchRefused implements Exception {
   WatchRefused(this.message);
@@ -168,8 +269,27 @@ class WatchRefused implements Exception {
   String toString() => message;
 }
 
-/// Connects to [friend]'s running game as a spectator.
+/// Connects to [friend]'s running online game as a spectator.
 Future<GameRoom> watchFriend({
+  required Messenger messenger,
+  required SessionFactory sessionFactory,
+  required Friend friend,
+  Duration timeout = const Duration(seconds: 25),
+}) async {
+  final watched = await connectToFriendGame(
+    messenger: messenger,
+    sessionFactory: sessionFactory,
+    friend: friend,
+    timeout: timeout,
+  );
+  if (watched is GameRoom) return watched;
+  await (watched as MirrorFeed).close();
+  throw WatchRefused('${friend.name} spielt gerade kein Online-Spiel.');
+}
+
+/// Connects to whatever [friend] is playing: an online game (a
+/// [GameRoom] to watch) or a game on their device (a [MirrorFeed]).
+Future<Object> connectToFriendGame({
   required Messenger messenger,
   required SessionFactory sessionFactory,
   required Friend friend,
@@ -185,8 +305,9 @@ Future<GameRoom> watchFriend({
       isHost: false,
     ),
   );
-  final result = Completer<GameRoom>();
+  final result = Completer<Object>();
   GameRoom? room;
+  MirrorFeed? mirror;
   final early = <Map<String, dynamic>>[];
   final refusal = messenger.messages
       .where(
@@ -204,10 +325,38 @@ Future<GameRoom> watchFriend({
           );
         }
       });
-  final sub = session.messages.listen((m) {
+  late final StreamSubscription<Map<String, dynamic>> sub;
+  final link = session.stateChanges.listen((s) {
+    if (s == LinkState.opponentLeft) mirror?.ended.value = true;
+  });
+  sub = session.messages.listen((m) {
     final r = room;
     if (r != null) {
       r.receive(m);
+      return;
+    }
+    final f = mirror;
+    if (f != null) {
+      if (m['k'] != 'm') return;
+      if (m['end'] == true) f.ended.value = true;
+      final state = m['state'];
+      if (state is Map) f.state.value = Map<String, dynamic>.from(state);
+      return;
+    }
+    if (m['k'] == 'm' && m['game'] is String) {
+      final state = m['state'];
+      mirror = MirrorFeed(
+        gameId: m['game'] as String,
+        friendName: friend.name,
+        setup: Map<String, dynamic>.from(m['setup'] as Map? ?? const {}),
+        state: state is Map ? Map<String, dynamic>.from(state) : null,
+        onClose: () async {
+          await sub.cancel();
+          await link.cancel();
+          await session.close();
+        },
+      );
+      if (!result.isCompleted) result.complete(mirror!);
       return;
     }
     if (m['k'] != 'w') {
@@ -241,6 +390,7 @@ Future<GameRoom> watchFriend({
     return await result.future.timeout(timeout);
   } catch (e) {
     await sub.cancel();
+    await link.cancel();
     await session.close();
     if (e is TimeoutException) {
       throw WatchRefused('${friend.name} antwortet nicht.');

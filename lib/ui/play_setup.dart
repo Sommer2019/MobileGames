@@ -22,6 +22,7 @@ class PlaySetup {
     : kind = PlayKind.local,
       _players = players,
       _bots = bots,
+      _mirror = false,
       room = null,
       scope = null,
       firstRound = 0,
@@ -31,6 +32,7 @@ class PlaySetup {
     : kind = PlayKind.ai,
       _players = 2,
       _bots = const {1},
+      _mirror = false,
       room = null,
       scope = null,
       firstRound = 0,
@@ -44,11 +46,33 @@ class PlaySetup {
     this.onLeave,
   }) : kind = PlayKind.online,
        _players = 0,
-       _bots = const {};
+       _bots = const {},
+       _mirror = false;
+
+  /// Shows a friend's offline game (see [mirrorInfo]): nothing is played
+  /// or saved on this device.
+  PlaySetup.mirror(Map<String, dynamic> info)
+    : kind = PlayKind.values.asNameMap()[info['kind']] ?? PlayKind.local,
+      _players = info['players'] as int? ?? 2,
+      _bots = {for (final b in info['bots'] as List? ?? const []) b as int},
+      _mirror = true,
+      room = null,
+      scope = null,
+      firstRound = 0,
+      onFinished = null,
+      onLeave = null;
+
+  /// How a friend's device builds this setup for watching.
+  Map<String, dynamic> get mirrorInfo => {
+    'kind': kind.name,
+    'players': players,
+    'bots': botSeats.toList(),
+  };
 
   final PlayKind kind;
   final int _players;
   final Set<int> _bots;
+  final bool _mirror;
   final GameRoom? room;
 
   /// Seats played by the computer. Offline every device plays them, online
@@ -61,6 +85,7 @@ class PlaySetup {
   /// (people taking turns and computer players), online its own seat and,
   /// on the host, the computer players.
   bool controls(int seat) {
+    if (_mirror) return false;
     final r = room;
     if (r == null) return true;
     if (r.spectator) return false;
@@ -104,11 +129,11 @@ class PlaySetup {
   bool get online => kind == PlayKind.online;
 
   /// Only watching a friend's game: no moves, no rematch.
-  bool get spectator => room?.spectator ?? false;
+  bool get spectator => room?.spectator ?? _mirror;
 
   /// Where an offline round of [game] is kept when leaving (online: null).
   String? saveKey(String game) {
-    if (online) return null;
+    if (online || _mirror) return null;
     final bots = (_bots.toList()..sort()).join();
     return '$game.${kind.name}$players${kind == PlayKind.local && bots.isNotEmpty ? 'b$bots' : ''}';
   }
@@ -121,9 +146,12 @@ class PlaySetup {
   /// Seat of this device online (0 = host). Offline always 0.
   int get mySeat => room?.mySeat ?? 0;
 
-  /// The host plays first / white.
-  /// The host deals, draws and runs the computers – never a spectator.
-  bool get isHost => !spectator && mySeat == 0;
+  /// The host plays first / white (also when only watching the host).
+  bool get isHost => mySeat == 0;
+
+  /// This device deals, draws balls and runs the computers: offline, or
+  /// the host online – never a spectator.
+  bool get runsGame => !spectator && (!online || isHost);
 
   /// For two player games: the other player's name.
   String get opponentName {

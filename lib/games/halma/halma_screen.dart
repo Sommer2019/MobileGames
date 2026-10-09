@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -31,7 +32,18 @@ class HalmaScreen extends StatefulWidget {
 }
 
 class _HalmaScreenState extends State<HalmaScreen>
-    with SavedGameState, BotTurns, TickerProviderStateMixin {
+    with
+        SavedGameState,
+        GameMirror,
+        SavedGameMirror,
+        BotTurns,
+        TickerProviderStateMixin {
+  @override
+  String? get mirrorGame => setup.online ? null : 'halma';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
   late int round = widget.setup.firstRound;
   late HalmaGame game = HalmaGame(players: players, first: round);
   StreamSubscription<RoomMessage>? _sub;
@@ -63,7 +75,7 @@ class _HalmaScreenState extends State<HalmaScreen>
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.moves.isEmpty) return null;
+    if (!savingForMirror && (game.isOver || game.moves.isEmpty)) return null;
     return {'round': round, 'moves': game.moves};
   }
 

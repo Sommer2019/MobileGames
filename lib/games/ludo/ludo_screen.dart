@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/shake.dart';
@@ -91,7 +92,18 @@ class LudoScreen extends StatefulWidget {
 }
 
 class _LudoScreenState extends State<LudoScreen>
-    with SavedGameState, BotTurns, TickerProviderStateMixin {
+    with
+        SavedGameState,
+        GameMirror,
+        SavedGameMirror,
+        BotTurns,
+        TickerProviderStateMixin {
+  @override
+  String? get mirrorGame => setup.online ? null : 'ludo';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
   late int round = widget.setup.firstRound;
   late LudoGame game = LudoGame(players: players, first: round);
   StreamSubscription<RoomMessage>? _sub;
@@ -141,7 +153,7 @@ class _LudoScreenState extends State<LudoScreen>
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.isOver || game.events.isEmpty) return null;
+    if (!savingForMirror && (game.isOver || game.events.isEmpty)) return null;
     return {'round': round, 'events': game.events};
   }
 

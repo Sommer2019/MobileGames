@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -18,7 +19,17 @@ class BattleshipLocalScreen extends StatefulWidget {
 }
 
 class _BattleshipLocalScreenState extends State<BattleshipLocalScreen>
-    with SavedGameState {
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => 'battleship';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => const {
+    'kind': 'local',
+    'players': 2,
+    'bots': <int>[],
+  };
+
   final fleets = [FleetBoard.random(), FleetBoard.random()];
   final targets = [TargetBoard(), TargetBoard()];
   int current = 0;
@@ -35,7 +46,7 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen>
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (placing || winner != null) return null;
+    if (placing || (!savingForMirror && winner != null)) return null;
     return {
       // A finished turn continues with the other player.
       'current': _turnOver ? 1 - current : current,

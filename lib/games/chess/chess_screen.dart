@@ -4,6 +4,7 @@ import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -31,7 +32,14 @@ class ChessScreen extends StatefulWidget {
   State<ChessScreen> createState() => _ChessScreenState();
 }
 
-class _ChessScreenState extends State<ChessScreen> with SavedGameState {
+class _ChessScreenState extends State<ChessScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'chess';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   ChessGame game = ChessGame();
   late int round = widget.setup.firstRound;
   String? selected;
@@ -55,7 +63,8 @@ class _ChessScreenState extends State<ChessScreen> with SavedGameState {
   @override
   Map<String, dynamic>? saveGame() {
     final moves = game.moveList;
-    if (game.isOver || _resigned != null || moves.isEmpty) return null;
+    final done = game.isOver || _resigned != null || moves.isEmpty;
+    if (!savingForMirror && done) return null;
     return {'round': round, 'moves': moves};
   }
 
@@ -171,6 +180,7 @@ class _ChessScreenState extends State<ChessScreen> with SavedGameState {
   );
 
   Future<void> _maybeAi() async {
+    if (widget.setup.spectator) return;
     if (widget.setup.kind != PlayKind.ai ||
         game.isOver ||
         game.turn == mySide) {

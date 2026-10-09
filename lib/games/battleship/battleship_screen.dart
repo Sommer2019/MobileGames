@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -21,7 +22,13 @@ class BattleshipScreen extends StatefulWidget {
 }
 
 class _BattleshipScreenState extends State<BattleshipScreen>
-    with SavedGameState {
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => widget.setup.online ? null : 'battleship';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => widget.setup.mirrorInfo;
+
   late FleetBoard fleet;
   late TargetBoard enemy;
   _Phase phase = _Phase.placing;
@@ -223,6 +230,7 @@ class _BattleshipScreenState extends State<BattleshipScreen>
   }
 
   Future<void> _aiTurn() async {
+    if (widget.setup.spectator) return;
     while (mounted && phase == _Phase.playing && !myTurn) {
       await Future<void>.delayed(const Duration(milliseconds: 700));
       if (!mounted) return;

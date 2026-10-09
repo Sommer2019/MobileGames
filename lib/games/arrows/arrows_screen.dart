@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
@@ -48,7 +49,54 @@ class ArrowsScreen extends StatefulWidget {
 }
 
 class _ArrowsScreenState extends State<ArrowsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, GameMirror {
+  @override
+  String? get mirrorGame => 'arrows';
+
+  @override
+  Map<String, dynamic>? mirrorState() => {
+    'd': diff.name,
+    'l': level,
+    'h': game.hearts,
+    'r': [
+      for (var i = 0; i < game.removed.length; i++)
+        if (game.removed[i]) i,
+    ],
+  };
+
+  /// A friend's level: the same arrows fly out here.
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final d =
+        ArrowsDifficulty.values.asNameMap()[state['d']] ??
+        ArrowsDifficulty.easy;
+    final l = state['l'] as int;
+    final removed = {for (final i in state['r'] as List) i as int};
+    if (d != diff ||
+        l != level ||
+        game.removed.where((r) => r).length > removed.length) {
+      diff = d;
+      level = l;
+      _restart();
+    }
+    for (final i in removed) {
+      if (i >= game.removed.length || game.removed[i]) continue;
+      final (steps, _) = game.wayOut(i);
+      game.removed[i] = true;
+      _flights.add(
+        _Flight(
+          i,
+          _now,
+          steps + game.level.arrows[i].cells.length + 1.0,
+          blocked: false,
+        ),
+      );
+    }
+    final hearts = state['h'] as int;
+    if (hearts < game.hearts) Sound.play(Sfx.thud);
+    game.hearts = hearts;
+  }
+
   static const _difficultyKey = 'arrows.difficulty';
   static String _levelKey(ArrowsDifficulty d) => 'arrows.level.${d.name}';
 
@@ -71,7 +119,7 @@ class _ArrowsScreenState extends State<ArrowsScreen>
     level = widget.startLevel ?? 1;
     diff = widget.difficulty ?? ArrowsDifficulty.easy;
     _restart();
-    if (widget.startLevel == null) _loadLevel();
+    if (widget.startLevel == null && !mirroring) _loadLevel();
     _ticker.start();
   }
 

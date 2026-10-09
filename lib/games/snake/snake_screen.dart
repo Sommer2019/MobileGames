@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -18,7 +19,7 @@ class SnakeScreen extends StatefulWidget {
 }
 
 class _SnakeScreenState extends State<SnakeScreen>
-    with SingleTickerProviderStateMixin, SavedGameState {
+    with SingleTickerProviderStateMixin, SavedGameState, GameMirror {
   SnakeGame game = SnakeGame();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
@@ -38,6 +39,23 @@ class _SnakeScreenState extends State<SnakeScreen>
   Map<String, dynamic>? saveGame() {
     if (game.dead || game.won || (!running && !paused)) return null;
     return game.toJson();
+  }
+
+  @override
+  String? get mirrorGame => 'snake';
+
+  @override
+  Duration get mirrorInterval => const Duration(milliseconds: 120);
+
+  @override
+  Map<String, dynamic>? mirrorState() => {...game.toJson(), 'dead': game.dead};
+
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    game = SnakeGame.fromJson(state);
+    wrap = game.wrap;
+    running = false;
+    paused = false;
   }
 
   @override
@@ -233,7 +251,7 @@ class _SnakeScreenState extends State<SnakeScreen>
                                 painter: _SnakePainter(game, nokia: _nokia),
                               ),
                             ),
-                            if (!running)
+                            if (!running && !mirroring)
                               Positioned.fill(
                                 child: ColoredBox(
                                   color: Colors.black54,

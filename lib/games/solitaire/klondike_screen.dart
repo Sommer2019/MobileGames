@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -26,7 +27,11 @@ class KlondikeScreen extends StatefulWidget {
   State<KlondikeScreen> createState() => _KlondikeScreenState();
 }
 
-class _KlondikeScreenState extends State<KlondikeScreen> with SavedGameState {
+class _KlondikeScreenState extends State<KlondikeScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => 'klondike';
+
   int drawCount = 1;
   late KlondikeGame game = KlondikeGame(drawCount: drawCount);
   final Stopwatch _clock = Stopwatch()..start();
@@ -40,7 +45,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> with SavedGameState {
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (game.won || game.moves == 0) return null;
+    if (!savingForMirror && (game.won || game.moves == 0)) return null;
     return {'game': game.toJson(), 'seconds': _seconds};
   }
 
@@ -49,6 +54,7 @@ class _KlondikeScreenState extends State<KlondikeScreen> with SavedGameState {
     game = KlondikeGame.fromJson(data['game'] as Map<String, dynamic>);
     drawCount = game.drawCount;
     _offset = data['seconds'] as int;
+    _clock.reset();
   }
 
   Timer? _timer;

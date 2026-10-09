@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
@@ -17,7 +18,11 @@ class MahjongScreen extends StatefulWidget {
   State<MahjongScreen> createState() => _MahjongScreenState();
 }
 
-class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
+class _MahjongScreenState extends State<MahjongScreen>
+    with SavedGameState, GameMirror, SavedGameMirror {
+  @override
+  String? get mirrorGame => 'mahjong';
+
   MahjongGame? game;
   MahjongTile? selected;
   (MahjongTile, MahjongTile)? hint;
@@ -36,7 +41,9 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
   @override
   Map<String, dynamic>? saveGame() {
     final g = game;
-    if (g == null || g.won || g.history.isEmpty) return null;
+    if (g == null || (!savingForMirror && (g.won || g.history.isEmpty))) {
+      return null;
+    }
     return {'shape': _shape!.name, 'game': g.toJson(), 'seconds': _seconds};
   }
 
@@ -52,7 +59,9 @@ class _MahjongScreenState extends State<MahjongScreen> with SavedGameState {
     );
     _shape = shape;
     _offset = data['seconds'] as int;
-    _clock.start();
+    _clock
+      ..reset()
+      ..start();
   }
 
   /// The shape chosen last time (null: by screen orientation).

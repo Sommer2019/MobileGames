@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
@@ -27,7 +28,18 @@ class DominoScreen extends StatefulWidget {
 }
 
 class _DominoScreenState extends State<DominoScreen>
-    with SavedGameState, BotTurns, SingleTickerProviderStateMixin {
+    with
+        SavedGameState,
+        GameMirror,
+        SavedGameMirror,
+        BotTurns,
+        SingleTickerProviderStateMixin {
+  @override
+  String? get mirrorGame => setup.online ? null : 'domino';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
   late int round = widget.setup.firstRound;
   late DominoMatch match = DominoMatch(players: players, first: round);
   StreamSubscription<RoomMessage>? _sub;
@@ -50,14 +62,14 @@ class _DominoScreenState extends State<DominoScreen>
   int get players => setup.players;
 
   /// Only the host (or the device offline) deals, so all hands match.
-  bool get _canDeal => !setup.online || setup.isHost;
+  bool get _canDeal => setup.runsGame;
 
   @override
   String? get saveKey => setup.saveKey('domino');
 
   @override
   Map<String, dynamic>? saveGame() {
-    if (match.isOver || !match.dealt) return null;
+    if (!savingForMirror && (match.isOver || !match.dealt)) return null;
     return {'round': round, 'events': match.events};
   }
 
@@ -99,7 +111,7 @@ class _DominoScreenState extends State<DominoScreen>
 
   /// Several people share the device and someone else is up now.
   bool get _needsHandover {
-    if (setup.online) return false;
+    if (setup.online || setup.spectator) return false;
     final c = match.toMove;
     return c != null && !setup.isBot(c) && c != _viewer;
   }
