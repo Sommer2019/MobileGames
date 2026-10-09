@@ -49,8 +49,12 @@ class _BingoScreenState extends State<BingoScreen> {
   int? get _me =>
       setup.spectator || setup.isBot(setup.mySeat) ? null : setup.mySeat;
 
-  /// Bot-Arena (only computers): watch the first computer's card.
-  bool get _watching => !setup.online && _me == null;
+  /// Card shown although it is not ours: the friend's card for
+  /// spectators, the first computer's in the Bot-Arena.
+  int? get _shown =>
+      _me ?? (setup.spectator ? setup.mySeat : (setup.online ? null : 0));
+
+  bool get _watching => _me == null && _shown != null;
 
   /// Bingo turbo (secret): balls come twice as fast.
   bool get _turbo => Secrets.on(Secret.bingoTurbo);
@@ -267,7 +271,7 @@ class _BingoScreenState extends State<BingoScreen> {
               alignment: WrapAlignment.center,
               children: [
                 for (var p = 0; p < players; p++)
-                  if (p != (me ?? (_watching ? 0 : null)))
+                  if (p != _shown)
                     Chip(
                       visualDensity: VisualDensity.compact,
                       label: Text(
@@ -287,7 +291,7 @@ class _BingoScreenState extends State<BingoScreen> {
                 child: me != null
                     ? _card(context, g, me)
                     : _watching
-                    ? _card(context, g, 0)
+                    ? _card(context, g, _shown!)
                     : const SizedBox(),
               ),
             ),

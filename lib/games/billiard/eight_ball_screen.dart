@@ -104,9 +104,26 @@ class _EightBallScreenState extends State<EightBallScreen>
     super.dispose();
   }
 
+  /// A shot result that arrived (or was replayed) before the next shot:
+  /// apply it right away, so earlier shots need no animation.
+  void _applyPendingSettle() {
+    final settle = _pendingSettle;
+    if (settle == null) return;
+    _pendingSettle = null;
+    _remoteShotRunning = false;
+    game.restore(settle['snap'] as List<dynamic>);
+    rules.evaluate(
+      pocketed: [for (final n in settle['pocketed'] as List) n as int],
+      firstHit: settle['firstHit'] as int?,
+      scratched: settle['scratched'] as bool? ?? false,
+      clearedBefore: settle['cleared'] as bool? ?? false,
+    );
+  }
+
   void _onMessage(Map<String, dynamic> m) {
     switch (m['t']) {
       case 'cue':
+        _applyPendingSettle();
         setState(() {
           final cx = m['cx'], cy = m['cy'];
           if (cx is num && cy is num) {
@@ -123,12 +140,14 @@ class _EightBallScreenState extends State<EightBallScreen>
           _remoteShotRunning = true;
         });
       case 'place':
+        _applyPendingSettle();
         setState(() {
           game.placeCue((m['x'] as num).toDouble(), (m['y'] as num).toDouble());
         });
       case 'settle':
         _pendingSettle = m;
       case 'rematch':
+        _applyPendingSettle();
         _reset(send: false);
     }
   }

@@ -27,6 +27,15 @@ class SpectatorHub {
     'connect_four',
     'yahtzee',
     'darts',
+    'battleship',
+    'billiard',
+    'boxes',
+    'ludo',
+    'domino',
+    'halma',
+    'bingo',
+    'lastcard',
+    'stapelfix',
   };
   static const maxWatchers = 10;
 

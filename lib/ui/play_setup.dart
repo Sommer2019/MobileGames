@@ -122,7 +122,8 @@ class PlaySetup {
   int get mySeat => room?.mySeat ?? 0;
 
   /// The host plays first / white.
-  bool get isHost => mySeat == 0;
+  /// The host deals, draws and runs the computers – never a spectator.
+  bool get isHost => !spectator && mySeat == 0;
 
   /// For two player games: the other player's name.
   String get opponentName {

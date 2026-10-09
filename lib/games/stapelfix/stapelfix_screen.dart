@@ -71,7 +71,8 @@ class _StapelfixScreenState extends State<StapelfixScreen>
   }
 
   int? _defaultViewer() {
-    if (setup.online) return setup.spectator ? null : setup.mySeat;
+    // Spectators look over their friend's shoulder.
+    if (setup.online) return setup.mySeat;
     final humans = [
       for (var p = 0; p < players; p++)
         if (!setup.isBot(p)) p,
