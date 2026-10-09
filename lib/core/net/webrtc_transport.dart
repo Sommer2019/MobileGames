@@ -1,8 +1,26 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import 'game_session.dart';
+
+/// Whether WebRTC can be used on this device. On Linux the native WebRTC
+/// library aborts the whole app when no PulseAudio server is reachable
+/// (e.g. PipeWire without pipewire-pulse), although we only use data
+/// channels – so there it is only used when the sound server answers.
+bool webRtcUsable() {
+  if (kIsWeb || !Platform.isLinux) return true;
+  final env = Platform.environment;
+  if (env['MOBILE_GAMES_NO_P2P'] != null) return false;
+  final server = env['PULSE_SERVER'];
+  if (server != null && server.isNotEmpty) return true;
+  final runtime = env['XDG_RUNTIME_DIR'];
+  if (runtime == null) return false;
+  return File('$runtime/pulse/native').existsSync();
+}
 
 /// Direct peer-to-peer data channel using WebRTC. Public STUN servers are
 /// used for NAT traversal; there is no TURN server (no own backend), so if

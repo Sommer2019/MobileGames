@@ -26,7 +26,8 @@ class Services {
     required this.client,
     P2pTransport Function()? p2pFactory,
   }) : messenger = Messenger(client, account.keys),
-       p2pFactory = p2pFactory ?? WebRtcTransport.new {
+       p2pFactory =
+           p2pFactory ?? (webRtcUsable() ? WebRtcTransport.new : null) {
     messenger.start();
     matchmaker = Matchmaker(messenger, nameProvider: () => account.name);
     spectators = SpectatorHub(messenger, account, createSession);
@@ -89,7 +90,10 @@ class Services {
   final Account account;
   final NostrClient client;
   final Messenger messenger;
-  final P2pTransport Function() p2pFactory;
+
+  /// Direct connections; null when WebRTC cannot run here (then all game
+  /// messages go over the encrypted relays).
+  final P2pTransport Function()? p2pFactory;
   late final Matchmaker matchmaker;
   late final Presence presence;
   late final SpectatorHub spectators;
@@ -110,5 +114,5 @@ class Services {
   }
 
   GameSession createSession(MatchInfo match) =>
-      GameSession(match, messenger, p2p: p2pFactory());
+      GameSession(match, messenger, p2p: p2pFactory?.call());
 }
