@@ -37,12 +37,26 @@ class _EightBallScreenState extends State<EightBallScreen>
   StreamSubscription<RoomMessage>? _sub;
 
   bool _myShotRunning = false;
+
+  /// The computer is planning or aiming its shot.
+  bool _botBusy = false;
+  final EightBallAi _ai = EightBallAi();
   bool _clearedBefore = false;
   bool _remoteShotRunning = false;
   Map<String, dynamic>? _pendingSettle;
 
   /// Player index p is played by seat (p + round) % 2.
   int get myIndex => (widget.setup.mySeat - round % 2 + 2) % 2;
+
+  int _seatOf(int p) => (p + round) % 2;
+
+  /// The computer has to shoot now (on this device).
+  bool get _botTurn {
+    final seat = _seatOf(rules.current);
+    return !rules.isOver &&
+        widget.setup.isBot(seat) &&
+        widget.setup.controls(seat);
+  }
 
   /// The table right before the running shot (a shot left half-way is
   /// taken back).
@@ -155,6 +169,7 @@ class _EightBallScreenState extends State<EightBallScreen>
         'cleared': _clearedBefore,
       });
     }
+    if (_botTurn && !_botBusy && _pendingSettle == null) _botShot();
     final settle = _pendingSettle;
     if (settle != null) {
       _pendingSettle = null;
@@ -171,7 +186,9 @@ class _EightBallScreenState extends State<EightBallScreen>
     }
   }
 
-  bool get _canShoot =>
+  bool get _canShoot => _tableReady && !_botTurn;
+
+  bool get _tableReady =>
       !game.moving &&
       !rules.isOver &&
       !_myShotRunning &&
@@ -180,7 +197,47 @@ class _EightBallScreenState extends State<EightBallScreen>
       (!widget.setup.online || rules.current == myIndex);
 
   void _shoot(double p) {
-    if (!_canShoot || p <= 0.02) return;
+    if (!_canShoot) return;
+    _fire(p);
+  }
+
+  /// The computer looks at the table, turns the cue towards its target
+  /// and shoots.
+  Future<void> _botShot() async {
+    _botBusy = true;
+    final plan = _ai.plan(game.toJson(), rules);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted || !_botTurn) return _botDone();
+    if (plan.cueX != null) _placeCueFor(plan.cueX!, plan.cueY!);
+    // Turn the cue smoothly (the short way round).
+    final from = aimAngle;
+    var delta = (plan.angle - from) % (2 * pi);
+    if (delta > pi) delta -= 2 * pi;
+    for (var i = 1; i <= 20; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      if (!mounted) return;
+      setState(() => aimAngle = from + delta * i / 20);
+    }
+    for (var i = 1; i <= 10; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      if (!mounted) return;
+      setState(() => power = plan.power * i / 10);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted || !_tableReady || !_botTurn) return _botDone();
+    setState(() {
+      aimAngle = plan.angle;
+      power = 0;
+      spin = Offset.zero;
+    });
+    _fire(plan.power);
+    _botDone();
+  }
+
+  void _botDone() => _botBusy = false;
+
+  void _fire(double p) {
+    if (!_tableReady || p <= 0.02) return;
     final group = rules.groups[rules.current];
     _clearedBefore =
         group != null && rules.remainingOf(game, rules.current) == 0;
@@ -202,6 +259,10 @@ class _EightBallScreenState extends State<EightBallScreen>
 
   void _placeCue(double x, double y) {
     if (!_canShoot) return;
+    _placeCueFor(x, y);
+  }
+
+  void _placeCueFor(double x, double y) {
     if (game.placeCue(x, y)) {
       setState(() {});
       widget.setup.send({'t': 'place', 'x': x, 'y': y});
@@ -225,6 +286,9 @@ class _EightBallScreenState extends State<EightBallScreen>
   String _name(int p) {
     final room = widget.setup.room;
     if (room != null) return p == myIndex ? 'Du' : room.names[(p + round) % 2];
+    if (widget.setup.botSeats.isNotEmpty) {
+      return widget.setup.seatName(_seatOf(p));
+    }
     return 'Spieler ${p + 1}';
   }
 
@@ -240,6 +304,7 @@ class _EightBallScreenState extends State<EightBallScreen>
       return w == 'Du' ? 'Du hast gewonnen! 🎱' : '$w gewinnt!';
     }
     final n = _name(rules.current);
+    if (_botTurn) return '$n zielt …';
     return n == 'Du' ? 'Du bist am Stoß' : '$n ist am Stoß';
   }
 

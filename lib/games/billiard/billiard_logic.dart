@@ -625,3 +625,213 @@ class SoloRules {
         : events.join(' • ');
   }
 }
+
+/// A planned shot of the computer.
+class PlannedShot {
+  const PlannedShot(this.angle, this.power, {this.cueX, this.cueY});
+
+  /// Where to put the cue ball first (ball in hand), or null.
+  final double? cueX, cueY;
+  final double angle;
+  final double power;
+
+  Map<String, dynamic> toJson() => {
+    'a': angle,
+    'p': power,
+    if (cueX != null) 'x': cueX,
+    if (cueY != null) 'y': cueY,
+  };
+
+  factory PlannedShot.fromJson(Map<String, dynamic> j) => PlannedShot(
+    (j['a'] as num).toDouble(),
+    (j['p'] as num).toDouble(),
+    cueX: (j['x'] as num?)?.toDouble(),
+    cueY: (j['y'] as num?)?.toDouble(),
+  );
+}
+
+/// Computer player for 8-ball: aims every legal ball at every pocket
+/// (ghost ball), tries the promising shots on a copy of the table and
+/// takes the best one. [aimError] makes it human (radians of noise).
+class EightBallAi {
+  EightBallAi({Random? random, this.aimError = 0.006})
+    : _random = random ?? Random();
+  final Random _random;
+  final double aimError;
+
+  /// Plans a shot for [player] on the table [state] (see
+  /// [BilliardGame.toJson]) with [rules].
+  PlannedShot plan(Map<String, dynamic> state, EightBallRules rules) {
+    final player = rules.current;
+    final base = BilliardGame()..load(state);
+    // Cue placements to consider (ball in hand: some good spots).
+    final placements = <(double, double)?>[null];
+    if (base.cueInHand) {
+      placements
+        ..clear()
+        ..addAll(_placements(base, rules, player));
+      if (placements.isEmpty) placements.add(null);
+    }
+    PlannedShot? best;
+    var bestScore = -double.infinity;
+    for (final place in placements) {
+      final g = BilliardGame()..load(state);
+      if (place != null && !g.placeCue(place.$1, place.$2)) continue;
+      for (final c in _candidates(g, rules, player)) {
+        final score = _try(state, rules, place, c.$1, c.$2) + c.$3;
+        if (score > bestScore) {
+          bestScore = score;
+          best = PlannedShot(c.$1, c.$2, cueX: place?.$1, cueY: place?.$2);
+        }
+      }
+    }
+    best ??= PlannedShot(_random.nextDouble() * 2 * pi, 0.5);
+    // A little human inaccuracy.
+    return PlannedShot(
+      best.angle + (_random.nextDouble() - 0.5) * 2 * aimError,
+      (best.power * (0.97 + _random.nextDouble() * 0.06)).clamp(0.05, 1.0),
+      cueX: best.cueX,
+      cueY: best.cueY,
+    );
+  }
+
+  /// Balls the player may aim at.
+  static List<Ball> legalTargets(
+    BilliardGame g,
+    EightBallRules rules,
+    int player,
+  ) {
+    final group = rules.groups[player];
+    final open = [
+      for (final b in g.balls)
+        if (!b.pocketed && b.number != 0) b,
+    ];
+    if (group == null) return open.where((b) => b.number != 8).toList();
+    final own = open.where((b) => groupOf(b.number) == group).toList();
+    return own.isEmpty ? open.where((b) => b.number == 8).toList() : own;
+  }
+
+  /// Ghost ball shots: (angle, power, bonus for easy shots).
+  List<(double, double, double)> _candidates(
+    BilliardGame g,
+    EightBallRules rules,
+    int player,
+  ) {
+    const r = BilliardGame.radius;
+    final out = <(double, double, double)>[];
+    final cue = g.cue;
+    for (final t in legalTargets(g, rules, player)) {
+      for (final (px, py) in BilliardGame.pockets) {
+        final tx = px - t.x, ty = py - t.y;
+        final d2 = sqrt(tx * tx + ty * ty);
+        if (d2 < 1e-6) continue;
+        final ux = tx / d2, uy = ty / d2;
+        final gx = t.x - ux * 2 * r, gy = t.y - uy * 2 * r;
+        final ax = gx - cue.x, ay = gy - cue.y;
+        final d1 = sqrt(ax * ax + ay * ay);
+        if (d1 < 1e-6) continue;
+        final cut = (ax * ux + ay * uy) / d1; // cos of the cut angle
+        if (cut < 0.2) continue;
+        // Something in the way of the target ball to the pocket?
+        if (_blocked(g, t, t.x, t.y, px, py)) continue;
+        final angle = atan2(ay, ax);
+        if (g.preview(angle).ball != t) continue;
+        const a = BilliardGame.friction;
+        final vt = sqrt(2 * a * (d2 + 0.15));
+        final vc = vt / cut;
+        final v0 = sqrt(vc * vc + 2 * a * d1);
+        final power = (v0 / BilliardGame.maxSpeed * 1.1).clamp(0.2, 1.0);
+        out.add((angle, power, cut * 2 - d1 - d2));
+      }
+    }
+    // Nothing to pot: touch a legal ball softly (no foul at least).
+    if (out.isEmpty) {
+      for (final t in legalTargets(g, rules, player)) {
+        final angle = atan2(t.y - cue.y, t.x - cue.x);
+        if (g.preview(angle).ball == t) out.add((angle, 0.35, -5));
+      }
+    }
+    return out;
+  }
+
+  /// Whether another ball lies on the way from (x1, y1) to (x2, y2).
+  static bool _blocked(
+    BilliardGame g,
+    Ball moving,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+  ) {
+    final dx = x2 - x1, dy = y2 - y1;
+    final len2 = dx * dx + dy * dy;
+    for (final b in g.balls) {
+      if (b == moving || b == g.cue || b.pocketed) continue;
+      final t = ((b.x - x1) * dx + (b.y - y1) * dy) / len2;
+      if (t <= 0 || t >= 1) continue;
+      final cx = x1 + dx * t - b.x, cy = y1 + dy * t - b.y;
+      if (cx * cx + cy * cy < pow(BilliardGame.radius * 2.05, 2)) return true;
+    }
+    return false;
+  }
+
+  /// Good spots for the cue ball in hand: straight behind each legal ball
+  /// on the line to each pocket.
+  List<(double, double)> _placements(
+    BilliardGame g,
+    EightBallRules rules,
+    int player,
+  ) {
+    final out = <(double, double)>[];
+    for (final t in legalTargets(g, rules, player)) {
+      for (final (px, py) in BilliardGame.pockets) {
+        final dx = t.x - px, dy = t.y - py;
+        final d = sqrt(dx * dx + dy * dy);
+        if (d < 1e-6) continue;
+        final x = t.x + dx / d * 0.3, y = t.y + dy / d * 0.3;
+        if (x < 0.05 || y < 0.05 || x > 1.95 || y > 0.95) continue;
+        out.add((x, y));
+      }
+    }
+    out.shuffle(_random);
+    return out.take(6).toList();
+  }
+
+  /// Plays the shot on a copy and rates the result for the shooter.
+  double _try(
+    Map<String, dynamic> state,
+    EightBallRules rules,
+    (double, double)? place,
+    double angle,
+    double power,
+  ) {
+    final g = BilliardGame()..load(state);
+    if (place != null) g.placeCue(place.$1, place.$2);
+    final r = EightBallRules.fromJson(rules.toJson());
+    final me = r.current;
+    final group = r.groups[me];
+    final cleared = group != null && r.remainingOf(g, me) == 0;
+    g.shoot(angle, power);
+    var t = 0.0;
+    while (g.moving && t < 20) {
+      g.step(0.02);
+      t += 0.02;
+    }
+    final pocketed = List<int>.from(g.pocketedThisShot)..remove(0);
+    r.evaluate(
+      pocketed: pocketed,
+      firstHit: g.firstHit,
+      scratched: g.scratched,
+      clearedBefore: cleared,
+    );
+    if (r.isOver) return r.winner == me ? 1000 : -1000;
+    var score = 0.0;
+    final mine = r.groups[me];
+    for (final n in pocketed) {
+      score += mine != null && groupOf(n) == mine ? 10 : -3;
+    }
+    if (r.current == me) score += 20; // keeps the turn
+    if (g.scratched || g.firstHit == null) score -= 25;
+    return score;
+  }
+}

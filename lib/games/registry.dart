@@ -406,6 +406,11 @@ final List<GameInfo> games = [
         PlaySetup.local(players: 1),
       ),
       OfflineMode(
+        '8-Ball gegen Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode(
         '8-Ball: 2 Spieler, 1 Gerät',
         Icons.people,
         PlaySetup.local(),
