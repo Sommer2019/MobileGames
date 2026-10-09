@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/billiard/billiard_screen.dart';
@@ -13,6 +15,8 @@ import 'package:mobile_games/games/battleship/battleship_local_screen.dart';
 import 'package:mobile_games/games/battleship/battleship_screen.dart';
 import 'package:mobile_games/games/snake/snake_screen.dart';
 import 'package:mobile_games/games/solitaire/klondike_screen.dart';
+import 'package:mobile_games/core/saved_games.dart';
+import 'package:mobile_games/games/yahtzee/yahtzee_logic.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/home_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
@@ -139,6 +143,64 @@ void main() {
     expect(find.textContaining('Du bist dran – noch 3 Würfe'), findsOneWidget);
     // The computer has written exactly one entry.
     expect(find.text('Computer'), findsOneWidget);
+  });
+
+  testWidgets('kniffel: the whole score sheet fits without scrolling', (
+    tester,
+  ) async {
+    // Small phone, four players.
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      app(const YahtzeeScreen(setup: PlaySetup.local(players: 4))),
+    );
+    await tester.tap(find.byKey(const ValueKey('rollButton')));
+    await tester.pump();
+    expect(find.byType(SingleChildScrollView), findsNothing);
+    final last = tester.getRect(find.byKey(const ValueKey('score-3-chance')));
+    expect(last.bottom, lessThanOrEqualTo(640));
+    expect(find.text('Gesamt'), findsOneWidget);
+    expect(tester.getRect(find.text('Gesamt')).bottom, lessThanOrEqualTo(640));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('kniffel: finished game with rematch button still fits', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    // Everything written except the last player's chance.
+    final full = {for (final c in KniffelCategory.values) c.name: 10};
+    SharedPreferences.setMockInitialValues({
+      'save.yahtzee.local2': jsonEncode({
+        'round': 0,
+        'game': {
+          'sheets': [
+            full,
+            {...full}..remove('chance'),
+          ],
+          'dice': [6, 6, 6, 6, 6],
+          'held': List.filled(5, false),
+          'rollsLeft': 2,
+          'current': 1,
+        },
+        'aiTurn': 0,
+        'lucky': 0,
+      }),
+    });
+    await SavedGames.load();
+    addTearDown(SavedGames.reset);
+    await tester.pumpWidget(
+      app(const YahtzeeScreen(setup: PlaySetup.local(players: 2))),
+    );
+    await tester.tap(find.byKey(const ValueKey('score-1-chance')));
+    await tester.pump();
+    expect(find.byType(GameOverActions), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsNothing);
+    expect(tester.getRect(find.text('Gesamt')).bottom, lessThanOrEqualTo(640));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('kniffel solo: roll and score', (tester) async {

@@ -340,19 +340,43 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     );
   }
 
-  Widget _sheet() {
+  /// Header, upper section, bonus, lower section and total.
+  static final _sheetRows = KniffelCategory.values.length + 3;
+
+  /// The score sheet fills the space below the dice without scrolling;
+  /// only very small screens scroll.
+  Widget _sheet() => LayoutBuilder(
+    builder: (context, c) {
+      final rowHeight = (c.maxHeight / _sheetRows).clamp(0.0, 44.0);
+      final fits = rowHeight >= 18;
+      final table = _table(fits ? rowHeight - 1 : 28);
+      return fits
+          ? Align(alignment: Alignment.topCenter, child: table)
+          : SingleChildScrollView(child: table);
+    },
+  );
+
+  Widget _table(double rowHeight) {
     final theme = Theme.of(context);
+    // Fits the text into a row; shrinks it when rows get short.
+    Widget fit(Widget child, {Alignment align = Alignment.center}) => SizedBox(
+      height: rowHeight,
+      child: FittedBox(fit: BoxFit.scaleDown, alignment: align, child: child),
+    );
     final current = game.currentPlayer;
     TableRow row(String label, List<Widget> cells, {bool bold = false}) =>
         TableRow(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                label,
-                style: bold
-                    ? const TextStyle(fontWeight: FontWeight.bold)
-                    : null,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: fit(
+                Text(
+                  label,
+                  style: bold
+                      ? const TextStyle(fontWeight: FontWeight.bold)
+                      : null,
+                ),
+                align: Alignment.centerLeft,
               ),
             ),
             ...cells,
@@ -367,34 +391,36 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
         key: ValueKey('score-$p-${c.name}'),
         onTap: selectable ? () => _score(c) : null,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
           alignment: Alignment.center,
           color: selectable
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
               : null,
-          child: Text(
-            filled != null
-                ? '$filled'
-                : (selectable ? '${scoreFor(c, game.dice)}' : ''),
-            style: TextStyle(
-              fontWeight: filled != null ? FontWeight.bold : FontWeight.normal,
-              color: filled != null ? null : theme.colorScheme.primary,
+          child: fit(
+            Text(
+              filled != null
+                  ? '$filled'
+                  : (selectable ? '${scoreFor(c, game.dice)}' : ''),
+              style: TextStyle(
+                fontWeight: filled != null
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: filled != null ? null : theme.colorScheme.primary,
+              ),
             ),
           ),
         ),
       );
     }
 
-    Widget total(String text) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Text(
+    Widget total(String text) => fit(
+      Text(
         text,
         textAlign: TextAlign.center,
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
     );
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Table(
         border: TableBorder.all(color: theme.dividerColor),
@@ -407,12 +433,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
                 color: p == current && !game.isOver
                     ? theme.colorScheme.secondaryContainer
                     : null,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(
-                  playerName(p),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: fit(Text(playerName(p), textAlign: TextAlign.center)),
               ),
           ]),
           for (final c in KniffelCategory.values.where((c) => c.isUpper))
