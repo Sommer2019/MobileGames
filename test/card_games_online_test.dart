@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/lastcard/lastcard_screen.dart';
+import 'package:mobile_games/games/prophet/prophet_screen.dart';
 import 'package:mobile_games/games/stapelfix/stapelfix_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -94,5 +95,45 @@ void main() {
     expect(stocks('A').length, 3);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('Stichprophet: same deal, the guest predicts', (tester) async {
+    await twoScreens(tester, 'prophet', (s) => ProphetScreen(setup: s));
+    Finder on(String side, Finder f) =>
+        find.descendant(of: find.byKey(ValueKey(side)), matching: f);
+    String trump(String side) => tester
+        .widget<Text>(on(side, find.byKey(const ValueKey('prophetTrump'))))
+        .data!;
+    expect(trump('B'), trump('A'));
+    // Round 1: one card each; Anna deals, so Ben predicts first.
+    expect(
+      on(
+        'B',
+        find.byWidgetPredicate((w) => w is ProphetCardView && w.width == 48),
+      ),
+      findsOneWidget,
+    );
+    expect(on('A', find.byKey(const ValueKey('bid0'))), findsNothing);
+    await tester.tap(on('B', find.byKey(const ValueKey('bid0'))));
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+    }
+    // The host sees Ben's prediction; the computer has predicted too.
+    expect(
+      on(
+        'A',
+        find.descendant(
+          of: find.byKey(const ValueKey('prophetSeat1')),
+          matching: find.text('Stiche 0/0'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(on('A', find.byKey(const ValueKey('bid0'))), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 7));
   });
 }

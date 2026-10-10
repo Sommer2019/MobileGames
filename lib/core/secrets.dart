@@ -41,6 +41,10 @@ enum Secret {
     'Stapelfix: doppelt so viele Joker im Spiel (gilt für deine Runden)',
   ),
   arrowsXray('Röntgenblick', 'Pfeile: freie Pfeile schimmern leicht grün'),
+  crystalBall(
+    'Glaskugel',
+    'Stichprophet: genaue Vorhersagen regnen Sternschnuppen',
+  ),
   botArena(
     'Bot-Arena',
     'Bei „Spieler & Computer wählen“ dürfen alle Plätze Computer sein – '
