@@ -74,6 +74,42 @@ void main() {
     expect(boardById('mahjong.tower').format(125), '2:05');
   });
 
+  test('a new phone takes over the published bests', () async {
+    final bus = FakeRelayBus();
+    final a = await Account.load(prefix: 'a');
+    await a.setName('Anna');
+    // Old phone.
+    await Leaderboard.submit('snake', 41);
+    await Leaderboard.submit('mahjong.tower', 300);
+    for (var i = 0; i < 3; i++) {
+      await Leaderboard.recordWin('chess.grandmaster');
+    }
+    await Leaderboard(bus.client(), a).publish();
+
+    // New phone, same account: nothing on the device yet.
+    SharedPreferences.setMockInitialValues({});
+    final moved = Leaderboard(bus.client(), a);
+    Leaderboard.instance = moved;
+    expect(await Leaderboard.submit('snake', 6), isTrue);
+    await moved.publish();
+
+    expect(await Leaderboard.best('snake'), 41, reason: 'shown under "Ich"');
+    expect(await Leaderboard.best('mahjong.tower'), 300);
+    final h = await Leaderboard.history('snake');
+    expect(h.map((e) => e.value), [41, 6]);
+    // Wins go on counting from 3.
+    await Leaderboard.recordWin('chess.grandmaster');
+    expect(await Leaderboard.best('chess.grandmaster'), 4);
+
+    // The published values were not replaced with lower ones.
+    final remote = await moved.fetch(
+      authors: [a.keys.publicKey],
+      timeout: const Duration(milliseconds: 50),
+    );
+    expect(remote.single.scores['snake'], 41);
+    expect(remote.single.scores['mahjong.tower'], 300);
+  });
+
   testWidgets('leaderboard screen shows own results offline', (tester) async {
     await Leaderboard.submit('klondike', 1234);
     await tester.pumpWidget(

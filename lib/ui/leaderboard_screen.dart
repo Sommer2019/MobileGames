@@ -95,6 +95,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final s = Services.I;
     setState(() => loading = true);
     await s.leaderboard.publish();
+    // Results from an earlier phone may have just been taken over.
+    await _loadMine();
     final friendKeys = [
       s.account.keys.publicKey,
       for (final f in s.account.friends) f.pubkey,

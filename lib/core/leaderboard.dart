@@ -360,25 +360,80 @@ class Leaderboard {
     final b = boardById(id);
     if (!b.plausible(value)) return false;
     final prefs = await SharedPreferences.getInstance();
+    final record = await _add(prefs, b, value, at ?? DateTime.now());
+    if (record) unawaited(instance?.publish());
+    return record;
+  }
+
+  /// Adds [value] to the history of [b]; true if it is the new best.
+  static Future<bool> _add(
+    SharedPreferences prefs,
+    ScoreBoard b,
+    int value,
+    DateTime at,
+  ) async {
     final list = _history(prefs, b);
     final record = list.isEmpty || b.better(value, list.first.value);
     list
-      ..add(ScoreEntry(value, at ?? DateTime.now()))
+      ..add(ScoreEntry(value, at))
       ..sort(
         (x, y) => x.value == y.value
             ? x.at.compareTo(y.at)
             : (b.better(x.value, y.value) ? -1 : 1),
       );
     if (list.length > keep) list.removeRange(keep, list.length);
-    await prefs.setString(_key(id), jsonEncode(list));
-    if (record) unawaited(instance?.publish());
+    await prefs.setString(_key(b.id), jsonEncode(list));
     return record;
+  }
+
+  /// Takes over best values this account published before (on another
+  /// phone or before a reinstall) where they beat the ones on this device.
+  /// Returns how many boards changed.
+  static Future<int> adopt(Map<String, int> scores, DateTime at) async {
+    final prefs = await SharedPreferences.getInstance();
+    var changed = 0;
+    for (final MapEntry(key: id, :value) in scores.entries) {
+      final b = boards.where((b) => b.id == id).firstOrNull;
+      if (b == null || !b.plausible(value)) continue;
+      final h = _history(prefs, b);
+      if (h.isNotEmpty && !b.better(value, h.first.value)) continue;
+      await _add(prefs, b, value, at);
+      // Win counters go on from the number reached.
+      if (b.unit == 'Siege' && (prefs.getInt('wins.$id') ?? 0) < value) {
+        await prefs.setInt('wins.$id', value);
+      }
+      changed++;
+    }
+    return changed;
   }
 
   // --------------------------------------------------------------- shared
 
+  /// Whether our earlier published values were looked up (see [syncOwn]).
+  bool _synced = false;
+
+  /// Fetches the values this account published before and takes them over
+  /// (see [adopt]): after moving to a new phone the own results come back,
+  /// and the next publish does not replace them with lower ones.
+  Future<bool> syncOwn({Duration timeout = const Duration(seconds: 3)}) async {
+    final own = await fetch(
+      authors: [account.keys.publicKey],
+      timeout: timeout,
+    );
+    if (own.isEmpty) return false;
+    final latest = own.reduce((a, b) => a.createdAt >= b.createdAt ? a : b);
+    await adopt(
+      latest.scores,
+      DateTime.fromMillisecondsSinceEpoch(latest.createdAt * 1000),
+    );
+    return _synced = true;
+  }
+
   /// Publishes our best values (replaces the previous event).
   Future<void> publish() async {
+    // Until our earlier values were seen, merge them in first so they are
+    // never replaced with fewer or lower ones.
+    if (!_synced) await syncOwn();
     final scores = await bests();
     if (scores.isEmpty) return;
     await client.publish(
@@ -396,6 +451,8 @@ class Leaderboard {
         ],
       ),
     );
+    // Our event now holds everything we have.
+    _synced = true;
   }
 
   /// Collects published scores from the relays for [timeout]. With
