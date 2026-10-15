@@ -115,41 +115,44 @@ class MirrorWatchScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return MirrorScope(
       feed: feed,
-      child: Stack(
+      // A bar below the game, so it never covers the board.
+      child: Column(
         children: [
-          Positioned.fill(child: AbsorbPointer(child: _game())),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 12,
+          Expanded(
+            // The bar below takes care of the system bar at the bottom.
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: true,
+              child: AbsorbPointer(child: _game()),
+            ),
+          ),
+          Material(
+            color: scheme.inverseSurface,
             child: SafeArea(
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(24),
-                color: scheme.inverseSurface,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ValueListenableBuilder<bool>(
-                          valueListenable: feed.ended,
-                          builder: (context, ended, _) => Text(
-                            ended
-                                ? '${feed.friendName} hat das Spiel verlassen'
-                                : '👁 Du schaust ${feed.friendName} zu',
-                            style: TextStyle(color: scheme.onInverseSurface),
-                          ),
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: feed.ended,
+                        builder: (context, ended, _) => Text(
+                          ended
+                              ? '${feed.friendName} hat das Spiel verlassen'
+                              : '👁 Du schaust ${feed.friendName} zu',
+                          key: const ValueKey('mirrorBanner'),
+                          style: TextStyle(color: scheme.onInverseSurface),
                         ),
                       ),
-                      IconButton(
-                        key: const ValueKey('mirrorClose'),
-                        tooltip: 'Schließen',
-                        onPressed: () => Navigator.maybePop(context),
-                        icon: Icon(Icons.close, color: scheme.onInverseSurface),
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('mirrorClose'),
+                      tooltip: 'Schließen',
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: Icon(Icons.close, color: scheme.onInverseSurface),
+                    ),
+                  ],
                 ),
               ),
             ),

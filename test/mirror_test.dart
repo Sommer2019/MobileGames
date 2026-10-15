@@ -18,6 +18,7 @@ final cases = <(String, PlaySetup?)>[
   ('halma', const PlaySetup.local(players: 2, bots: {0, 1})),
   ('lastcard', const PlaySetup.local(players: 3, bots: {0, 1, 2})),
   ('stapelfix', const PlaySetup.local(players: 2, bots: {0, 1})),
+  ('prophet', const PlaySetup.local(players: 3, bots: {0, 1, 2})),
   ('billiard', const PlaySetup.local(players: 2, bots: {0, 1})),
   ('chess', const PlaySetup.ai()),
   ('checkers', const PlaySetup.ai()),
@@ -116,4 +117,27 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
     });
   }
+
+  testWidgets('the watching bar does not cover the game (phone)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.padding = const FakeViewPadding(bottom: 60);
+    addTearDown(tester.view.reset);
+    final feed = MirrorFeed(
+      gameId: 'yahtzee',
+      friendName: 'Anna',
+      setup: const PlaySetup.ai().mirrorInfo,
+      state: null,
+    );
+    await tester.pumpWidget(MaterialApp(home: MirrorWatchScreen(feed: feed)));
+    await tester.pump();
+    final bar = tester.getRect(find.byKey(const ValueKey('mirrorBanner')));
+    final last = tester.getRect(find.text('Gesamt'));
+    expect(last.bottom, lessThanOrEqualTo(bar.top));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+  });
 }
