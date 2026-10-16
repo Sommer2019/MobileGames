@@ -349,7 +349,7 @@ Future<Object> connectToFriendGame({
   required Friend friend,
   Duration timeout = const Duration(seconds: 25),
 }) async {
-  final matchId = 'w${Random().nextInt(1 << 32).toRadixString(36)}';
+  final matchId = 'w${Random().nextInt(0x7fffffff).toRadixString(36)}';
   final session = sessionFactory(
     MatchInfo(
       matchId: matchId,

@@ -22,11 +22,16 @@ class SeededRandom implements Random {
     return _bytes[_pos++];
   }
 
-  int _uint32() => (_byte() << 24) | (_byte() << 16) | (_byte() << 8) | _byte();
+  // Arithmetic instead of bit shifts: on the web those work on signed 32-bit
+  // numbers and would give other values than on phones.
+  int _uint32() =>
+      _byte() * 16777216 + _byte() * 65536 + _byte() * 256 + _byte();
+
+  static const _range = 4294967296; // 2^32
 
   @override
   int nextInt(int max) {
-    if (max <= 0 || max > 1 << 32) throw RangeError.range(max, 1, 1 << 32);
+    if (max <= 0 || max > _range) throw RangeError.range(max, 1, _range);
     // Rejection sampling keeps every value equally likely.
     if (max <= 256) {
       final limit = 256 - 256 % max;
@@ -35,8 +40,7 @@ class SeededRandom implements Random {
         if (b < limit) return b % max;
       }
     }
-    const range = 1 << 32;
-    final limit = range - range % max;
+    final limit = _range - _range % max;
     while (true) {
       final v = _uint32();
       if (v < limit) return v % max;
@@ -47,7 +51,7 @@ class SeededRandom implements Random {
   bool nextBool() => _byte() & 1 == 1;
 
   @override
-  double nextDouble() => _uint32() / 4294967296.0;
+  double nextDouble() => _uint32() / _range;
 }
 
 /// Seeds of recorded games start with the player's public key, so nobody

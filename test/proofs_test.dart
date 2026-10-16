@@ -154,4 +154,27 @@ void main() {
     final g1 = KlondikeGame(seed: 's'), g2 = KlondikeGame(seed: 's');
     expect(g1.toJson(), g2.toJson());
   });
+
+  // Fixed values: phones and the web version (where bit operations are
+  // 32-bit) must deal the same cards, or replays fail on the other side.
+  test('seeded randomness gives the same numbers on every platform', () {
+    final r = SeededRandom('web');
+    expect(
+      [for (var i = 0; i < 8; i++) r.nextInt(6)],
+      [2, 1, 1, 2, 5, 1, 0, 0],
+    );
+    expect(
+      [for (var i = 0; i < 8; i++) r.nextInt(144)],
+      [134, 7, 123, 12, 45, 91, 14, 109],
+    );
+    expect(
+      [for (var i = 0; i < 4; i++) r.nextInt(3000000000)],
+      [1364286745, 2542614151, 617822433, 637833780],
+    );
+    expect(r.nextDouble(), closeTo(0.757206937065348, 1e-12));
+    expect(KlondikeGame(seed: 'web').toJson()['stock'], [
+      109, 206, 6, 309, 9, 306, 308, 108, 101, 213, 208, 2, //
+      112, 202, 107, 7, 5, 106, 305, 104, 307, 11, 4, 205,
+    ]);
+  });
 }

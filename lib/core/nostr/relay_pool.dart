@@ -69,7 +69,7 @@ class RelayPool implements NostrClient {
 
   @override
   Stream<NostrEvent> subscribe(Map<String, dynamic> filter) {
-    final id = 'mg${_random.nextInt(1 << 31).toRadixString(36)}';
+    final id = 'mg${_random.nextInt(0x7fffffff).toRadixString(36)}';
     late final StreamController<NostrEvent> controller;
     controller = StreamController<NostrEvent>(
       onListen: () {

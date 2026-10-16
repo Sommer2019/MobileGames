@@ -101,7 +101,7 @@ class GameRoom extends ChangeNotifier {
   /// Sends a cheer to everybody (players and spectators).
   void react(String name, String emoji) => receiveReaction({
     'k': 'x',
-    'i': '${_random.nextInt(1 << 32)}',
+    'i': '${_random.nextInt(0x7fffffff)}',
     'n': name,
     'e': emoji,
   });
