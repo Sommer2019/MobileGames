@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../games/mahjong/mahjong_logic.dart';
@@ -8,6 +9,7 @@ import '../games/snake/snake_logic.dart';
 import '../games/solitaire/klondike_logic.dart';
 import '../games/yahtzee/kniffel_proof.dart';
 import 'account.dart';
+import 'legacy_scores.dart';
 import 'moderation.dart';
 import 'names.dart';
 import 'nostr/event.dart';
@@ -495,9 +497,10 @@ class Leaderboard {
       final h = _history(prefs, b);
       if (h.isEmpty) continue;
       final best = b.proven
-          ? h.where((e) => e.proof != null).firstOrNull
+          ? h.where((e) => counts(b, e, account.keys.publicKey)).firstOrNull
           : h.first;
-      // Checked boards: only results that come with their game.
+      // Checked boards: only results that come with their game (or old
+      // ones kept from before the check, see [legacyScores]).
       if (best == null) continue;
       scores[b.id] = best.value;
       if (best.proof case final p?) proofs[b.id] = p;
@@ -554,13 +557,15 @@ class Leaderboard {
               final b = boards.where((b) => b.id == key).firstOrNull;
               if (b == null || value is! int || !b.plausible(value)) continue;
               if (b.proven) {
-                // Only shown if replaying the game gives exactly this.
+                // Only shown if replaying the game gives exactly this – or
+                // if it is no better than the player's value from before.
                 final p = sent[key];
-                if (p is! Map<String, dynamic> ||
-                    verify(key, p, e.pubkey) != value) {
+                if (p is Map<String, dynamic> &&
+                    verify(key, p, e.pubkey) == value) {
+                  proofs[key] = p;
+                } else if (!_legacyAllows(b, e.pubkey, value)) {
                   continue;
                 }
-                proofs[key] = p;
               }
               s[key] = value;
             }
@@ -581,6 +586,21 @@ class Leaderboard {
     await sub.cancel();
     return latest.values.toList();
   }
+
+  /// Values kept from before the check (replaceable in tests).
+  @visibleForTesting
+  static Map<String, Map<String, int>> legacy = legacyScores;
+
+  /// Whether [value] of [author] on a checked board is covered by the
+  /// values kept from before the check (see [legacyScores]).
+  static bool _legacyAllows(ScoreBoard b, String author, int value) {
+    final old = legacy[author]?[b.id];
+    return old != null && !b.better(value, old);
+  }
+
+  /// Whether [e] counts for the shared rankings when published by [author].
+  static bool counts(ScoreBoard b, ScoreEntry e, String author) =>
+      !b.proven || e.proof != null || _legacyAllows(b, author, e.value);
 
   /// The score proven by [proof] for [board] played by [author], or null.
   static int? verify(String board, Map<String, dynamic> proof, String author) =>

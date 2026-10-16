@@ -130,4 +130,62 @@ void main() {
     final mogel = all.firstWhere((r) => r.name == 'Mogel');
     expect(mogel.scores['kniffel'], isNull);
   });
+
+  test(
+    'values from before the check keep counting, but no better ones',
+    () async {
+      final bus = FakeRelayBus();
+      final a = await Account.load(prefix: 'a');
+      await a.setName('Anna');
+      final lb = Leaderboard(bus.client(), a);
+      Leaderboard.legacy = {
+        a.keys.publicKey: {'kniffel': 300, 'snake': 40},
+      };
+      addTearDown(() => Leaderboard.legacy = {});
+
+      // The old values on the device are published without a game.
+      await Leaderboard.submit('kniffel', 300);
+      await Leaderboard.submit('snake', 35);
+      await lb.publish();
+      var all = await lb.fetch(timeout: const Duration(milliseconds: 50));
+      expect(all.single.scores['kniffel'], 300);
+      expect(
+        all.single.scores['snake'],
+        35,
+        reason: 'worse than before is fine',
+      );
+
+      // Better than before without a game: not published, not shown.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'lb.kniffel',
+        jsonEncode([
+          {'v': 375, 't': 0},
+          {'v': 300, 't': 0},
+        ]),
+      );
+      await lb.publish();
+      final sent = jsonDecode(bus.published.last.content) as Map;
+      expect((sent['s'] as Map)['kniffel'], 300, reason: 'the old value stays');
+
+      // A made-up event with more than the old value is ignored.
+      await bus.client().publish(
+        NostrEvent.create(
+          keys: a.keys,
+          kind: Leaderboard.kind,
+          content: jsonEncode({
+            'name': 'Anna',
+            's': {'kniffel': 375},
+          }),
+          createdAt: DateTime.now().add(const Duration(seconds: 5)),
+          tags: [
+            ['d', 'mobilegames-scores'],
+            ['t', 'mobilegames-scores'],
+          ],
+        ),
+      );
+      all = await lb.fetch(timeout: const Duration(milliseconds: 50));
+      expect(all.single.scores['kniffel'], isNull);
+    },
+  );
 }

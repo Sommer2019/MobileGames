@@ -275,7 +275,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ? 'früherer Rekord'
                     : _date(mine[i].at)) +
                 // Counts only here: nothing to replay for the others.
-                (board.proven && mine[i].proof == null ? ' · ungeprüft' : ''),
+                (Leaderboard.counts(board, mine[i], Leaderboard.proofOwner)
+                    ? ''
+                    : ' · ungeprüft'),
             mine[i].value,
           ),
       ],
