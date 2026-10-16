@@ -21,6 +21,7 @@ import 'lastcard/lastcard_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'prophet/prophet_screen.dart';
+import 'schocken/schocken_screen.dart';
 import 'snake/snake_screen.dart';
 import 'solitaire/klondike_screen.dart';
 import 'stapelfix/stapelfix_screen.dart';
@@ -349,6 +350,29 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 6,
     playerCounts: const [2, 3, 4, 5, 6],
     multiplayerBuilder: (s) => StapelfixScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'schocken',
+    title: 'Schocken',
+    description: 'Der Kneipen-Klassiker mit 3 Würfeln und 13 Deckeln',
+    icon: Icons.sports_bar,
+    color: const Color(0xFF795548),
+    offlineModes: const [
+      OfflineMode(
+        'Gegen 3 Computer',
+        Icons.smart_toy,
+        PlaySetup.local(players: 4, bots: {1, 2, 3}),
+      ),
+      OfflineMode(
+        'Gegen 1 Computer',
+        Icons.person,
+        PlaySetup.local(players: 2, bots: {1}),
+      ),
+      OfflineMode('2 Spieler, 1 Gerät', Icons.people, PlaySetup.local()),
+    ],
+    maxOnlinePlayers: 6,
+    playerCounts: const [2, 3, 4, 5, 6],
+    multiplayerBuilder: (s) => SchockenScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',

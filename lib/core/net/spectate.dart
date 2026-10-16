@@ -52,6 +52,7 @@ class SpectatorHub {
     'lastcard',
     'stapelfix',
     'prophet',
+    'schocken',
   };
   static const maxWatchers = 10;
 

@@ -114,6 +114,17 @@ void main() {
       findsOneWidget,
     );
     expect(on('A', find.byKey(const ValueKey('bid0'))), findsNothing);
+    // A wizard turned up as trump: Anna picks the colour first.
+    final pick = on('A', find.byKey(const ValueKey('trump0')));
+    if (pick.evaluate().isNotEmpty) {
+      await tester.tap(pick);
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 300)),
+        );
+        await tester.pump(const Duration(milliseconds: 900));
+      }
+    }
     await tester.tap(on('B', find.byKey(const ValueKey('bid0'))));
     for (var i = 0; i < 4; i++) {
       await tester.runAsync(

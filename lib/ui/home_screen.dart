@@ -10,6 +10,7 @@ import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
+import 'rules_sheet.dart';
 import 'secrets_sheet.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -187,55 +188,68 @@ class _GameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: ValueKey('game-${game.id}'),
-        onTap: () {
-          HomeWidgets.recordPlayed(game.id);
-          Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => game.isMultiplayer
-                  ? LobbyScreen(game: game)
-                  : game.singleplayerBuilder!(),
-            ),
-          );
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [game.color, Color.lerp(game.color, Colors.black, 0.35)!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+      child: Stack(
+        children: [
+          Positioned.fill(child: _tile(context)),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: RulesButton(game: game, color: Colors.white70),
           ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(game.icon, size: 40, color: Colors.white),
-              const Spacer(),
-              // Long titles shrink to one line.
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  game.title,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(BuildContext context) {
+    return InkWell(
+      key: ValueKey('game-${game.id}'),
+      onTap: () {
+        HomeWidgets.recordPlayed(game.id);
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => game.isMultiplayer
+                ? LobbyScreen(game: game)
+                : game.singleplayerBuilder!(),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [game.color, Color.lerp(game.color, Colors.black, 0.35)!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(game.icon, size: 40, color: Colors.white),
+            const Spacer(),
+            // Long titles shrink to one line.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                game.title,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                game.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
-          ),
+            ),
+            Text(
+              game.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
         ),
       ),
     );
