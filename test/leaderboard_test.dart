@@ -121,6 +121,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('1234 Punkte'), findsOneWidget);
+    // Without a recorded game it counts only here.
+    expect(find.textContaining('ungeprüft'), findsOneWidget);
     Future<void> pick(String game) async {
       await tester.tap(find.byKey(const ValueKey('lbGamePicker')));
       await tester.pumpAndSettle();

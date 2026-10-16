@@ -254,6 +254,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String get _hint =>
       board.lowerIsBetter ? 'Weniger ist besser.' : 'Mehr ist besser.';
 
+  /// Whether the values of others are checked (see [ScoreBoard.proven]).
+  String get _trust => board.proven
+      ? '✓ Geprüft: es zählen nur Partien, die sich nachspielen lassen.'
+            '${board.time || board.id == 'klondike' ? ' Die Zeit selbst lässt sich nicht beweisen, sie muss aber zur Zahl der Züge passen.' : ''}'
+      : '⚠️ Ungeprüft: jeder veröffentlicht seine eigenen Bestwerte – '
+            'sie lassen sich fälschen.';
+
   Widget _mine() {
     if (mine.isEmpty) {
       return _empty('Noch kein Ergebnis in „${board.title}“. $_hint');
@@ -264,9 +271,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         for (var i = 0; i < mine.length; i++)
           _row(
             i,
-            mine[i].at.millisecondsSinceEpoch == 0
-                ? 'früherer Rekord'
-                : _date(mine[i].at),
+            (mine[i].at.millisecondsSinceEpoch == 0
+                    ? 'früherer Rekord'
+                    : _date(mine[i].at)) +
+                // Counts only here: nothing to replay for the others.
+                (board.proven && mine[i].proof == null ? ' · ungeprüft' : ''),
             mine[i].value,
           ),
       ],
@@ -290,12 +299,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     };
     return ListView(
       children: [
-        _header(
-          extra: friendsTab
-              ? null
-              : 'Ergebnisse werden nicht geprüft – jeder veröffentlicht '
-                    'seine eigenen Bestwerte.',
-        ),
+        _header(extra: _trust),
         for (var i = 0; i < ranked.length && i < 100; i++)
           _row(
             i,
