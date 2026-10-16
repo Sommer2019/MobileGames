@@ -103,7 +103,9 @@ jobs:
       - name: Upload to Google Play (internal testing)
         if: >-
           env.HAS_KEYSTORE == 'true' && env.HAS_PLAY_JSON == 'true' &&
-          github.event_name == 'push' && github.ref == 'refs/heads/main'
+          (github.event_name == 'push' ||
+           github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
         continue-on-error: true
         uses: r0adkll/upload-google-play@v1
         with:
@@ -263,7 +265,10 @@ jobs:
   web:
     name: Web-App (GitHub Pages)
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Manual runs (Actions → Run workflow) deploy too.
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -310,7 +315,8 @@ jobs:
     # A failed desktop build must not hold back the phone apps.
     if: >-
       !cancelled() && needs.android.result == 'success' &&
-      github.event_name == 'push' &&
+      (github.event_name == 'push' ||
+       github.event_name == 'workflow_dispatch') &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     steps:
