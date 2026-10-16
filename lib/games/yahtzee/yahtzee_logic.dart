@@ -67,6 +67,14 @@ int scoreFor(KniffelCategory cat, List<int> dice) {
 class KniffelScoreSheet {
   final Map<KniffelCategory, int> entries = {};
 
+  /// 100 points for every further Kniffel once the Fünferpasch box holds 50.
+  int kniffelBonus = 0;
+
+  /// Whether [dice] earn the [kniffelBonus] when scored on this sheet.
+  bool earnsKniffelBonus(List<int> dice) =>
+      entries[KniffelCategory.kniffel] == 50 &&
+      scoreFor(KniffelCategory.kniffel, dice) == 50;
+
   bool isFilled(KniffelCategory c) => entries.containsKey(c);
   bool get complete => entries.length == KniffelCategory.values.length;
 
@@ -77,11 +85,14 @@ class KniffelScoreSheet {
   int get lowerSum => entries.entries
       .where((e) => !e.key.isUpper)
       .fold(0, (a, e) => a + e.value);
-  int get total => upperSum + bonus + lowerSum;
+  int get total => upperSum + bonus + lowerSum + kniffelBonus;
 
   Map<String, int> toJson() => {
     for (final e in entries.entries) e.key.name: e.value,
+    if (kniffelBonus > 0) _kniffelBonusKey: kniffelBonus,
   };
+
+  static const _kniffelBonusKey = 'kniffelBonus';
 }
 
 /// State of a Kniffel game for any number of players.
@@ -96,6 +107,10 @@ class KniffelGame {
     final g = KniffelGame(sheets.length);
     for (var i = 0; i < sheets.length; i++) {
       for (final e in (sheets[i] as Map<String, dynamic>).entries) {
+        if (e.key == KniffelScoreSheet._kniffelBonusKey) {
+          g.sheets[i].kniffelBonus = e.value as int;
+          continue;
+        }
         g.sheets[i].entries[KniffelCategory.values.byName(e.key)] =
             e.value as int;
       }
@@ -164,7 +179,9 @@ class KniffelGame {
   /// Writes the current dice into the given category and passes the turn.
   bool score(KniffelCategory c) {
     if (!canScore(c)) return false;
-    sheets[currentPlayer].entries[c] = scoreFor(c, dice);
+    final sheet = sheets[currentPlayer];
+    if (sheet.earnsKniffelBonus(dice)) sheet.kniffelBonus += 100;
+    sheet.entries[c] = scoreFor(c, dice);
     currentPlayer = (currentPlayer + 1) % playerCount;
     rollsLeft = 3;
     held = List.filled(5, false);
@@ -213,6 +230,8 @@ class KniffelAi {
   double _value(KniffelCategory c, List<int> dice, KniffelScoreSheet sheet) {
     final raw = scoreFor(c, dice).toDouble();
     var v = raw - _par[c]!;
+    // Same for every category, but makes chasing a further Kniffel worth it.
+    if (sheet.earnsKniffelBonus(dice)) v += 100;
     if (c.isUpper) {
       final face = c.index + 1;
       // Three or more of a kind keeps the bonus (63 = 3 of each) in reach.

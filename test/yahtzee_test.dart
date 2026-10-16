@@ -33,6 +33,32 @@ void main() {
     expect(s.total, 98);
   });
 
+  test('every further Kniffel earns 100 bonus points', () {
+    final g = KniffelGame(1);
+    g.applyRoll([4, 4, 4, 4, 4]);
+    g.score(KniffelCategory.kniffel);
+    expect(g.sheets[0].kniffelBonus, 0);
+    g.applyRoll([6, 6, 6, 6, 6]);
+    g.score(KniffelCategory.sixes);
+    expect(g.sheets[0].kniffelBonus, 100);
+    expect(g.sheets[0].total, 50 + 30 + 100);
+    g.applyRoll([2, 2, 2, 2, 2]);
+    g.score(KniffelCategory.chance);
+    expect(g.sheets[0].kniffelBonus, 200);
+    final back = KniffelGame.fromJson(g.toJson());
+    expect(back.sheets[0].kniffelBonus, 200);
+    expect(back.sheets[0].total, g.sheets[0].total);
+  });
+
+  test('no Kniffel bonus after a crossed-out Fünferpasch', () {
+    final g = KniffelGame(1);
+    g.applyRoll([1, 2, 3, 4, 6]);
+    g.score(KniffelCategory.kniffel);
+    g.applyRoll([5, 5, 5, 5, 5]);
+    g.score(KniffelCategory.fives);
+    expect(g.sheets[0].kniffelBonus, 0);
+  });
+
   test('turn flow: max three rolls, held dice stay, turns rotate', () {
     final g = KniffelGame(2, random: Random(1));
     expect(
