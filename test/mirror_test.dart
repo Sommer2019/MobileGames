@@ -19,6 +19,7 @@ final cases = <(String, PlaySetup?)>[
   ('lastcard', const PlaySetup.local(players: 3, bots: {0, 1, 2})),
   ('stapelfix', const PlaySetup.local(players: 2, bots: {0, 1})),
   ('prophet', const PlaySetup.local(players: 3, bots: {0, 1, 2})),
+  ('schocken', const PlaySetup.local(players: 3, bots: {0, 1, 2})),
   ('billiard', const PlaySetup.local(players: 2, bots: {0, 1})),
   ('chess', const PlaySetup.ai()),
   ('checkers', const PlaySetup.ai()),

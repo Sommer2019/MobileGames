@@ -5,6 +5,7 @@ import '../core/net/matchmaker.dart';
 import '../games/registry.dart';
 import 'leaderboard_screen.dart';
 import 'room_screens.dart';
+import 'rules_sheet.dart';
 import 'seat_setup_screen.dart';
 
 /// Opens the waiting screen after accepting an invite.
@@ -26,6 +27,7 @@ class LobbyScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(game.title),
         actions: [
+          RulesButton(game: game),
           if (visibleBoards().any((b) => b.game == game.id))
             LeaderboardButton(game: game.id),
         ],
