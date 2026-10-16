@@ -437,7 +437,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
             Text(
               filled != null
                   ? '$filled'
-                  : (selectable ? '${scoreFor(c, game.dice)}$extra' : ''),
+                  : (selectable ? '${sheet.scoreOf(c, game.dice)}$extra' : ''),
               style: TextStyle(
                 fontWeight: filled != null
                     ? FontWeight.bold

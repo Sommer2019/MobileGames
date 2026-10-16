@@ -65,6 +65,11 @@ int scoreFor(KniffelCategory cat, List<int> dice) {
 }
 
 class KniffelScoreSheet {
+  KniffelScoreSheet({this.extraRules = true});
+
+  /// Kniffel bonus and joker rule; games from before them play without.
+  final bool extraRules;
+
   final Map<KniffelCategory, int> entries = {};
 
   /// 100 points for every further Kniffel once the Fünferpasch box holds 50.
@@ -72,8 +77,41 @@ class KniffelScoreSheet {
 
   /// Whether [dice] earn the [kniffelBonus] when scored on this sheet.
   bool earnsKniffelBonus(List<int> dice) =>
+      extraRules &&
       entries[KniffelCategory.kniffel] == 50 &&
       scoreFor(KniffelCategory.kniffel, dice) == 50;
+
+  /// Joker rule: a further Kniffel (Fünferpasch box filled with 50 or 0)
+  /// must go into its upper box if that is open; otherwise it counts in
+  /// any open box, Full House and the straights with full points.
+  bool isJoker(List<int> dice) =>
+      extraRules &&
+      isFilled(KniffelCategory.kniffel) &&
+      scoreFor(KniffelCategory.kniffel, dice) == 50;
+
+  /// Whether [dice] may be written into [c].
+  bool allows(KniffelCategory c, List<int> dice) {
+    if (isFilled(c)) return false;
+    if (!isJoker(dice)) return true;
+    final upper = KniffelCategory.values[dice.first - 1];
+    return isFilled(upper) || c == upper;
+  }
+
+  /// Points [dice] give in [c] on this sheet (with the joker rule).
+  int scoreOf(KniffelCategory c, List<int> dice) {
+    if (isJoker(dice)) {
+      switch (c) {
+        case KniffelCategory.fullHouse:
+          return 25;
+        case KniffelCategory.smallStraight:
+          return 30;
+        case KniffelCategory.largeStraight:
+          return 40;
+        default:
+      }
+    }
+    return scoreFor(c, dice);
+  }
 
   bool isFilled(KniffelCategory c) => entries.containsKey(c);
   bool get complete => entries.length == KniffelCategory.values.length;
@@ -97,14 +135,20 @@ class KniffelScoreSheet {
 
 /// State of a Kniffel game for any number of players.
 class KniffelGame {
-  KniffelGame(this.playerCount, {Random? random})
-    : sheets = List.generate(playerCount, (_) => KniffelScoreSheet()),
+  KniffelGame(this.playerCount, {Random? random, this.extraRules = true})
+    : sheets = List.generate(
+        playerCount,
+        (_) => KniffelScoreSheet(extraRules: extraRules),
+      ),
       _random = random ?? Random();
+
+  /// See [KniffelScoreSheet.extraRules].
+  final bool extraRules;
 
   /// A saved game (see [toJson]).
   factory KniffelGame.fromJson(Map<String, dynamic> j) {
     final sheets = j['sheets'] as List;
-    final g = KniffelGame(sheets.length);
+    final g = KniffelGame(sheets.length, extraRules: j['rules'] == 2);
     for (var i = 0; i < sheets.length; i++) {
       for (final e in (sheets[i] as Map<String, dynamic>).entries) {
         if (e.key == KniffelScoreSheet._kniffelBonusKey) {
@@ -132,6 +176,7 @@ class KniffelGame {
     'held': held,
     'rollsLeft': rollsLeft,
     'current': currentPlayer,
+    if (extraRules) 'rules': 2,
   };
 
   /// Nothing rolled or scored yet.
@@ -174,14 +219,14 @@ class KniffelGame {
   }
 
   bool canScore(KniffelCategory c) =>
-      hasRolled && !sheets[currentPlayer].isFilled(c);
+      hasRolled && sheets[currentPlayer].allows(c, dice);
 
   /// Writes the current dice into the given category and passes the turn.
   bool score(KniffelCategory c) {
     if (!canScore(c)) return false;
     final sheet = sheets[currentPlayer];
     if (sheet.earnsKniffelBonus(dice)) sheet.kniffelBonus += 100;
-    sheet.entries[c] = scoreFor(c, dice);
+    sheet.entries[c] = sheet.scoreOf(c, dice);
     currentPlayer = (currentPlayer + 1) % playerCount;
     rollsLeft = 3;
     held = List.filled(5, false);
@@ -228,7 +273,7 @@ class KniffelAi {
   };
 
   double _value(KniffelCategory c, List<int> dice, KniffelScoreSheet sheet) {
-    final raw = scoreFor(c, dice).toDouble();
+    final raw = sheet.scoreOf(c, dice).toDouble();
     var v = raw - _par[c]!;
     // Same for every category, but makes chasing a further Kniffel worth it.
     if (sheet.earnsKniffelBonus(dice)) v += 100;
@@ -249,7 +294,7 @@ class KniffelAi {
     KniffelCategory? best;
     var bestV = -double.infinity;
     for (final c in KniffelCategory.values) {
-      if (sheet.isFilled(c)) continue;
+      if (!sheet.allows(c, dice)) continue;
       final v = _value(c, dice, sheet);
       if (v > bestV) {
         bestV = v;
