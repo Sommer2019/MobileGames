@@ -1,47 +1,8 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
-
+import '../../core/proof.dart';
 import 'yahtzee_logic.dart';
 
-/// Dice that follow from a seed: SHA-256 of "seed:counter", the same on
-/// every device. A solo game rolled with them can be replayed by anybody.
-class SeededDice implements Random {
-  SeededDice(this.seed);
-
-  final String seed;
-  int _counter = 0;
-  List<int> _bytes = const [];
-  int _pos = 0;
-
-  int _byte() {
-    if (_pos >= _bytes.length) {
-      _bytes = sha256.convert(utf8.encode('$seed:${_counter++}')).bytes;
-      _pos = 0;
-    }
-    return _bytes[_pos++];
-  }
-
-  @override
-  int nextInt(int max) {
-    if (max <= 0 || max > 256) throw RangeError.range(max, 1, 256);
-    // Rejection sampling keeps every value equally likely.
-    final limit = 256 - 256 % max;
-    while (true) {
-      final b = _byte();
-      if (b < limit) return b % max;
-    }
-  }
-
-  @override
-  bool nextBool() => _byte() & 1 == 1;
-
-  @override
-  double nextDouble() =>
-      ((_byte() << 24) | (_byte() << 16) | (_byte() << 8) | _byte()) /
-      4294967296.0;
-}
+/// Dice of checked solo games (see [SeededRandom]).
+typedef SeededDice = SeededRandom;
 
 /// The record of a solo Würfelkönig game: the seed of the dice and every
 /// move. It is published with the score so other devices can replay the
@@ -54,7 +15,7 @@ class KniffelProof {
 
   /// A new game of the player with [pubkey].
   factory KniffelProof.start(String pubkey) =>
-      KniffelProof('$pubkey:${DateTime.now().microsecondsSinceEpoch}');
+      KniffelProof(newProofSeed(pubkey));
 
   final String seed;
 
@@ -79,11 +40,8 @@ class KniffelProof {
   Map<String, dynamic> toJson() => {'s': seed, 'm': moves};
 
   static KniffelProof? fromJson(Object? j) {
-    if (j is! Map) return null;
-    final s = j['s'], m = j['m'];
-    if (s is! String || m is! List || m.length > 200) return null;
-    if (m.any((e) => e is! String)) return null;
-    return KniffelProof(s, m.cast<String>().toList());
+    final p = readProof(j, maxMoves: 200);
+    return p == null ? null : KniffelProof(p.$1, p.$2);
   }
 
   /// Plays the moves again; null if any move is impossible.
@@ -109,7 +67,7 @@ class KniffelProof {
 
   /// The score of the finished game if it belongs to [author], else null.
   int? verify(String author) {
-    if (!seed.startsWith('$author:')) return null;
+    if (!seedOwnedBy(seed, author)) return null;
     final g = replay();
     if (g == null || !g.isOver) return null;
     return g.sheets[0].total;

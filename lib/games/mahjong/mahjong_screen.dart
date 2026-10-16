@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/proof.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
@@ -44,7 +45,12 @@ class _MahjongScreenState extends State<MahjongScreen>
     if (g == null || (!savingForMirror && (g.won || g.history.isEmpty))) {
       return null;
     }
-    return {'shape': _shape!.name, 'game': g.toJson(), 'seconds': _seconds};
+    return {
+      'shape': _shape!.name,
+      'game': g.toJson(),
+      'seconds': _seconds,
+      if (g.seed != null) 'proof': MahjongProof.of(g, _shape!, _seconds),
+    };
   }
 
   @override
@@ -53,10 +59,16 @@ class _MahjongScreenState extends State<MahjongScreen>
     final shape =
         MahjongShape.values.asNameMap()[data['shape']] ??
         (data['portrait'] == false ? MahjongShape.wide : MahjongShape.pyramid);
-    game = MahjongGame.fromJson(
-      shape.layout(),
-      data['game'] as Map<String, dynamic>,
-    );
+    // A checked game goes on with its record.
+    final proven = MahjongProof.shapeOf(data['proof']) == shape
+        ? MahjongProof.replay(data['proof'])
+        : null;
+    game =
+        proven ??
+        MahjongGame.fromJson(
+          shape.layout(),
+          data['game'] as Map<String, dynamic>,
+        );
     _shape = shape;
     _offset = data['seconds'] as int;
     _clock
@@ -102,7 +114,10 @@ class _MahjongScreenState extends State<MahjongScreen>
 
   void _newGame(MahjongShape shape) {
     _shape = shape;
-    game = MahjongGame.generate(layout: shape.layout());
+    game = MahjongGame.generate(
+      layout: shape.layout(),
+      seed: newProofSeed(Leaderboard.proofOwner),
+    );
     selected = null;
     hint = null;
     _offset = 0;
@@ -126,7 +141,13 @@ class _MahjongScreenState extends State<MahjongScreen>
         Sound.play(g.won ? Sfx.win : Sfx.click);
         if (g.won) {
           _clock.stop();
-          Leaderboard.submit(_shape!.board, _seconds);
+          Leaderboard.submit(
+            _shape!.board,
+            _seconds,
+            proof: g.seed == null
+                ? null
+                : MahjongProof.of(g, _shape!, _seconds),
+          );
           _showWin();
         } else if (g.stuck) {
           _showStuck();

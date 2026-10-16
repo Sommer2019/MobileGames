@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../../core/proof.dart';
+
 class PlayingCard {
   PlayingCard(this.suit, this.rank, {this.faceUp = false});
 
@@ -49,11 +51,12 @@ class PileRef {
 /// recycling the waste −100 (draw 1) or −20 (draw 3). Never below 0.
 /// A win adds a time bonus ([timeBonus]).
 class KlondikeGame {
-  KlondikeGame({this.drawCount = 1, Random? random}) {
+  KlondikeGame({this.drawCount = 1, Random? random, this.seed})
+    : log = seed != null ? [] : null {
     final deck = [
       for (var s = 0; s < 4; s++)
         for (var r = 1; r <= 13; r++) PlayingCard(s, r),
-    ]..shuffle(random ?? Random());
+    ]..shuffle(seed != null ? SeededRandom(seed!) : (random ?? Random()));
     for (var i = 0; i < 7; i++) {
       for (var j = i; j < 7; j++) {
         tableau[j].add(deck.removeLast());
@@ -113,6 +116,12 @@ class KlondikeGame {
   }
 
   final int drawCount;
+
+  /// Checked games (see [KlondikeProof]): the deal follows from this seed
+  /// and every action is written to [log].
+  final String? seed;
+  final List<String>? log;
+
   final List<PlayingCard> stock = [];
   final List<PlayingCard> waste = [];
   final List<List<PlayingCard>> foundations = List.generate(4, (_) => []);
@@ -202,6 +211,9 @@ class KlondikeGame {
       _addScore(5);
     }
     moves++;
+    log?.add(
+      'm${from.kind.index}${from.index}.$index.${to.kind.index}${to.index}',
+    );
     return true;
   }
 
@@ -219,6 +231,7 @@ class KlondikeGame {
       }
     }
     moves++;
+    log?.add('d');
     return true;
   }
 
@@ -292,6 +305,7 @@ class KlondikeGame {
   bool undo() {
     if (_history.isEmpty) return false;
     _history.removeLast().restore(this);
+    log?.add('u');
     return true;
   }
 }
@@ -332,5 +346,70 @@ class _Snapshot {
     }
     g.moves = moves;
     g.score = score;
+  }
+}
+
+/// Record of a checked Klondike game: seed, draw mode, all actions and the
+/// time taken. Others replay it; the time can't be proven, but it has to be
+/// at least [secondsPerAction] per action.
+class KlondikeProof {
+  KlondikeProof._();
+
+  static const secondsPerAction = 0.3;
+
+  static Map<String, dynamic> of(KlondikeGame g, int seconds) => {
+    's': g.seed,
+    'd': g.drawCount,
+    'm': g.log,
+    't': seconds,
+  };
+
+  /// Replays the actions of [proof]; null if any is impossible.
+  static KlondikeGame? replay(Object? proof) {
+    final p = readProof(proof, maxMoves: 5000);
+    if (p == null || proof is! Map) return null;
+    final draw = proof['d'];
+    if (draw != 1 && draw != 3) return null;
+    final g = KlondikeGame(drawCount: draw as int, seed: p.$1);
+    for (final m in p.$2) {
+      final ok = switch (m) {
+        'd' => g.draw(),
+        'u' => g.undo(),
+        _ => _move(g, m),
+      };
+      if (!ok) return null;
+    }
+    return g;
+  }
+
+  static bool _move(KlondikeGame g, String m) {
+    final parts = m.length > 1 && m[0] == 'm' ? m.substring(1).split('.') : [];
+    if (parts.length != 3 || parts[0].length != 2 || parts[2].length != 2) {
+      return false;
+    }
+    PileRef? ref(String r) {
+      final k = int.tryParse(r[0]), i = int.tryParse(r[1]);
+      if (k == null || i == null || k >= PileKind.values.length) return null;
+      return PileRef(PileKind.values[k], i);
+    }
+
+    final from = ref(parts[0]), to = ref(parts[2]);
+    final index = int.tryParse(parts[1]);
+    if (from == null || to == null || index == null) return false;
+    if (from.index > 6 || to.index > 6) return false;
+    if (from.kind == PileKind.foundation && from.index > 3) return false;
+    if (to.kind == PileKind.foundation && to.index > 3) return false;
+    return g.move(from, index, to);
+  }
+
+  /// The score of the won game if it belongs to [author], else null.
+  static int? verify(Object? proof, String author) {
+    if (proof is! Map || proof['s'] is! String) return null;
+    if (!seedOwnedBy(proof['s'] as String, author)) return null;
+    final t = proof['t'];
+    final g = replay(proof);
+    if (g == null || !g.won || t is! int) return null;
+    if (t < g.log!.length * secondsPerAction) return null;
+    return g.score + KlondikeGame.timeBonus(t);
   }
 }

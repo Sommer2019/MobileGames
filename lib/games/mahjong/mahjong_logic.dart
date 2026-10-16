@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../../core/proof.dart';
+
 /// A tile slot in the layout. Coordinates are in half-tile units so tiles
 /// can overlap by half a tile; z is the layer.
 class Slot {
@@ -117,8 +119,12 @@ class MahjongGame {
   /// Creates a game that is guaranteed to be solvable: tiles are removed
   /// pairwise from the full layout in a random legal order and each removed
   /// pair gets the same face. Replaying that order solves the game.
-  factory MahjongGame.generate({List<Slot>? layout, Random? random}) {
-    final r = random ?? Random();
+  factory MahjongGame.generate({
+    List<Slot>? layout,
+    Random? random,
+    String? seed,
+  }) {
+    final r = seed != null ? SeededRandom(seed) : (random ?? Random());
     final slots = layout ?? pyramidLayout();
     assert(slots.length.isEven);
     while (true) {
@@ -157,6 +163,12 @@ class MahjongGame {
         t.removed = false;
       }
       game.solution = solution;
+      if (seed != null) {
+        game
+          ..seed = seed
+          ..log = []
+          .._rng = r;
+      }
       return game;
     }
   }
@@ -193,6 +205,12 @@ class MahjongGame {
   final List<MahjongTile> tiles;
   final List<(MahjongTile, MahjongTile)> history = [];
 
+  /// Checked games (see [MahjongProof]): the board and every shuffle follow
+  /// from this seed, and every action is written to [log].
+  String? seed;
+  List<String>? log;
+  Random? _rng;
+
   /// Pairs of tile ids in an order that solves the generated board.
   List<(int, int)> solution = const [];
 
@@ -227,6 +245,7 @@ class MahjongGame {
     a.removed = true;
     b.removed = true;
     history.add((a, b));
+    log?.add('${a.id}.${b.id}');
     return true;
   }
 
@@ -235,6 +254,7 @@ class MahjongGame {
     final (a, b) = history.removeLast();
     a.removed = false;
     b.removed = false;
+    log?.add('u');
     return true;
   }
 
@@ -253,7 +273,8 @@ class MahjongGame {
 
   /// Shuffles the faces of the remaining tiles (when stuck).
   void shuffleRemaining([Random? random]) {
-    final r = random ?? Random();
+    final r = _rng ?? random ?? Random();
+    log?.add('s');
     final left = tiles.where((t) => !t.removed).toList();
     for (var attempt = 0; attempt < 50; attempt++) {
       final faces = left.map((t) => t.face).toList()..shuffle(r);
@@ -262,5 +283,61 @@ class MahjongGame {
       }
       if (hint() != null) return;
     }
+  }
+}
+
+/// Record of a checked Mahjong game: seed, shape, all actions and the time.
+/// Others replay it; the time can't be proven, but it has to be at least
+/// [secondsPerPair] per pair taken.
+class MahjongProof {
+  MahjongProof._();
+
+  static const secondsPerPair = 1.0;
+
+  static Map<String, dynamic> of(
+    MahjongGame g,
+    MahjongShape shape,
+    int seconds,
+  ) => {'s': g.seed, 'l': shape.name, 'm': g.log, 't': seconds};
+
+  static MahjongShape? shapeOf(Object? proof) =>
+      proof is Map ? MahjongShape.values.asNameMap()[proof['l']] : null;
+
+  /// Replays the actions of [proof]; null if any is impossible.
+  static MahjongGame? replay(Object? proof) {
+    final p = readProof(proof, maxMoves: 3000);
+    final shape = shapeOf(proof);
+    if (p == null || shape == null) return null;
+    final g = MahjongGame.generate(layout: shape.layout(), seed: p.$1);
+    for (final m in p.$2) {
+      switch (m) {
+        case 'u':
+          if (!g.undo()) return null;
+        case 's':
+          g.shuffleRemaining();
+        default:
+          final ids = m.split('.').map(int.tryParse).toList();
+          if (ids.length != 2 || ids.contains(null)) return null;
+          final a = ids[0]!, b = ids[1]!;
+          if (a < 0 || b < 0 || a >= g.tiles.length || b >= g.tiles.length) {
+            return null;
+          }
+          if (!g.match(g.tiles[a], g.tiles[b])) return null;
+      }
+    }
+    return g;
+  }
+
+  /// The time of the won game on [board] if it belongs to [author].
+  static int? verify(String board, Object? proof, String author) {
+    if (proof is! Map || proof['s'] is! String) return null;
+    if (!seedOwnedBy(proof['s'] as String, author)) return null;
+    if (shapeOf(proof)?.board != board) return null;
+    final t = proof['t'];
+    final g = replay(proof);
+    if (g == null || !g.won || t is! int) return null;
+    final pairs = g.log!.where((m) => m.contains('.')).length;
+    if (t < pairs * secondsPerPair) return null;
+    return t;
   }
 }

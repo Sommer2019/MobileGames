@@ -53,18 +53,18 @@ void main() {
     final la = Leaderboard(bus.client(), a);
     final lb = Leaderboard(bus.client(), b);
 
-    await Leaderboard.submit('mahjong.tower', 300);
+    await Leaderboard.submit('darts.x501', 30);
     await la.publish();
     SharedPreferences.setMockInitialValues({});
-    await Leaderboard.submit('mahjong.tower', 200);
-    await Leaderboard.submit('snake', 7);
+    await Leaderboard.submit('darts.x501', 20);
+    await Leaderboard.submit('labyrinth', 7);
     await lb.publish();
 
     final all = await la.fetch(timeout: const Duration(milliseconds: 50));
     expect(all.length, 2);
-    final ranked = Leaderboard.rank(boardById('mahjong.tower'), all);
+    final ranked = Leaderboard.rank(boardById('darts.x501'), all);
     expect(ranked.map((r) => r.$1.name), ['Ben', 'Anna']);
-    expect(Leaderboard.rank(boardById('snake'), all).single.$2, 7);
+    expect(Leaderboard.rank(boardById('labyrinth'), all).single.$2, 7);
 
     final onlyA = await lb.fetch(
       authors: [a.keys.publicKey],
@@ -79,8 +79,8 @@ void main() {
     final a = await Account.load(prefix: 'a');
     await a.setName('Anna');
     // Old phone.
-    await Leaderboard.submit('snake', 41);
-    await Leaderboard.submit('mahjong.tower', 300);
+    await Leaderboard.submit('labyrinth', 41);
+    await Leaderboard.submit('darts.x501', 30);
     for (var i = 0; i < 3; i++) {
       await Leaderboard.recordWin('chess.grandmaster');
     }
@@ -90,12 +90,16 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final moved = Leaderboard(bus.client(), a);
     Leaderboard.instance = moved;
-    expect(await Leaderboard.submit('snake', 6), isTrue);
+    expect(await Leaderboard.submit('labyrinth', 6), isTrue);
     await moved.publish();
 
-    expect(await Leaderboard.best('snake'), 41, reason: 'shown under "Ich"');
-    expect(await Leaderboard.best('mahjong.tower'), 300);
-    final h = await Leaderboard.history('snake');
+    expect(
+      await Leaderboard.best('labyrinth'),
+      41,
+      reason: 'shown under "Ich"',
+    );
+    expect(await Leaderboard.best('darts.x501'), 30);
+    final h = await Leaderboard.history('labyrinth');
     expect(h.map((e) => e.value), [41, 6]);
     // Wins go on counting from 3.
     await Leaderboard.recordWin('chess.grandmaster');
@@ -106,8 +110,8 @@ void main() {
       authors: [a.keys.publicKey],
       timeout: const Duration(milliseconds: 50),
     );
-    expect(remote.single.scores['snake'], 41);
-    expect(remote.single.scores['mahjong.tower'], 300);
+    expect(remote.single.scores['labyrinth'], 41);
+    expect(remote.single.scores['darts.x501'], 30);
   });
 
   testWidgets('leaderboard screen shows own results offline', (tester) async {

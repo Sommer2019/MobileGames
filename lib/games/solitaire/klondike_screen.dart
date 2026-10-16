@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/proof.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
@@ -33,7 +34,13 @@ class _KlondikeScreenState extends State<KlondikeScreen>
   String? get mirrorGame => 'klondike';
 
   int drawCount = 1;
-  late KlondikeGame game = KlondikeGame(drawCount: drawCount);
+  late KlondikeGame game = _fresh();
+
+  /// A new checked game (see [KlondikeProof]).
+  KlondikeGame _fresh() => KlondikeGame(
+    drawCount: drawCount,
+    seed: newProofSeed(Leaderboard.proofOwner),
+  );
   final Stopwatch _clock = Stopwatch()..start();
 
   /// Playing time before the round was saved.
@@ -46,12 +53,19 @@ class _KlondikeScreenState extends State<KlondikeScreen>
   @override
   Map<String, dynamic>? saveGame() {
     if (!savingForMirror && (game.won || game.moves == 0)) return null;
-    return {'game': game.toJson(), 'seconds': _seconds};
+    return {
+      'game': game.toJson(),
+      'seconds': _seconds,
+      if (game.seed != null) 'proof': KlondikeProof.of(game, _seconds),
+    };
   }
 
   @override
   void restoreGame(Map<String, dynamic> data) {
-    game = KlondikeGame.fromJson(data['game'] as Map<String, dynamic>);
+    // A checked game goes on with its record (and its undo steps).
+    game =
+        KlondikeProof.replay(data['proof']) ??
+        KlondikeGame.fromJson(data['game'] as Map<String, dynamic>);
     drawCount = game.drawCount;
     _offset = data['seconds'] as int;
     _clock.reset();
@@ -87,7 +101,7 @@ class _KlondikeScreenState extends State<KlondikeScreen>
 
   void _newGame() {
     setState(() {
-      game = KlondikeGame(drawCount: drawCount);
+      game = _fresh();
       _wonShown = false;
       bonus = 0;
       _offset = 0;
@@ -172,7 +186,8 @@ class _KlondikeScreenState extends State<KlondikeScreen>
   double _cardWidth = 60;
 
   Future<void> _celebrate() async {
-    bonus = KlondikeGame.timeBonus(_seconds);
+    final seconds = _seconds;
+    bonus = KlondikeGame.timeBonus(seconds);
     final total = game.score + bonus;
     final record = total > best;
     if (record) best = total;
@@ -180,7 +195,11 @@ class _KlondikeScreenState extends State<KlondikeScreen>
     wins++;
     await p.setInt('klondike.wins', wins);
     await p.setInt('klondike.best', best);
-    await Leaderboard.submit('klondike', total);
+    await Leaderboard.submit(
+      'klondike',
+      total,
+      proof: game.seed == null ? null : KlondikeProof.of(game, seconds),
+    );
     if (!mounted) return;
     setState(() {});
     Sound.play(Sfx.win);

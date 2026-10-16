@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../../core/proof.dart';
+
 enum Dir { up, down, left, right }
 
 extension DirVector on Dir {
@@ -24,7 +26,9 @@ class SnakeGame {
     this.height = 28,
     this.wrap = false,
     Random? random,
-  }) : _random = random ?? Random() {
+    this.seed,
+  }) : _random = seed != null ? SeededRandom(seed) : (random ?? Random()),
+       log = seed != null ? [] : null {
     final cx = width ~/ 2, cy = height ~/ 2;
     body.addAll([(cx, cy), (cx, cy + 1), (cx, cy + 2)]);
     _placeFood();
@@ -61,6 +65,14 @@ class SnakeGame {
   final bool wrap;
   final Random _random;
 
+  /// Checked games (see [SnakeProof]): the food follows from this seed and
+  /// every turn is written to [log] as step number + direction letter.
+  final String? seed;
+  final List<String>? log;
+
+  /// Steps made so far.
+  int steps = 0;
+
   /// body.first is the head.
   final List<(int, int)> body = [];
   Dir direction = Dir.up;
@@ -79,6 +91,7 @@ class SnakeGame {
     final base = _queue.isEmpty ? direction : _queue.last;
     if (d == base || d.isOpposite(base) || _queue.length >= 3) return;
     _queue.add(d);
+    log?.add('$steps${d.name[0]}');
   }
 
   void _placeFood() {
@@ -93,6 +106,7 @@ class SnakeGame {
   /// Advances one step.
   void step() {
     if (dead || won) return;
+    steps++;
     if (_queue.isNotEmpty) direction = _queue.removeAt(0);
     final (dx, dy) = direction.delta;
     var (x, y) = body.first;
@@ -119,5 +133,56 @@ class SnakeGame {
     } else {
       body.removeLast();
     }
+  }
+}
+
+/// Record of a checked Snake game: seed, wrap mode, turns and steps. Other
+/// devices replay it and only show the score if it comes out exactly.
+class SnakeProof {
+  SnakeProof._();
+
+  static Map<String, dynamic> of(SnakeGame g) => {
+    's': g.seed,
+    'w': g.wrap,
+    'm': g.log,
+    'n': g.steps,
+  };
+
+  /// Replays [proof] up to its step count; null if anything is impossible.
+  static SnakeGame? replay(Object? proof, {bool toTheEnd = false}) {
+    final p = readProof(proof, maxMoves: 20000);
+    if (p == null || proof is! Map) return null;
+    final n = proof['n'], wrap = proof['w'];
+    if (n is! int || wrap is! bool || n < 0 || n > 200000) return null;
+    final g = SnakeGame(wrap: wrap, seed: p.$1);
+    final turns = <(int, Dir)>[];
+    for (final m in p.$2) {
+      final at = int.tryParse(m.substring(0, m.length - 1));
+      final d = Dir.values.where((d) => d.name[0] == m[m.length - 1]);
+      if (at == null || d.isEmpty) return null;
+      turns.add((at, d.single));
+    }
+    var i = 0;
+    while (g.steps < n && !g.dead && !g.won) {
+      while (i < turns.length && turns[i].$1 == g.steps) {
+        g.turn(turns[i++].$2);
+      }
+      if (i < turns.length && turns[i].$1 < g.steps) return null;
+      g.step();
+    }
+    // Turns still queued for the step that comes next.
+    while (i < turns.length && turns[i].$1 == g.steps) {
+      g.turn(turns[i++].$2);
+    }
+    if (i < turns.length || g.steps != n) return null;
+    if (toTheEnd && !g.dead) return null;
+    return g;
+  }
+
+  /// The score of the finished game if it belongs to [author], else null.
+  static int? verify(Object? proof, String author) {
+    if (proof is! Map || proof['s'] is! String) return null;
+    if (!seedOwnedBy(proof['s'] as String, author)) return null;
+    return replay(proof, toTheEnd: true)?.score;
   }
 }

@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../games/mahjong/mahjong_logic.dart';
+import '../games/snake/snake_logic.dart';
+import '../games/solitaire/klondike_logic.dart';
 import '../games/yahtzee/kniffel_proof.dart';
 import 'account.dart';
 import 'moderation.dart';
@@ -70,6 +73,7 @@ const boards = [
     'Punkte',
     max: 5000,
     legacyKey: 'snake.best',
+    proven: true,
   ),
   ScoreBoard(
     'klondike',
@@ -78,6 +82,7 @@ const boards = [
     'Punkte',
     max: 40000,
     legacyKey: 'klondike.best',
+    proven: true,
   ),
   ScoreBoard(
     'kniffel',
@@ -95,6 +100,7 @@ const boards = [
     lowerIsBetter: true,
     min: 10,
     time: true,
+    proven: true,
   ),
   ScoreBoard(
     'mahjong.pyramid',
@@ -104,6 +110,7 @@ const boards = [
     lowerIsBetter: true,
     min: 10,
     time: true,
+    proven: true,
   ),
   ScoreBoard(
     'mahjong.turm',
@@ -113,6 +120,7 @@ const boards = [
     lowerIsBetter: true,
     min: 10,
     time: true,
+    proven: true,
   ),
   ScoreBoard(
     'arrows.easy',
@@ -331,6 +339,9 @@ class Leaderboard {
 
   /// Called after a new personal best (set by [Services]).
   static Leaderboard? instance;
+
+  /// Whose games are recorded for checked boards (see [ScoreBoard.proven]).
+  static String get proofOwner => instance?.account.keys.publicKey ?? 'offline';
 
   // ---------------------------------------------------------------- local
 
@@ -575,6 +586,13 @@ class Leaderboard {
   static int? verify(String board, Map<String, dynamic> proof, String author) =>
       switch (board) {
         'kniffel' => KniffelProof.fromJson(proof)?.verify(author),
+        'snake' => SnakeProof.verify(proof, author),
+        'klondike' => KlondikeProof.verify(proof, author),
+        _ when board.startsWith('mahjong.') => MahjongProof.verify(
+          board,
+          proof,
+          author,
+        ),
         _ => null,
       };
 

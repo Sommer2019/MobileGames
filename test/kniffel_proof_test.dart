@@ -100,7 +100,7 @@ void main() {
         {'v': 375, 't': 0},
       ]),
     );
-    await Leaderboard.submit('snake', 5);
+    await Leaderboard.submit('labyrinth', 5);
     await lb.publish();
     final sent = jsonDecode(bus.published.last.content) as Map;
     expect(

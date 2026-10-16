@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
+import '../../core/proof.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
@@ -38,7 +39,10 @@ class _SnakeScreenState extends State<SnakeScreen>
   @override
   Map<String, dynamic>? saveGame() {
     if (game.dead || game.won || (!running && !paused)) return null;
-    return game.toJson();
+    return {
+      ...game.toJson(),
+      if (game.seed != null) 'proof': SnakeProof.of(game),
+    };
   }
 
   @override
@@ -60,7 +64,8 @@ class _SnakeScreenState extends State<SnakeScreen>
 
   @override
   void restoreGame(Map<String, dynamic> data) {
-    game = SnakeGame.fromJson(data);
+    // A checked game goes on exactly where it was (same food to come).
+    game = SnakeProof.replay(data['proof']) ?? SnakeGame.fromJson(data);
     wrap = game.wrap;
     paused = true;
   }
@@ -134,14 +139,20 @@ class _SnakeScreenState extends State<SnakeScreen>
     running = false;
     HapticFeedback.heavyImpact();
     Sound.play(Sfx.fall);
-    if (game.score > 0) await Leaderboard.submit('snake', game.score);
+    if (game.score > 0) {
+      await Leaderboard.submit(
+        'snake',
+        game.score,
+        proof: game.seed == null ? null : SnakeProof.of(game),
+      );
+    }
     if (game.score > best) best = game.score;
     if (mounted) setState(() {});
   }
 
   void _start() {
     setState(() {
-      game = SnakeGame(wrap: wrap);
+      game = SnakeGame(wrap: wrap, seed: newProofSeed(Leaderboard.proofOwner));
       paused = false;
       running = true;
       _acc = 0;

@@ -9,7 +9,6 @@ import '../../core/net/room.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
-import '../../core/services.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/dice.dart';
@@ -70,8 +69,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
 
   /// Starts a new checked solo game.
   void _newProvenGame() {
-    final me = Services.isReady ? Services.I.account.keys.publicKey : 'offline';
-    _proof = KniffelProof.start(me);
+    _proof = KniffelProof.start(Leaderboard.proofOwner);
     game = _proof!.newGame();
   }
 
