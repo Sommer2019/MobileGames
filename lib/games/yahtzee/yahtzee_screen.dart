@@ -9,11 +9,13 @@ import '../../core/net/room.dart';
 import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
+import '../../core/services.dart';
 import '../../core/shake.dart';
 import '../../core/sound.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
+import 'kniffel_proof.dart';
 import 'yahtzee_logic.dart';
 
 class YahtzeeScreen extends StatefulWidget {
@@ -58,6 +60,21 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
   @override
   String? get saveKey => widget.setup.saveKey('yahtzee');
 
+  /// Solo games count for the leaderboard: their dice follow from a seed
+  /// and every move is recorded, so others can replay and check them.
+  bool get _proven =>
+      players == 1 &&
+      widget.setup.kind == PlayKind.local &&
+      !widget.setup.spectator;
+  KniffelProof? _proof;
+
+  /// Starts a new checked solo game.
+  void _newProvenGame() {
+    final me = Services.isReady ? Services.I.account.keys.publicKey : 'offline';
+    _proof = KniffelProof.start(me);
+    game = _proof!.newGame();
+  }
+
   @override
   Map<String, dynamic>? saveGame() {
     if (!savingForMirror && (game.isOver || game.isFresh)) return null;
@@ -66,6 +83,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
       'game': game.toJson(),
       'aiTurn': _aiTurn,
       'lucky': _luckyTurn,
+      if (_proof case final p?) 'proof': p.toJson(),
     };
   }
 
@@ -74,6 +92,13 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     final g = KniffelGame.fromJson(data['game'] as Map<String, dynamic>);
     if (g.playerCount != players) throw const FormatException('players');
     game = g;
+    // A checked solo game goes on with the same dice.
+    final proof = _proven ? KniffelProof.fromJson(data['proof']) : null;
+    final replayed = proof?.replay();
+    if (proof != null && replayed != null) {
+      _proof = proof;
+      game = replayed..held = g.held;
+    }
     round = data['round'] as int;
     _aiTurn = data['aiTurn'] as int;
     _luckyTurn = data['lucky'] as int;
@@ -86,6 +111,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
   @override
   void initState() {
     super.initState();
+    // Old saved games without a record are finished unchecked.
+    if (_proven && _proof == null && game.isFresh) _newProvenGame();
     _sub = widget.setup.listen((m) => _onMessage(m.data));
     _shake = ShakeDetector.listen(() {
       if (mounted && myTurn && game.canRoll) {
@@ -206,6 +233,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     final first = !game.hasRolled;
     Sound.play(Sfx.dice);
     setState(() {
+      _proof?.roll(game);
       game.roll();
       _spin(heldBefore, first);
     });
@@ -220,10 +248,15 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
 
   void _score(KniffelCategory c) {
     if (!myTurn || !game.canScore(c)) return;
+    _proof?.score(c);
     setState(() => game.score(c));
     widget.setup.send({'t': 'score', 'cat': c.name});
-    if (game.isOver && players == 1 && widget.setup.kind == PlayKind.local) {
-      Leaderboard.submit('kniffel', game.sheets[0].total);
+    if (game.isOver && _proven) {
+      Leaderboard.submit(
+        'kniffel',
+        game.sheets[0].total,
+        proof: _proof?.toJson(),
+      );
     }
     _maybeAi();
   }
@@ -232,7 +265,11 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     if (_aiRunning) return;
     setState(() {
       if (next) round++;
-      game = KniffelGame(players);
+      if (_proven) {
+        _newProvenGame();
+      } else {
+        game = KniffelGame(players);
+      }
       _aiTurn = 0;
       _luckyTurn = _pickLuckyTurn();
     });

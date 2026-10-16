@@ -215,6 +215,14 @@ void main() {
     await tester.tap(cell);
     await tester.pump();
     expect(find.textContaining('noch 3 Würfe'), findsOneWidget);
+    // The solo game is recorded so its score can be checked by others
+    // (saved when leaving the game).
+    await tester.pumpWidget(const SizedBox());
+    final saved = await tester.runAsync(() async {
+      final prefs = await SharedPreferences.getInstance();
+      return jsonDecode(prefs.getString('save.yahtzee.local1')!) as Map;
+    });
+    expect((saved!['proof'] as Map)['m'], ['r0', 'chance']);
   });
 
   testWidgets('battleship vs computer: place fleet and fire', (tester) async {

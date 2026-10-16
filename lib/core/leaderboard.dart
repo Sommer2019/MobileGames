@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../games/yahtzee/kniffel_proof.dart';
 import 'account.dart';
 import 'moderation.dart';
 import 'names.dart';
@@ -23,7 +24,12 @@ class ScoreBoard {
     this.legacyKey,
     this.time = false,
     this.secret = false,
+    this.proven = false,
   });
+
+  /// Only results with a replayable record of the game count (see
+  /// [Leaderboard.verify]); a number typed in somewhere is ignored.
+  final bool proven;
 
   /// Rankings for the Konami extras: only shown after the code was found.
   final bool secret;
@@ -73,7 +79,14 @@ const boards = [
     max: 40000,
     legacyKey: 'klondike.best',
   ),
-  ScoreBoard('kniffel', 'yahtzee', 'Würfelkönig allein', 'Punkte', max: 1575),
+  ScoreBoard(
+    'kniffel',
+    'yahtzee',
+    'Würfelkönig allein',
+    'Punkte',
+    max: 375,
+    proven: true,
+  ),
   ScoreBoard(
     'mahjong.tower',
     'mahjong',
@@ -257,14 +270,23 @@ ScoreBoard boardById(String id) => boards.firstWhere((b) => b.id == id);
 
 /// A result in the personal list.
 class ScoreEntry {
-  ScoreEntry(this.value, this.at);
+  ScoreEntry(this.value, this.at, {this.proof});
   final int value;
   final DateTime at;
 
-  Map<String, int> toJson() => {'v': value, 't': at.millisecondsSinceEpoch};
+  /// Record of the game for boards that check results (see
+  /// [ScoreBoard.proven]).
+  final Map<String, dynamic>? proof;
+
+  Map<String, dynamic> toJson() => {
+    'v': value,
+    't': at.millisecondsSinceEpoch,
+    'p': ?proof,
+  };
   factory ScoreEntry.fromJson(Map<String, dynamic> j) => ScoreEntry(
     j['v'] as int,
     DateTime.fromMillisecondsSinceEpoch(j['t'] as int),
+    proof: j['p'] as Map<String, dynamic>?,
   );
 }
 
@@ -276,7 +298,11 @@ class RemoteScores {
     this.scores,
     this.createdAt, {
     this.badge = false,
+    this.proofs = const {},
   });
+
+  /// Records of the games behind checked results (board id → record).
+  final Map<String, Map<String, dynamic>> proofs;
   final String pubkey;
   final String name;
 
@@ -356,11 +382,22 @@ class Leaderboard {
   }
 
   /// Records a finished game. Returns true for a new personal best.
-  static Future<bool> submit(String id, int value, {DateTime? at}) async {
+  static Future<bool> submit(
+    String id,
+    int value, {
+    DateTime? at,
+    Map<String, dynamic>? proof,
+  }) async {
     final b = boardById(id);
     if (!b.plausible(value)) return false;
     final prefs = await SharedPreferences.getInstance();
-    final record = await _add(prefs, b, value, at ?? DateTime.now());
+    final record = await _add(
+      prefs,
+      b,
+      value,
+      at ?? DateTime.now(),
+      proof: proof,
+    );
     if (record) unawaited(instance?.publish());
     return record;
   }
@@ -370,12 +407,13 @@ class Leaderboard {
     SharedPreferences prefs,
     ScoreBoard b,
     int value,
-    DateTime at,
-  ) async {
+    DateTime at, {
+    Map<String, dynamic>? proof,
+  }) async {
     final list = _history(prefs, b);
     final record = list.isEmpty || b.better(value, list.first.value);
     list
-      ..add(ScoreEntry(value, at))
+      ..add(ScoreEntry(value, at, proof: proof))
       ..sort(
         (x, y) => x.value == y.value
             ? x.at.compareTo(y.at)
@@ -389,7 +427,11 @@ class Leaderboard {
   /// Takes over best values this account published before (on another
   /// phone or before a reinstall) where they beat the ones on this device.
   /// Returns how many boards changed.
-  static Future<int> adopt(Map<String, int> scores, DateTime at) async {
+  static Future<int> adopt(
+    Map<String, int> scores,
+    DateTime at, {
+    Map<String, Map<String, dynamic>> proofs = const {},
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     var changed = 0;
     for (final MapEntry(key: id, :value) in scores.entries) {
@@ -397,7 +439,7 @@ class Leaderboard {
       if (b == null || !b.plausible(value)) continue;
       final h = _history(prefs, b);
       if (h.isNotEmpty && !b.better(value, h.first.value)) continue;
-      await _add(prefs, b, value, at);
+      await _add(prefs, b, value, at, proof: proofs[id]);
       // Win counters go on from the number reached.
       if (b.unit == 'Siege' && (prefs.getInt('wins.$id') ?? 0) < value) {
         await prefs.setInt('wins.$id', value);
@@ -425,6 +467,7 @@ class Leaderboard {
     await adopt(
       latest.scores,
       DateTime.fromMillisecondsSinceEpoch(latest.createdAt * 1000),
+      proofs: latest.proofs,
     );
     return _synced = true;
   }
@@ -434,7 +477,20 @@ class Leaderboard {
     // Until our earlier values were seen, merge them in first so they are
     // never replaced with fewer or lower ones.
     if (!_synced) await syncOwn();
-    final scores = await bests();
+    final prefs = await SharedPreferences.getInstance();
+    final scores = <String, int>{};
+    final proofs = <String, Map<String, dynamic>>{};
+    for (final b in boards) {
+      final h = _history(prefs, b);
+      if (h.isEmpty) continue;
+      final best = b.proven
+          ? h.where((e) => e.proof != null).firstOrNull
+          : h.first;
+      // Checked boards: only results that come with their game.
+      if (best == null) continue;
+      scores[b.id] = best.value;
+      if (best.proof case final p?) proofs[b.id] = p;
+    }
     if (scores.isEmpty) return;
     await client.publish(
       NostrEvent.create(
@@ -443,6 +499,7 @@ class Leaderboard {
         content: jsonEncode({
           'name': account.name,
           's': scores,
+          if (proofs.isNotEmpty) 'p': proofs,
           if (Secrets.I.unlocked) 'k': true,
         }),
         tags: [
@@ -479,12 +536,22 @@ class Leaderboard {
           try {
             final j = jsonDecode(e.content) as Map<String, dynamic>;
             final s = <String, int>{};
+            final proofs = <String, Map<String, dynamic>>{};
+            final sent = j['p'] is Map ? j['p'] as Map : const {};
             for (final MapEntry(:key, :value)
                 in (j['s'] as Map<String, dynamic>).entries) {
               final b = boards.where((b) => b.id == key).firstOrNull;
-              if (b != null && value is int && b.plausible(value)) {
-                s[key] = value;
+              if (b == null || value is! int || !b.plausible(value)) continue;
+              if (b.proven) {
+                // Only shown if replaying the game gives exactly this.
+                final p = sent[key];
+                if (p is! Map<String, dynamic> ||
+                    verify(key, p, e.pubkey) != value) {
+                  continue;
+                }
+                proofs[key] = p;
               }
+              s[key] = value;
             }
             final name = cleanNameOrNull(j['name']) ?? '';
             latest[e.pubkey] = RemoteScores(
@@ -495,6 +562,7 @@ class Leaderboard {
               s,
               e.createdAt,
               badge: j['k'] == true,
+              proofs: proofs,
             );
           } catch (_) {}
         });
@@ -502,6 +570,13 @@ class Leaderboard {
     await sub.cancel();
     return latest.values.toList();
   }
+
+  /// The score proven by [proof] for [board] played by [author], or null.
+  static int? verify(String board, Map<String, dynamic> proof, String author) =>
+      switch (board) {
+        'kniffel' => KniffelProof.fromJson(proof)?.verify(author),
+        _ => null,
+      };
 
   /// Ranking for one board, best first.
   static List<(RemoteScores, int)> rank(ScoreBoard b, List<RemoteScores> all) {
