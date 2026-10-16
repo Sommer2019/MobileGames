@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'leaderboard.dart';
 import 'moderation.dart';
 import 'names.dart';
 import 'nostr/event.dart';
@@ -47,6 +48,7 @@ class ModerationSync extends ChangeNotifier {
 
   static const kind = 30078;
   static const _bansD = 'mobilegames-bans';
+  static const _approvedD = 'mobilegames-approved';
   static const _reportD = 'mobilegames-report-';
   static const _doneKey = 'moderation.reportsDone';
 
@@ -59,6 +61,10 @@ class ModerationSync extends ChangeNotifier {
 
   /// Latest ban list per admin: author → (created at, pubkey → name).
   final Map<String, (int, Map<String, String>)> _lists = {};
+
+  /// Latest list of approved results per admin: author → (created at,
+  /// pubkey → board → value). See [approve].
+  final Map<String, (int, Map<String, Map<String, int>>)> _approved = {};
 
   final Map<String, Report> _reports = {};
   final Set<String> _done = {};
@@ -86,9 +92,9 @@ class ModerationSync extends ChangeNotifier {
         .subscribe({
           'kinds': [kind],
           'authors': admins,
-          '#d': [_bansD],
+          '#d': [_bansD, _approvedD],
         })
-        .listen(_onBans);
+        .listen((e) => _d(e) == _approvedD ? _onApproved(e) : _onBans(e));
     if (!isAdmin) return;
     final prefs = await SharedPreferences.getInstance();
     _done.addAll(prefs.getStringList(_doneKey) ?? const []);
@@ -124,6 +130,79 @@ class ModerationSync extends ChangeNotifier {
     _lists[e.pubkey] = (e.createdAt, bans);
     Moderation.I.setBanned({for (final l in _lists.values) ...l.$2});
     notifyListeners();
+  }
+
+  void _onApproved(NostrEvent e) {
+    if (!admins.contains(e.pubkey) || _d(e) != _approvedD) return;
+    final prev = _approved[e.pubkey];
+    if (prev != null && prev.$1 >= e.createdAt) return;
+    final list = <String, Map<String, int>>{};
+    try {
+      final j = jsonDecode(e.content) as Map<String, dynamic>;
+      for (final MapEntry(:key, :value)
+          in (j['a'] as Map<String, dynamic>).entries) {
+        if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(key)) continue;
+        list[key] = {
+          for (final MapEntry(key: board, value: v)
+              in (value as Map<String, dynamic>).entries)
+            if (v is int) board: v,
+        };
+      }
+    } catch (_) {
+      return;
+    }
+    _approved[e.pubkey] = (e.createdAt, list);
+    Leaderboard.approved = _mergedApproved();
+    notifyListeners();
+  }
+
+  /// All admins' approvals together; per board the best approved value.
+  Map<String, Map<String, int>> _mergedApproved() {
+    final all = <String, Map<String, int>>{};
+    for (final (_, list) in _approved.values) {
+      for (final MapEntry(key: pubkey, value: boards) in list.entries) {
+        final mine = all.putIfAbsent(pubkey, () => {});
+        for (final MapEntry(key: board, :value) in boards.entries) {
+          final b = boardOrNull(board);
+          final old = mine[board];
+          if (b != null && (old == null || b.better(value, old))) {
+            mine[board] = value;
+          }
+        }
+      }
+    }
+    return all;
+  }
+
+  /// Our own approvals (as admin).
+  Map<String, Map<String, int>> get myApprovals => {
+    for (final MapEntry(:key, :value)
+        in (_approved[keys.publicKey]?.$2 ?? const {}).entries)
+      key: Map.of(value),
+  };
+
+  /// Lets a result without a recorded game count (admins only): from now
+  /// on [value] and anything not better of [pubkey] on [board] is shown,
+  /// e.g. the best values from before results were checked.
+  Future<void> approve(String pubkey, String board, int value) async {
+    if (!isAdmin) return;
+    final list = myApprovals;
+    list.putIfAbsent(pubkey, () => {})[board] = value;
+    final last = _approved[keys.publicKey]?.$1 ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final event = NostrEvent.create(
+      keys: keys,
+      kind: kind,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        (now > last ? now : last + 1) * 1000,
+      ),
+      content: jsonEncode({'a': list}),
+      tags: const [
+        ['d', _approvedD],
+      ],
+    );
+    _onApproved(event);
+    await client.publish(event);
   }
 
   void _onReport(NostrEvent e) {

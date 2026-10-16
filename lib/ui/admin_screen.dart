@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../core/leaderboard.dart';
 import '../core/moderation.dart';
 import '../core/moderation_sync.dart';
 import '../core/nostr/keys.dart';
 import '../core/services.dart';
 import 'moderation_ui.dart';
 
-/// Reports and the ban list, for the admins only.
+/// Reports, the ban list and results to approve, for the admins only.
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
 
@@ -14,7 +15,7 @@ class AdminScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final sync = Services.I.moderation;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Moderation'),
@@ -30,6 +31,7 @@ class AdminScreen extends StatelessWidget {
                 builder: (_, _) =>
                     Tab(text: 'Gesperrt (${Moderation.I.banned.length})'),
               ),
+              const Tab(text: 'Bestwerte'),
             ],
           ),
         ),
@@ -37,6 +39,7 @@ class AdminScreen extends StatelessWidget {
           children: [
             _Reports(sync: sync),
             _Bans(sync: sync),
+            _Approvals(sync: sync),
           ],
         ),
       ),
@@ -167,6 +170,82 @@ class _Bans extends StatelessWidget {
                     : null,
               ),
           ],
+        );
+      },
+    );
+  }
+}
+
+/// Results on checked boards that come without a recorded game – e.g.
+/// records from older app versions. Approved ones count from then on.
+class _Approvals extends StatefulWidget {
+  const _Approvals({required this.sync});
+  final ModerationSync sync;
+
+  @override
+  State<_Approvals> createState() => _ApprovalsState();
+}
+
+class _ApprovalsState extends State<_Approvals> {
+  List<RemoteScores>? _all;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _all = null);
+    final all = await Services.I.leaderboard.fetch();
+    if (mounted) setState(() => _all = all);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = _all;
+    if (all == null) return const Center(child: CircularProgressIndicator());
+    return ListenableBuilder(
+      listenable: widget.sync,
+      builder: (context, _) {
+        final open = [
+          for (final r in all)
+            for (final MapEntry(key: board, :value) in r.unchecked.entries)
+              if (boardOrNull(board) case final b?
+                  when !Leaderboard.counts(
+                    b,
+                    ScoreEntry(value, DateTime(0)),
+                    r.pubkey,
+                  ))
+                (r, b, value),
+        ];
+        return RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.all(8),
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Werte ohne nachspielbare Partie, z. B. Rekorde aus älteren '
+                  'App-Versionen. Übernommene Werte (und schlechtere) zählen '
+                  'danach für alle.',
+                ),
+              ),
+              if (open.isEmpty) const ListTile(title: Text('Nichts offen.')),
+              for (final (r, b, value) in open)
+                ListTile(
+                  key: ValueKey('approve-${r.pubkey}-${b.id}'),
+                  leading: const Icon(Icons.history),
+                  title: Text('${r.name} – ${b.title}'),
+                  subtitle: Text(b.format(value)),
+                  trailing: TextButton(
+                    onPressed: () => widget.sync.approve(r.pubkey, b.id, value),
+                    child: const Text('Übernehmen'),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

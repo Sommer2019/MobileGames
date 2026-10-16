@@ -278,6 +278,9 @@ List<ScoreBoard> visibleBoards() => [
 
 ScoreBoard boardById(String id) => boards.firstWhere((b) => b.id == id);
 
+ScoreBoard? boardOrNull(String id) =>
+    boards.where((b) => b.id == id).firstOrNull;
+
 /// A result in the personal list.
 class ScoreEntry {
   ScoreEntry(this.value, this.at, {this.proof});
@@ -309,7 +312,12 @@ class RemoteScores {
     this.createdAt, {
     this.badge = false,
     this.proofs = const {},
+    this.unchecked = const {},
   });
+
+  /// Results on checked boards that can't be shown (no recorded game, not
+  /// approved): for the admins to approve (board id → value).
+  final Map<String, int> unchecked;
 
   /// Records of the games behind checked results (board id → record).
   final Map<String, Map<String, dynamic>> proofs;
@@ -493,9 +501,15 @@ class Leaderboard {
     final prefs = await SharedPreferences.getInstance();
     final scores = <String, int>{};
     final proofs = <String, Map<String, dynamic>>{};
+    final unchecked = <String, int>{};
     for (final b in boards) {
       final h = _history(prefs, b);
       if (h.isEmpty) continue;
+      // A better value that doesn't count (yet): sent along so an admin
+      // can approve it, e.g. a record from an older app version.
+      if (!counts(b, h.first, account.keys.publicKey)) {
+        unchecked[b.id] = h.first.value;
+      }
       final best = b.proven
           ? h.where((e) => counts(b, e, account.keys.publicKey)).firstOrNull
           : h.first;
@@ -505,7 +519,7 @@ class Leaderboard {
       scores[b.id] = best.value;
       if (best.proof case final p?) proofs[b.id] = p;
     }
-    if (scores.isEmpty) return;
+    if (scores.isEmpty && unchecked.isEmpty) return;
     await client.publish(
       NostrEvent.create(
         keys: account.keys,
@@ -514,6 +528,7 @@ class Leaderboard {
           'name': account.name,
           's': scores,
           if (proofs.isNotEmpty) 'p': proofs,
+          if (unchecked.isNotEmpty) 'u': unchecked,
           if (Secrets.I.unlocked) 'k': true,
         }),
         tags: [
@@ -551,6 +566,7 @@ class Leaderboard {
             final j = jsonDecode(e.content) as Map<String, dynamic>;
             final s = <String, int>{};
             final proofs = <String, Map<String, dynamic>>{};
+            final unchecked = <String, int>{};
             final sent = j['p'] is Map ? j['p'] as Map : const {};
             for (final MapEntry(:key, :value)
                 in (j['s'] as Map<String, dynamic>).entries) {
@@ -564,10 +580,27 @@ class Leaderboard {
                     verify(key, p, e.pubkey) == value) {
                   proofs[key] = p;
                 } else if (!_legacyAllows(b, e.pubkey, value)) {
+                  unchecked[key] = value;
                   continue;
                 }
               }
               s[key] = value;
+            }
+            // Better values sent for approval: shown once approved.
+            if (j['u'] case final Map<String, dynamic> u) {
+              for (final MapEntry(:key, :value) in u.entries) {
+                final b = boardOrNull(key);
+                if (b == null || !b.proven || value is! int) continue;
+                if (!b.plausible(value)) continue;
+                final shown = s[key];
+                if (shown != null && !b.better(value, shown)) continue;
+                if (_legacyAllows(b, e.pubkey, value)) {
+                  s[key] = value;
+                  proofs.remove(key);
+                } else {
+                  unchecked[key] = value;
+                }
+              }
             }
             final name = cleanNameOrNull(j['name']) ?? '';
             latest[e.pubkey] = RemoteScores(
@@ -579,6 +612,7 @@ class Leaderboard {
               e.createdAt,
               badge: j['k'] == true,
               proofs: proofs,
+              unchecked: unchecked,
             );
           } catch (_) {}
         });
@@ -591,11 +625,14 @@ class Leaderboard {
   @visibleForTesting
   static Map<String, Map<String, int>> legacy = legacyScores;
 
+  /// Results approved by the admins (see [ModerationSync.approve]).
+  static Map<String, Map<String, int>> approved = {};
+
   /// Whether [value] of [author] on a checked board is covered by the
   /// values kept from before the check (see [legacyScores]).
   static bool _legacyAllows(ScoreBoard b, String author, int value) {
-    final old = legacy[author]?[b.id];
-    return old != null && !b.better(value, old);
+    bool covers(int? old) => old != null && !b.better(value, old);
+    return covers(legacy[author]?[b.id]) || covers(approved[author]?[b.id]);
   }
 
   /// Whether [e] counts for the shared rankings when published by [author].

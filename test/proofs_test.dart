@@ -12,8 +12,8 @@ Map<String, dynamic> wire(Map<String, dynamic> proof) =>
     jsonDecode(jsonEncode(proof)) as Map<String, dynamic>;
 
 /// A simple snake bot: heads for the food, avoids walls and itself.
-SnakeGame playSnake(String owner) {
-  final g = SnakeGame(seed: newProofSeed(owner));
+SnakeGame playSnake(String seed) {
+  final g = SnakeGame(seed: seed);
   while (!g.dead && g.steps < 3000) {
     final (hx, hy) = g.body.first;
     final (fx, fy) = g.food;
@@ -77,12 +77,15 @@ bool playKlondike(KlondikeGame g) {
 
 void main() {
   test('snake: the played score is proven, changes are caught', () {
-    final g = playSnake('anna');
+    // A fixed seed keeps the test the same on every run.
+    final g = playSnake('anna:1');
     expect(g.dead, isTrue);
     expect(g.score, greaterThan(3));
     final proof = wire(SnakeProof.of(g));
     expect(SnakeProof.verify(proof, 'anna'), g.score);
     expect(Leaderboard.verify('snake', proof, 'anna'), g.score);
+    // The replay decides the score, not the claim.
+    expect(Leaderboard.verify('snake', proof, 'anna'), isNot(g.score + 1));
     expect(SnakeProof.verify(proof, 'ben'), isNull);
     // One turn earlier changes the game.
     final moves = List<String>.from(proof['m'] as List);

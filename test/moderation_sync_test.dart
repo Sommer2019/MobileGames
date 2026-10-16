@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_games/core/account.dart';
+import 'package:mobile_games/core/leaderboard.dart';
+import 'package:mobile_games/core/nostr/event.dart';
 import 'package:mobile_games/core/chat.dart';
 import 'package:mobile_games/core/moderation.dart';
 import 'package:mobile_games/core/moderation_sync.dart';
@@ -128,5 +133,65 @@ void main() {
     final k = KeyPair.generate().publicKey;
     expect(Moderation.parseAdmins(''), isEmpty);
     expect(Moderation.parseAdmins('$k, nonsense ,${k.toUpperCase()}'), [k, k]);
+  });
+
+  test('admins approve records that come without a recorded game', () async {
+    addTearDown(() => Leaderboard.approved = {});
+    final a = sync(admin), viewer = sync(player);
+    await a.start();
+    await viewer.start();
+
+    // An older app version publishes a record without a game.
+    final old = KeyPair.generate();
+    await bus.client().publish(
+      NostrEvent.create(
+        keys: old,
+        kind: Leaderboard.kind,
+        content: jsonEncode({
+          'name': 'Oldie',
+          's': {'kniffel': 340, 'labyrinth': 5},
+        }),
+        tags: [
+          ['d', 'mobilegames-scores'],
+          ['t', 'mobilegames-scores'],
+        ],
+      ),
+    );
+    // The new app: a better value on the device than what counts.
+    final me = await Account.load(prefix: 'me');
+    await me.setName('Neu');
+    final lb = Leaderboard(bus.client(), me);
+    await Leaderboard.submit('snake', 50);
+    await lb.publish();
+
+    Future<List<RemoteScores>> all() =>
+        lb.fetch(timeout: const Duration(milliseconds: 50));
+    var list = await all();
+    final oldie = list.firstWhere((r) => r.name == 'Oldie');
+    final neu = list.firstWhere((r) => r.name == 'Neu');
+    expect(oldie.scores['kniffel'], isNull);
+    expect(oldie.scores['labyrinth'], 5, reason: 'unchecked boards stay');
+    expect(oldie.unchecked['kniffel'], 340);
+    expect(neu.scores['snake'], isNull);
+    expect(neu.unchecked['snake'], 50, reason: 'sent along for approval');
+
+    // The admin approves both.
+    await a.approve(old.publicKey, 'kniffel', 340);
+    await a.approve(me.keys.publicKey, 'snake', 50);
+    await pump(100);
+    expect(Leaderboard.approved[old.publicKey]?['kniffel'], 340);
+    list = await all();
+    expect(list.firstWhere((r) => r.name == 'Oldie').scores['kniffel'], 340);
+    expect(list.firstWhere((r) => r.name == 'Neu').scores['snake'], 50);
+
+    // Something better than approved does not count.
+    await Leaderboard.submit('snake', 51);
+    await lb.publish();
+    final sent = jsonDecode(bus.published.last.content) as Map;
+    expect((sent['s'] as Map)['snake'], 50, reason: 'still counts');
+    expect((sent['u'] as Map)['snake'], 51, reason: 'waits for approval');
+    // Only admins can approve.
+    await viewer.approve(old.publicKey, 'kniffel', 375);
+    expect(Leaderboard.approved[old.publicKey]?['kniffel'], 340);
   });
 }
