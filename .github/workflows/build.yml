@@ -79,7 +79,7 @@ jobs:
         run: >-
           flutter build apk --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}.apk
       # Google Play: app bundle without the background service
@@ -91,7 +91,7 @@ jobs:
           flutter build appbundle --release --build-number=${{ github.run_number }}
           --dart-define=PLAY_STORE=true
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
           --android-project-arg=playStore=true
       - name: Rename bundle
         if: env.HAS_KEYSTORE == 'true'
@@ -141,7 +141,7 @@ jobs:
         run: >-
           flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
@@ -174,7 +174,7 @@ jobs:
         run: >
           flutter build linux --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Package
         run: |
           mkdir -p dist
@@ -203,7 +203,7 @@ jobs:
         run: >
           flutter build windows --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Add Visual C++ runtime
         # So the app also starts on PCs without the VC++ redistributable.
         shell: pwsh
@@ -243,7 +243,7 @@ jobs:
         run: >
           flutter build macos --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Package dmg and zip
         run: |
           n=${{ github.run_number }}
@@ -291,7 +291,7 @@ jobs:
           --base-href /${{ github.event.repository.name }}/
           --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
-          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS }}
+          --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
       - name: Add privacy policy
         run: cp docs/datenschutz.html build/web/
       - uses: actions/upload-pages-artifact@v3
