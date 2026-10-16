@@ -375,8 +375,8 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
     );
   }
 
-  /// Header, upper section, bonus, lower section and total.
-  static final _sheetRows = KniffelCategory.values.length + 3;
+  /// Header, upper section, bonus, lower section, Kniffel bonus and total.
+  static final _sheetRows = KniffelCategory.values.length + 4;
 
   /// The score sheet fills the space below the dice without scrolling;
   /// only very small screens scroll.
@@ -422,6 +422,9 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
       final sheet = game.sheets[p];
       final filled = sheet.entries[c];
       final selectable = p == current && myTurn && game.canScore(c);
+      final extra = selectable && sheet.earnsKniffelBonus(game.dice)
+          ? ' +100'
+          : '';
       return InkWell(
         key: ValueKey('score-$p-${c.name}'),
         onTap: selectable ? () => _score(c) : null,
@@ -434,7 +437,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
             Text(
               filled != null
                   ? '$filled'
-                  : (selectable ? '${scoreFor(c, game.dice)}' : ''),
+                  : (selectable ? '${sheet.scoreOf(c, game.dice)}$extra' : ''),
               style: TextStyle(
                 fontWeight: filled != null
                     ? FontWeight.bold
@@ -479,6 +482,10 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
           ], bold: true),
           for (final c in KniffelCategory.values.where((c) => !c.isUpper))
             row(c.label, [for (var p = 0; p < players; p++) cell(p, c)]),
+          row('Kniffel-Bonus', [
+            for (var p = 0; p < players; p++)
+              total('${game.sheets[p].kniffelBonus}'),
+          ], bold: true),
           row('Gesamt', [
             for (var p = 0; p < players; p++) total('${game.sheets[p].total}'),
           ], bold: true),

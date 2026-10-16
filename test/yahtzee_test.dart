@@ -33,6 +33,68 @@ void main() {
     expect(s.total, 98);
   });
 
+  test('every further Kniffel earns 100 bonus points', () {
+    final g = KniffelGame(1);
+    g.applyRoll([4, 4, 4, 4, 4]);
+    g.score(KniffelCategory.kniffel);
+    expect(g.sheets[0].kniffelBonus, 0);
+    g.applyRoll([6, 6, 6, 6, 6]);
+    g.score(KniffelCategory.sixes);
+    expect(g.sheets[0].kniffelBonus, 100);
+    expect(g.sheets[0].total, 50 + 30 + 100);
+    g.applyRoll([2, 2, 2, 2, 2]);
+    g.score(KniffelCategory.twos);
+    expect(g.sheets[0].kniffelBonus, 200);
+    final back = KniffelGame.fromJson(g.toJson());
+    expect(back.sheets[0].kniffelBonus, 200);
+    expect(back.sheets[0].total, g.sheets[0].total);
+  });
+
+  test('no Kniffel bonus after a crossed-out Fünferpasch', () {
+    final g = KniffelGame(1);
+    g.applyRoll([1, 2, 3, 4, 6]);
+    g.score(KniffelCategory.kniffel);
+    g.applyRoll([5, 5, 5, 5, 5]);
+    g.score(KniffelCategory.fives);
+    expect(g.sheets[0].kniffelBonus, 0);
+  });
+
+  test('joker: a further Kniffel goes into its upper box if open', () {
+    final g = KniffelGame(1);
+    g.applyRoll([1, 2, 3, 4, 6]);
+    g.score(KniffelCategory.kniffel);
+    g.applyRoll([3, 3, 3, 3, 3]);
+    expect(g.canScore(KniffelCategory.fullHouse), isFalse);
+    expect(g.canScore(KniffelCategory.chance), isFalse);
+    expect(g.canScore(KniffelCategory.threes), isTrue);
+    g.score(KniffelCategory.threes);
+    // Upper box filled: any box, Full House and straights count fully.
+    g.applyRoll([3, 3, 3, 3, 3]);
+    final sheet = g.sheets[0];
+    expect(sheet.scoreOf(KniffelCategory.fullHouse, g.dice), 25);
+    expect(sheet.scoreOf(KniffelCategory.smallStraight, g.dice), 30);
+    expect(sheet.scoreOf(KniffelCategory.largeStraight, g.dice), 40);
+    expect(sheet.scoreOf(KniffelCategory.ones, g.dice), 0);
+    expect(g.score(KniffelCategory.largeStraight), isTrue);
+    expect(sheet.entries[KniffelCategory.largeStraight], 40);
+    expect(sheet.kniffelBonus, 0, reason: 'Fünferpasch was crossed out');
+  });
+
+  test('games from before the extra rules play without them', () {
+    final g = KniffelGame(1, extraRules: false);
+    g.applyRoll([4, 4, 4, 4, 4]);
+    g.score(KniffelCategory.kniffel);
+    g.applyRoll([4, 4, 4, 4, 4]);
+    expect(g.canScore(KniffelCategory.chance), isTrue);
+    g.score(KniffelCategory.fullHouse);
+    expect(g.sheets[0].entries[KniffelCategory.fullHouse], 0);
+    expect(g.sheets[0].kniffelBonus, 0);
+    final saved = g.toJson();
+    expect(saved.containsKey('rules'), isFalse);
+    expect(KniffelGame.fromJson(saved).extraRules, isFalse);
+    expect(KniffelGame.fromJson(KniffelGame(1).toJson()).extraRules, isTrue);
+  });
+
   test('turn flow: max three rolls, held dice stay, turns rotate', () {
     final g = KniffelGame(2, random: Random(1));
     expect(

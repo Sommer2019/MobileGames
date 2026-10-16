@@ -39,6 +39,19 @@ void main() {
     Leaderboard.instance = null;
   });
 
+  test('records without a rules version replay with the old rules', () {
+    final (proof, total) = playProven('anna');
+    expect(proof.toJson()['v'], 2);
+    final old = KniffelProof.fromJson({'s': proof.seed, 'm': proof.moves})!;
+    expect(old.rules, 1);
+    expect(old.newGame().extraRules, isFalse);
+    expect(KniffelProof.fromJson(proof.toJson())!.verify('anna'), total);
+    expect(
+      KniffelProof.fromJson({'s': proof.seed, 'm': proof.moves, 'v': 3}),
+      isNull,
+    );
+  });
+
   test('seeded dice are the same everywhere and fair', () {
     final a = SeededDice('x'), b = SeededDice('x');
     final rolls = [for (var i = 0; i < 6000; i++) a.nextInt(6)];

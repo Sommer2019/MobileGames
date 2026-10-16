@@ -11,7 +11,8 @@ typedef SeededDice = SeededRandom;
 /// The seed starts with the player's public key, so nobody can publish a
 /// good game of somebody else as their own.
 class KniffelProof {
-  KniffelProof(this.seed, [List<String>? moves]) : moves = moves ?? [];
+  KniffelProof(this.seed, [List<String>? moves, this.rules = 2])
+    : moves = moves ?? [];
 
   /// A new game of the player with [pubkey].
   factory KniffelProof.start(String pubkey) =>
@@ -19,10 +20,15 @@ class KniffelProof {
 
   final String seed;
 
+  /// Rules the game was played with: 1 = before the Kniffel bonus and
+  /// joker rule, 2 = with them.
+  final int rules;
+
   /// `r<mask>` for a roll (bit i set = die i held), or a category name.
   final List<String> moves;
 
-  KniffelGame newGame() => KniffelGame(1, random: SeededDice(seed));
+  KniffelGame newGame() =>
+      KniffelGame(1, random: SeededDice(seed), extraRules: rules >= 2);
 
   /// Notes a roll; call before rolling [game].
   void roll(KniffelGame game) {
@@ -37,11 +43,18 @@ class KniffelProof {
 
   void score(KniffelCategory c) => moves.add(c.name);
 
-  Map<String, dynamic> toJson() => {'s': seed, 'm': moves};
+  Map<String, dynamic> toJson() => {
+    's': seed,
+    'm': moves,
+    if (rules != 1) 'v': rules,
+  };
 
   static KniffelProof? fromJson(Object? j) {
     final p = readProof(j, maxMoves: 200);
-    return p == null ? null : KniffelProof(p.$1, p.$2);
+    if (p == null) return null;
+    final v = (j as Map)['v'] ?? 1;
+    if (v != 1 && v != 2) return null;
+    return KniffelProof(p.$1, p.$2, v as int);
   }
 
   /// Plays the moves again; null if any move is impossible.
