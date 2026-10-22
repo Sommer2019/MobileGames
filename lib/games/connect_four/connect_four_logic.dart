@@ -107,12 +107,12 @@ class ConnectFourAi {
 
   int bestMove(ConnectFourGame game) {
     final me = game.currentPlayer;
-    var bestScore = -1 << 30;
+    var bestScore = -(1 << 30);
     var best = -1;
     for (final col in _order(game)) {
       if (!game.canDrop(col)) continue;
       final g = game.copy()..drop(col);
-      final score = _minimax(g, depth - 1, -1 << 30, 1 << 30, me);
+      final score = _minimax(g, depth - 1, -(1 << 30), 1 << 30, me);
       if (score > bestScore) {
         bestScore = score;
         best = col;
@@ -126,7 +126,7 @@ class ConnectFourAi {
     if (g.draw) return 0;
     if (depth == 0) return _evaluate(g, me);
     final maximizing = g.currentPlayer == me;
-    var value = maximizing ? -1 << 30 : 1 << 30;
+    var value = maximizing ? -(1 << 30) : 1 << 30;
     for (final col in _order(g)) {
       if (!g.canDrop(col)) continue;
       final child = g.copy()..drop(col);

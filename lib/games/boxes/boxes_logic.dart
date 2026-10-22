@@ -189,7 +189,7 @@ int endgameValue(List<(int, bool)> parts, [Map<String, int>? memo]) {
   final key = sorted.map((p) => '${p.$1}${p.$2 ? 'L' : 'C'}').join(',');
   final known = memo[key];
   if (known != null) return known;
-  var best = -1 << 30;
+  var best = -(1 << 30);
   final tried = <String>{};
   for (var i = 0; i < sorted.length; i++) {
     final (n, loop) = sorted[i];
@@ -301,7 +301,7 @@ class BoxesAi {
   int _openBest(BoxesGame g, List<BoxChain> cold) {
     final memo = <String, int>{};
     BoxChain? best;
-    var bestValue = -1 << 30;
+    var bestValue = -(1 << 30);
     for (var i = 0; i < cold.length; i++) {
       final c = cold[i];
       final rest = [
@@ -352,7 +352,7 @@ class BoxesAi {
     final open = g.openLines;
     final memo = <int, int>{};
     var best = open.first;
-    var bestScore = -1 << 30;
+    var bestScore = -(1 << 30);
     for (var i = 0; i < open.length; i++) {
       final gained = _gain(g, open[i]);
       final rest = _value(g, open, (1 << open.length) - 1 & ~(1 << i), memo);
@@ -380,7 +380,7 @@ class BoxesAi {
     for (var i = 0; i < open.length; i++) {
       if (mask & (1 << i) == 0) c.lines[open[i]] = true;
     }
-    var best = -1 << 30;
+    var best = -(1 << 30);
     for (var i = 0; i < open.length; i++) {
       if (mask & (1 << i) == 0) continue;
       final gained = _gain(c, open[i]);

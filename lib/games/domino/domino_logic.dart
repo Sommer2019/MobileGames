@@ -227,7 +227,7 @@ class DominoAi {
       return a == n || b == n;
     }).length;
     List? best;
-    var bestScore = -1 << 30;
+    var bestScore = -(1 << 30);
     for (final t in options) {
       for (final side in m.sidesFor(t)) {
         final (a, b) = Domino.tiles[t];
