@@ -91,7 +91,8 @@ const boards = [
     'yahtzee',
     'Würfelkönig allein',
     'Punkte',
-    max: 375,
+    // 375 plus 12 Kniffel bonuses of 100 (13 Kniffel with the joker rule).
+    max: 1575,
     proven: true,
   ),
   ScoreBoard(
