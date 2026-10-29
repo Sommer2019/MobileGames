@@ -117,11 +117,11 @@ class _SnakeScreenState extends State<SnakeScreen>
         ? 0.0
         : (now - _last).inMicroseconds / 1e6;
     _last = now;
-    if (!running || game.dead) return;
+    if (!running || game.over) return;
     _acc += dt;
     final interval = 1 / game.speed;
     var changed = false;
-    while (_acc >= interval && !game.dead) {
+    while (_acc >= interval && !game.over) {
       _acc -= interval;
       final before = game.score;
       game.step();
@@ -131,7 +131,7 @@ class _SnakeScreenState extends State<SnakeScreen>
       }
       changed = true;
     }
-    if (game.dead) _gameOver();
+    if (game.over) _gameOver();
     if (changed) setState(() {});
   }
 
@@ -297,7 +297,9 @@ class _SnakeScreenState extends State<SnakeScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            game.dead
+            game.won
+                ? 'Gewonnen – ${game.score} Punkte'
+                : game.dead
                 ? 'Game Over – ${game.score} Punkte'
                 : paused
                 ? 'Pause – ${game.score} Punkte'
@@ -331,7 +333,7 @@ class _SnakeScreenState extends State<SnakeScreen>
               key: const ValueKey('snakeStart'),
               onPressed: _start,
               icon: const Icon(Icons.play_arrow),
-              label: Text(game.dead ? 'Nochmal' : 'Start'),
+              label: Text(game.over ? 'Nochmal' : 'Start'),
             ),
         ],
       ),

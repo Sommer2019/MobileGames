@@ -83,6 +83,9 @@ class SnakeGame {
   bool dead = false;
   bool get won => body.length == width * height;
 
+  /// Dead or the whole board filled.
+  bool get over => dead || won;
+
   /// Speed in steps per second; grows with the score.
   double get speed => min(16, 6 + score * 0.25);
 
@@ -105,7 +108,7 @@ class SnakeGame {
 
   /// Advances one step.
   void step() {
-    if (dead || won) return;
+    if (over) return;
     steps++;
     if (_queue.isNotEmpty) direction = _queue.removeAt(0);
     final (dx, dy) = direction.delta;
@@ -163,7 +166,7 @@ class SnakeProof {
       turns.add((at, d.single));
     }
     var i = 0;
-    while (g.steps < n && !g.dead && !g.won) {
+    while (g.steps < n && !g.over) {
       while (i < turns.length && turns[i].$1 == g.steps) {
         g.turn(turns[i++].$2);
       }
@@ -175,7 +178,7 @@ class SnakeProof {
       g.turn(turns[i++].$2);
     }
     if (i < turns.length || g.steps != n) return null;
-    if (toTheEnd && !g.dead) return null;
+    if (toTheEnd && !g.over) return null;
     return g;
   }
 

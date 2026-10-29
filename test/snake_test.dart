@@ -69,4 +69,27 @@ void main() {
     g.step();
     expect(g.direction, Dir.right);
   });
+
+  test('a won game (board full) counts as finished and verifies', () {
+    final key = 'ab' * 32;
+    final g = SnakeGame(seed: '$key:1');
+    // Follows a cycle through every cell: up column 0, zigzag the rest.
+    (int, int) next(int x, int y) {
+      if (x == 0) return y == 0 ? (1, 0) : (0, y - 1);
+      if (y.isEven) return x < 19 ? (x + 1, y) : (19, y + 1);
+      if (x > 1) return (x - 1, y);
+      return y < 27 ? (1, y + 1) : (0, 27);
+    }
+
+    while (!g.over) {
+      final (x, y) = g.body.first;
+      final (nx, ny) = next(x, y);
+      final d = Dir.values.firstWhere((d) => d.delta == (nx - x, ny - y));
+      if (d != g.direction) g.turn(d);
+      g.step();
+    }
+    expect(g.won, isTrue);
+    expect(g.dead, isFalse);
+    expect(SnakeProof.verify(SnakeProof.of(g), key), 20 * 28 - 3);
+  });
 }
