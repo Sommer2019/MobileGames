@@ -112,6 +112,12 @@ class StreetViewController extends ChangeNotifier {
   void goTo(double lat, double lng) =>
       _send({'t': 'goto', 'lat': lat, 'lng': lng});
 
+  /// Closes the error message (the page goes on with what it has).
+  void clearError() {
+    error = null;
+    notifyListeners();
+  }
+
   /// Shows a view (review, guessing round).
   void show(GeoView v) {
     final m = {'t': 'show', 'view': v.toJson()};
@@ -222,31 +228,39 @@ class _StreetViewState extends State<StreetView> {
     }
     final html = _html;
     if (html == null) return const Center(child: CircularProgressIndicator());
+    final route = ModalRoute.of(context)?.isCurrent ?? true;
     return ListenableBuilder(
       listenable: widget.controller,
-      builder: (context, child) => Stack(
-        children: [
-          Positioned.fill(child: child!),
-          if (widget.controller.error case final e?)
-            Positioned.fill(child: _Message(e)),
-        ],
-      ),
-      child: platform.buildView(
-        html: html,
-        baseUrl: viewerBaseUrl,
-        onMessage: (m) => widget.controller._handle(m, _init),
-        attach: (post) => widget.controller._post = post,
-        // A dialog or sheet on top: let the clicks through to it.
-        interactive:
-            widget.interactive && (ModalRoute.of(context)?.isCurrent ?? true),
-      ),
+      builder: (context, _) {
+        final error = widget.controller.error;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: platform.buildView(
+                html: html,
+                baseUrl: viewerBaseUrl,
+                onMessage: (m) => widget.controller._handle(m, _init),
+                attach: (post) => widget.controller._post = post,
+                // Something on top (a dialog, a sheet, the message below):
+                // in the browser the page would take its clicks.
+                interactive: widget.interactive && route && error == null,
+              ),
+            ),
+            if (error != null)
+              Positioned.fill(
+                child: _Message(error, onClose: widget.controller.clearError),
+              ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _Message extends StatelessWidget {
-  const _Message(this.text);
+  const _Message(this.text, {this.onClose});
   final String text;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -254,10 +268,23 @@ class _Message extends StatelessWidget {
     child: Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white),
+            ),
+            if (onClose != null) ...[
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const ValueKey('streetViewErrorOk'),
+                onPressed: onClose,
+                child: const Text('OK'),
+              ),
+            ],
+          ],
         ),
       ),
     ),

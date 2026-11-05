@@ -124,6 +124,18 @@ void main() {
     expect(GeoGuessGame.replay(2, g.events).total(1), g.total(1));
   });
 
+  test('the host may swap the place until somebody guessed', () {
+    final g = GeoGuessGame(players: 2);
+    g.apply(['round', 0, berlin(), 1], 0);
+    final other = {...berlin(), 'id': 'x', 'lat': 10.0};
+    expect(g.apply(['swap', 0, other, 2], 1), isFalse, reason: 'host only');
+    expect(g.apply(['swap', 0, other, 2], 0), isTrue);
+    expect(g.views.single.id, 'x');
+    expect(g.startedAt, 2);
+    g.apply(['guess', 0, 1, 1], 1);
+    expect(g.apply(['swap', 0, berlin(), 3], 0), isFalse, reason: 'guessed');
+  });
+
   test('own places may come from any source', () {
     final g = GeoGuessGame(players: 1);
     final mapillary = {...berlin(), 'src': 'mapillary'};

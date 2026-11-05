@@ -25,7 +25,9 @@ int pointsFor(double km) => km < 0.05 ? 5000 : (5000 * exp(-km / 2000)).round();
 ///
 /// Played through [apply] with plain events (seat of the sender given):
 /// host only: `['cfg', {rounds, sec, src, own}]`,
-/// `['round', r, view, epochMs]`,
+/// `['round', r, view, epochMs]`, `['swap', r, view, epochMs]` (another
+/// place for the running round, while nobody guessed: when a picture does
+/// not load or shows nothing),
 /// `['reveal', r, {seat: [lat, lng]}]`, `['end']`, `['new']`;
 /// everybody: `['guess', r, lat, lng]`.
 /// The host's `reveal` carries the guesses as the host has them, so every
@@ -95,6 +97,17 @@ class GeoGuessGame {
         views.add(view);
         startedAt = at;
         phase = GuessPhase.round;
+      case ['swap', final int r, final Object? v, final int at]
+          when host &&
+              phase == GuessPhase.round &&
+              r == round &&
+              (guesses[r]?.isEmpty ?? true):
+        final view = GeoView.fromJson(v);
+        if (view == null || (!own && !sources.contains(view.source))) {
+          return false;
+        }
+        views[r] = view;
+        startedAt = at;
       case ['guess', final int r, final num lat, final num lng]
           when phase == GuessPhase.round && r == round:
         if (lat.abs() > 90 || lng.abs() > 180 || seat >= players) return false;

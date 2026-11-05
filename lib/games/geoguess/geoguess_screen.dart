@@ -138,7 +138,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
 
   void _after(List e) {
     switch (e.first) {
-      case 'round':
+      case 'round' || 'swap':
         _view.show(game.views.last);
         Sound.play(Sfx.click);
       case 'guess':
@@ -161,8 +161,13 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
   }
 
   /// Host: finds a random place and starts the next round.
-  Future<void> _nextRound() async {
+  /// Host: finds a random place and starts the next round, or with [swap]
+  /// replaces the place of the running round.
+  Future<void> _nextRound({bool swap = false}) async {
     if (!isHost || _busy) return;
+    List place(GeoView v) => swap
+        ? ['swap', game.round, v.toJson(), _now()]
+        : ['round', game.views.length, v.toJson(), _now()];
     // Own places first, each once per game; then random ones.
     if (game.own) {
       final played = {for (final v in game.views) '${v.source.name}:${v.id}'};
@@ -171,8 +176,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
           if (!played.contains('${p.source.name}:${p.id}')) p,
       ];
       if (left.isNotEmpty) {
-        final pick = left[Random().nextInt(left.length)];
-        _act(['round', game.views.length, pick.toJson(), _now()]);
+        _act(place(left[Random().nextInt(left.length)]));
         return;
       }
     }
@@ -185,7 +189,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
           .showSnackBar(SnackBar(content: Text(error ?? 'Kein Ort gefunden')));
       return;
     }
-    _act(['round', game.views.length, view.toJson(), _now()]);
+    _act(place(view));
   }
 
   void _reveal() {
@@ -399,6 +403,14 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
                   label: Text(mine ? 'Getippt – warte …' : 'Tipp abgeben'),
                 ),
               ),
+              // The picture does not load or shows nothing: another one.
+              if (isHost && guessed.isEmpty)
+                IconButton(
+                  key: const ValueKey('ggSwap'),
+                  tooltip: 'Anderer Ort',
+                  onPressed: _busy ? null : () => _nextRound(swap: true),
+                  icon: _busy ? _spinner() : const Icon(Icons.shuffle),
+                ),
               if (isHost && players > 1) ...[
                 const SizedBox(width: 8),
                 OutlinedButton(
