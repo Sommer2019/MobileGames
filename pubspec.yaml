@@ -58,7 +58,7 @@ dependencies:
   url_launcher: ^6.3.3
   webview_flutter: ^4.14.1
   geolocator: ^14.1.2
-
+  webview_flutter_android: ^4.14.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

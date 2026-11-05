@@ -90,6 +90,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('category-all')));
     await tester.pump();
     expect(find.byKey(const ValueKey('game-chess')), findsOneWidget);
+    // Alone: also games against the computer, not those only for several.
+    await tester.tap(find.byKey(const ValueKey('filter-alone')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-snake')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-chess')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-ludo')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-geobingo')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('filter-multi')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-snake')), findsNothing);
+    expect(find.byKey(const ValueKey('game-geobingo')), findsOneWidget);
   });
 
   test('fuzzy game search', () {

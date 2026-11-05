@@ -61,6 +61,7 @@ class GameInfo {
     required this.icon,
     required this.color,
     this.category = GameCategory.board,
+    this.needsInternet = false,
     this.offlineModes = const [],
     this.multiplayerBuilder,
     this.singleplayerBuilder,
@@ -93,6 +94,14 @@ class GameInfo {
   final Widget Function()? singleplayerBuilder;
 
   bool get isMultiplayer => multiplayerBuilder != null;
+
+  /// Also for one person: a game of its own, alone or against computers.
+  bool get playableAlone =>
+      singleplayerBuilder != null ||
+      offlineModes.any((m) => m.setup.players - m.setup.botSeats.length <= 1);
+
+  /// Even its modes on this device need the internet (street pictures).
+  final bool needsInternet;
 }
 
 final List<GameInfo> games = [
@@ -417,6 +426,7 @@ final List<GameInfo> games = [
   GameInfo(
     id: 'geoguess',
     category: GameCategory.geo,
+    needsInternet: true,
     title: 'Wo bin ich?',
     description: 'Straßenbild ansehen, auf der Weltkarte tippen, wo es ist',
     icon: Icons.place,

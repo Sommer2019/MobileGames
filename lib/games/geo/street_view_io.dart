@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 bool get supported => Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
 
@@ -61,11 +62,25 @@ class _WebViewState extends State<_WebView> {
       "'${s.replaceAll(r'\', r'\\').replaceAll("'", r"\'").replaceAll('\n', r'\n')}'";
 
   @override
-  Widget build(BuildContext context) => WebViewWidget(
-    controller: _c,
+  Widget build(BuildContext context) {
     // The panorama gets every touch (dragging, pinching).
-    gestureRecognizers: {
+    final gestures = {
       Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
-    },
-  );
+    };
+    // Android: maps and 360° pictures draw with WebGL, which stays black on
+    // some phones when the web view is shown as a texture.
+    if (Platform.isAndroid) {
+      return WebViewWidget.fromPlatformCreationParams(
+        params:
+            AndroidWebViewWidgetCreationParams.fromPlatformWebViewWidgetCreationParams(
+              PlatformWebViewWidgetCreationParams(
+                controller: _c.platform,
+                gestureRecognizers: gestures,
+              ),
+              displayWithHybridComposition: true,
+            ),
+      );
+    }
+    return WebViewWidget(controller: _c, gestureRecognizers: gestures);
+  }
 }

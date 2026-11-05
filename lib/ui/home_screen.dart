@@ -28,6 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Only this category (null: all).
   GameCategory? _category;
 
+  /// Only games for one person (also against computers), or only games
+  /// with others (null: both).
+  bool? _alone;
+
   @override
   void dispose() {
     _search.dispose();
@@ -36,13 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _matches(GameInfo g) {
     if (_category != null && g.category != _category) return false;
+    if (_alone == true && !g.playableAlone) return false;
+    if (_alone == false && !g.isMultiplayer) return false;
     final q = _query.trim();
     if (q.isEmpty) return true;
     return fuzzyMatch(
       q,
       '${g.title} ${g.description} ${g.category.label} '
       '${g.isMultiplayer ? 'mehrspieler online' : ''} '
-      '${g.singleplayerBuilder != null || g.offlineModes.any((m) => m.setup.players == 1) ? 'allein einzelspieler' : ''}',
+      '${g.playableAlone ? 'allein einzelspieler computer' : ''}',
     );
   }
 
@@ -176,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Center(child: Text('Kein Spiel gefunden 🤷')),
                 ),
               )
-            else if (searching || _category != null)
+            else if (searching || _category != null || _alone != null)
               _grid(context, shown)
             else
               for (final c in GameCategory.values)
@@ -228,9 +234,28 @@ class _HomeScreenState extends State<HomeScreen> {
               ChoiceChip(
                 key: const ValueKey('category-all'),
                 label: const Text('Alle'),
-                selected: _category == null,
-                onSelected: (_) => setState(() => _category = null),
+                selected: _category == null && _alone == null,
+                onSelected: (_) => setState(() {
+                  _category = null;
+                  _alone = null;
+                }),
               ),
+              for (final (alone, label, icon) in [
+                (true, 'Allein', Icons.person),
+                (false, 'Mehrspieler', Icons.people),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: ChoiceChip(
+                    key: ValueKey(alone ? 'filter-alone' : 'filter-multi'),
+                    avatar: Icon(icon, size: 18),
+                    label: Text(label),
+                    selected: _alone == alone,
+                    onSelected: (_) =>
+                        setState(() => _alone = _alone == alone ? null : alone),
+                  ),
+                ),
+              const SizedBox(height: 24, child: VerticalDivider(width: 16)),
               for (final c in GameCategory.values)
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
@@ -334,8 +359,7 @@ class _GameCard extends StatelessWidget {
                 // How it can be played: with others, alone.
                 if (game.isMultiplayer)
                   const Icon(Icons.people, size: 16, color: Colors.white70),
-                if (game.singleplayerBuilder != null ||
-                    game.offlineModes.any((m) => m.setup.players == 1))
+                if (game.playableAlone)
                   const Icon(Icons.person, size: 16, color: Colors.white70),
               ],
             ),

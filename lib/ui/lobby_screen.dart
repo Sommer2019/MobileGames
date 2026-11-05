@@ -50,7 +50,7 @@ class LobbyScreen extends StatelessWidget {
               if (soloFirst) ...[
                 if (game.offlineModes.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  const _Section('Offline'),
+                  _Section(game.needsInternet ? 'Auf diesem Gerät' : 'Offline'),
                   for (final m in game.offlineModes)
                     _OptionTile(
                       icon: m.icon,
@@ -91,7 +91,7 @@ class LobbyScreen extends StatelessWidget {
               if (!soloFirst &&
                   (game.offlineModes.isNotEmpty || game.hasBots)) ...[
                 const SizedBox(height: 16),
-                const _Section('Offline'),
+                _Section(game.needsInternet ? 'Auf diesem Gerät' : 'Offline'),
                 if (game.hasBots)
                   _OptionTile(
                     key: const ValueKey('seatSetup'),
