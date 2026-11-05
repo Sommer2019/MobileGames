@@ -19,6 +19,7 @@ import 'core/sound.dart';
 import 'games/registry.dart';
 import 'ui/friends_screen.dart';
 import 'ui/home_screen.dart';
+import 'ui/watchers_overlay.dart';
 import 'ui/lobby_screen.dart';
 
 Future<void> main() async {
@@ -261,7 +262,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
       builder: (context, child) => Listener(
         // Web (iOS Safari): motion sensors need a permission asked on a tap.
         onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
-        child: SystemBarInsets(child: child!),
+        child: SystemBarInsets(child: WatchersOverlay(child: child!)),
       ),
       home: const HomeScreen(),
     );

@@ -126,6 +126,25 @@ lib/ui/           Startseite, Lobby, Freunde
 test/             Unit- und Widget-Tests
 ```
 
+### Geobingo: Street-View-Schlüssel
+
+Geobingo läuft ohne Schlüssel mit **Panoramax** (freie Straßenbilder, viel in Frankreich).
+Für Google Street View und Mapillary braucht es Schlüssel. Die Build-Pipeline nimmt sie als
+Repository-Variable oder -Secret:
+
+* `GOOGLE_MAPS_KEY` – Google Cloud: Projekt mit Zahlungsart anlegen, **Maps JavaScript API**
+  aktivieren, API-Schlüssel erstellen. Unter „Schlüssel einschränken“ als Website
+  `https://sommer2019.github.io/*` eintragen (die App lädt Street View von dieser Adresse aus)
+  und nur die Maps JavaScript API erlauben. Unter „Kontingente“ ein Tageslimit für
+  „Dynamic Street View“ setzen, z. B. 150 – dann bleibt es im Gratiskontingent von
+  5.000 Panoramen im Monat.
+* `MAPILLARY_TOKEN` – kostenlos: bei mapillary.com anmelden → Developers → App registrieren →
+  „Client Token“ kopieren (beginnt mit `MLY|`).
+
+Lokal: `flutter run --dart-define=GOOGLE_MAPS_KEY=… --dart-define=MAPILLARY_TOKEN=…`.
+Ortssuche und Ländererkennung laufen über OpenStreetMap (Nominatim), die Karte im
+Mapillary-Modus über OpenFreeMap – beides ohne Schlüssel.
+
 ### Release-Signierung (optional, empfohlen)
 
 Ohne Konfiguration wird die APK mit einem Debug-Schlüssel signiert, der in CI bei jedem

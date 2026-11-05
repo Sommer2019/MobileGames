@@ -31,6 +31,26 @@ class Reaction {
   const Reaction(this.name, this.emoji);
   final String name;
   final String emoji;
+
+  static final Random _random = Random();
+
+  /// A new cheer message (`k: x`) with a random id.
+  static Map<String, dynamic> message(String name, String emoji) => {
+    'k': 'x',
+    'i': '${_random.nextInt(0x7fffffff)}',
+    'n': name.length > 24 ? name.substring(0, 24) : name,
+    'e': emoji,
+  };
+
+  /// The cheer in a message, null if it is not a valid one.
+  static Reaction? parse(Map<String, dynamic> m) {
+    final id = m['i'], emoji = m['e'], name = m['n'];
+    if (m['k'] != 'x' || id is! String || emoji is! String || name is! String) {
+      return null;
+    }
+    if (!GameRoom.reactionEmojis.contains(emoji)) return null;
+    return Reaction(name.length > 24 ? name.substring(0, 24) : name, emoji);
+  }
 }
 
 /// A running online game with 2–4 players.

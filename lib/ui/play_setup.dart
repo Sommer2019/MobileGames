@@ -543,7 +543,7 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
             ),
           Expanded(
             child: ReactionOverlay(
-              room: r,
+              reactions: r.reactions,
               child: watching ? AbsorbPointer(child: body) : body,
             ),
           ),
@@ -571,13 +571,6 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
-            if (!widget.setup.spectator && Services.isReady)
-              ValueListenableBuilder<int>(
-                valueListenable: Services.I.spectators.watchers,
-                builder: (context, n, _) => n == 0
-                    ? const SizedBox.shrink()
-                    : Tooltip(message: '$n schauen zu', child: Text('👁 $n')),
-              ),
             if (r != null) _ConnectionChip(room: r),
             if (r != null && !watching)
               IconButton(

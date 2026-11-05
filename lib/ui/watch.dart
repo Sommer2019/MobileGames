@@ -8,6 +8,7 @@ import '../core/services.dart';
 import '../games/labyrinth/labyrinth_screen.dart';
 import '../games/registry.dart';
 import 'play_setup.dart';
+import 'reactions.dart';
 
 /// Title of a game for "spielt …".
 String gameTitle(String id) => gameById(id)?.title ?? id;
@@ -123,37 +124,54 @@ class MirrorWatchScreen extends StatelessWidget {
             child: MediaQuery.removePadding(
               context: context,
               removeBottom: true,
-              child: AbsorbPointer(child: _game()),
+              child: ReactionOverlay(
+                reactions: feed.reactions,
+                child: AbsorbPointer(child: _game()),
+              ),
             ),
           ),
           Material(
             color: scheme.inverseSurface,
             child: SafeArea(
               top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: feed.ended,
-                        builder: (context, ended, _) => Text(
-                          ended
-                              ? '${feed.friendName} hat das Spiel verlassen'
-                              : '👁 Du schaust ${feed.friendName} zu',
-                          key: const ValueKey('mirrorBanner'),
-                          style: TextStyle(color: scheme.onInverseSurface),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ReactionBar(
+                    onReact: (e) => feed.react(
+                      Services.isReady ? Services.I.account.name : 'Ich',
+                      e,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 4, 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: feed.ended,
+                            builder: (context, ended, _) => Text(
+                              ended
+                                  ? '${feed.friendName} hat das Spiel verlassen'
+                                  : '👁 Du schaust ${feed.friendName} zu',
+                              key: const ValueKey('mirrorBanner'),
+                              style: TextStyle(color: scheme.onInverseSurface),
+                            ),
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          key: const ValueKey('mirrorClose'),
+                          tooltip: 'Schließen',
+                          onPressed: () => Navigator.maybePop(context),
+                          icon: Icon(
+                            Icons.close,
+                            color: scheme.onInverseSurface,
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      key: const ValueKey('mirrorClose'),
-                      tooltip: 'Schließen',
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: Icon(Icons.close, color: scheme.onInverseSurface),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

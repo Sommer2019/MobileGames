@@ -16,17 +16,34 @@ import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'domino/domino_screen.dart';
+import 'geobingo/geobingo_screen.dart';
+import 'geoguess/geoguess_screen.dart';
 import 'halma/halma_screen.dart';
 import 'lastcard/lastcard_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'mill/mill_screen.dart';
 import 'prophet/prophet_screen.dart';
+import 'quiz/quiz_screen.dart';
 import 'schocken/schocken_screen.dart';
 import 'snake/snake_screen.dart';
 import 'solitaire/klondike_screen.dart';
 import 'stapelfix/stapelfix_screen.dart';
 import 'tournament/tournament_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
+
+/// Groups on the home screen.
+enum GameCategory {
+  board('Brett & Strategie', Icons.grid_on),
+  cards('Karten', Icons.style),
+  dice('Würfel & Glück', Icons.casino),
+  geo('Geo & Quiz', Icons.public),
+  skill('Geschick & Action', Icons.sports_esports),
+  puzzle('Rätsel', Icons.extension);
+
+  const GameCategory(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
 
 /// An offline way to play a multiplayer game.
 class OfflineMode {
@@ -43,11 +60,11 @@ class GameInfo {
     required this.description,
     required this.icon,
     required this.color,
+    this.category = GameCategory.board,
     this.offlineModes = const [],
     this.multiplayerBuilder,
     this.singleplayerBuilder,
     this.maxOnlinePlayers = 2,
-    this.alsoSingleplayer = false,
     this.playerCounts = const [],
     this.maxHumansOffline,
   });
@@ -62,14 +79,12 @@ class GameInfo {
 
   bool get hasBots => playerCounts.isNotEmpty;
 
-  /// Multiplayer game that can also be played alone (listed in both sections).
-  final bool alsoSingleplayer;
-
   /// Online games support 2..[maxOnlinePlayers] players.
   final int maxOnlinePlayers;
 
   final String id;
   final String title;
+  final GameCategory category;
   final String description;
   final IconData icon;
   final Color color;
@@ -83,6 +98,7 @@ class GameInfo {
 final List<GameInfo> games = [
   GameInfo(
     id: 'chess',
+    category: GameCategory.board,
     title: 'Schach',
     description: 'Der Klassiker mit allen Regeln',
     icon: Icons.castle,
@@ -95,6 +111,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'battleship',
+    category: GameCategory.board,
     title: 'Schiffe versenken',
     description: 'Finde und versenke die gegnerische Flotte',
     icon: Icons.directions_boat,
@@ -109,6 +126,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'connect_four',
+    category: GameCategory.board,
     title: 'Vier in einer Reihe',
     description: 'Vier in einer Reihe gewinnt – 2 bis 4 Spieler',
     icon: Icons.grid_view_rounded,
@@ -132,6 +150,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'checkers',
+    category: GameCategory.board,
     title: 'Dame',
     description: 'Schlagen ist Pflicht – mit fliegenden Damen',
     icon: Icons.blur_on,
@@ -144,6 +163,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'mill',
+    category: GameCategory.board,
     title: 'Mühle',
     description: 'Drei in einer Reihe – und dem Gegner einen Stein nehmen',
     icon: Icons.crop_square,
@@ -156,6 +176,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'yahtzee',
+    category: GameCategory.dice,
     title: 'Würfelkönig',
     description: 'Würfelglück mit Taktik',
     icon: Icons.casino,
@@ -184,6 +205,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'boxes',
+    category: GameCategory.board,
     title: 'Käsekästchen',
     description: 'Striche ziehen, Kästchen schließen – 2 bis 4 Spieler',
     icon: Icons.grid_on,
@@ -202,6 +224,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'ludo',
+    category: GameCategory.board,
     title: 'Ludo',
     description: 'Der Klassiker für 2 bis 4 – mit Computer-Gegnern',
     icon: Icons.casino,
@@ -220,6 +243,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'domino',
+    category: GameCategory.board,
     title: 'Domino',
     description: 'Steine anlegen bis 100 Punkte – 2 bis 4 Spieler',
     icon: Icons.view_agenda,
@@ -238,6 +262,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'halma',
+    category: GameCategory.board,
     title: 'Sternhalma',
     description: 'Über alle springen, ab ins Ziel – 2, 3, 4 oder 6 Spieler',
     icon: Icons.star,
@@ -256,6 +281,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'bingo',
+    category: GameCategory.dice,
     title: 'Bingo',
     description: 'Kugeln ziehen, Zahlen streichen, als Erster BINGO rufen',
     icon: Icons.blur_circular,
@@ -279,6 +305,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'lastcard',
+    category: GameCategory.cards,
     title: 'Letzte Karte',
     description: 'Farbe oder Zahl bedienen, +2, +4 und Aussetzen – 2 bis 6',
     icon: Icons.style,
@@ -302,6 +329,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'prophet',
+    category: GameCategory.cards,
     title: 'Stichprophet',
     description:
         'Sag deine Stiche voraus – Zauberer, Narren und Trumpf, 3 bis 6',
@@ -330,6 +358,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'stapelfix',
+    category: GameCategory.cards,
     title: 'Stapelfix',
     description: 'Von 1 bis 12 stapeln, zuerst den eigenen Stapel leeren',
     icon: Icons.filter_none,
@@ -353,6 +382,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'schocken',
+    category: GameCategory.dice,
     title: 'Schocken',
     description: 'Der Kneipen-Klassiker mit 3 Würfeln und 13 Deckeln',
     icon: Icons.sports_bar,
@@ -375,7 +405,44 @@ final List<GameInfo> games = [
     multiplayerBuilder: (s) => SchockenScreen(setup: s),
   ),
   GameInfo(
+    id: 'geobingo',
+    category: GameCategory.geo,
+    title: 'Geobingo',
+    description: 'Begriffe weltweit in Street View aufspüren – online',
+    icon: Icons.travel_explore,
+    color: const Color(0xFF0277BD),
+    maxOnlinePlayers: 8,
+    multiplayerBuilder: (s) => GeoBingoScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'geoguess',
+    category: GameCategory.geo,
+    title: 'Wo bin ich?',
+    description: 'Straßenbild ansehen, auf der Weltkarte tippen, wo es ist',
+    icon: Icons.place,
+    color: const Color(0xFF00838F),
+    offlineModes: const [
+      OfflineMode('Allein spielen', Icons.person, PlaySetup.local(players: 1)),
+    ],
+    maxOnlinePlayers: 8,
+    multiplayerBuilder: (s) => GeoGuessScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'quiz',
+    category: GameCategory.geo,
+    title: 'Länderquiz',
+    description: 'Flaggen und Hauptstädte der Welt erraten',
+    icon: Icons.flag,
+    color: const Color(0xFFC62828),
+    offlineModes: const [
+      OfflineMode('Allein spielen', Icons.person, PlaySetup.local(players: 1)),
+    ],
+    maxOnlinePlayers: 8,
+    multiplayerBuilder: (s) => QuizScreen(setup: s),
+  ),
+  GameInfo(
     id: 'darts',
+    category: GameCategory.skill,
     title: 'Darts',
     description:
         'Allein üben oder mit bis zu 4 Spielern – 501, 301, Rund um die Uhr',
@@ -400,6 +467,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'labyrinth',
+    category: GameCategory.skill,
     title: 'Kugellabyrinth',
     description: 'Kippe das Handy und rolle die Kugel ins Ziel',
     icon: Icons.blur_circular,
@@ -408,6 +476,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'arrows',
+    category: GameCategory.puzzle,
     title: 'Pfeile',
     description: 'Tippe die Pfeile in der richtigen Reihenfolge hinaus',
     icon: Icons.north_east,
@@ -416,6 +485,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'dice',
+    category: GameCategory.dice,
     title: 'Würfelbecher',
     description: '1–6 Würfel für Brettspiele – Handy schütteln zum Würfeln',
     icon: Icons.casino_outlined,
@@ -424,6 +494,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'snake',
+    category: GameCategory.skill,
     title: 'Snake',
     description: 'Fressen, wachsen, nicht in den Schwanz beißen',
     icon: Icons.gesture,
@@ -432,6 +503,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'klondike',
+    category: GameCategory.cards,
     title: 'Solitär',
     description: 'Klondike – Karten nach Farbe und Wert sortieren',
     icon: Icons.style,
@@ -440,6 +512,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'mahjong',
+    category: GameCategory.puzzle,
     title: 'Mahjong',
     description: 'Räume alle Steinpaare ab',
     icon: Icons.view_module,
@@ -448,6 +521,7 @@ final List<GameInfo> games = [
   ),
   GameInfo(
     id: 'billiard',
+    category: GameCategory.skill,
     title: 'Billard',
     description: 'Allein den Tisch abräumen oder 8-Ball zu zweit',
     icon: Icons.sports_baseball,

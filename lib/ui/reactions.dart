@@ -10,8 +10,12 @@ import 'confetti.dart';
 /// Cheers of players and spectators: emojis float up over the game, 🎉
 /// also rains confetti.
 class ReactionOverlay extends StatefulWidget {
-  const ReactionOverlay({super.key, required this.room, required this.child});
-  final GameRoom room;
+  const ReactionOverlay({
+    super.key,
+    required this.reactions,
+    required this.child,
+  });
+  final Stream<Reaction> reactions;
   final Widget child;
 
   @override
@@ -35,7 +39,7 @@ class _ReactionOverlayState extends State<ReactionOverlay> {
   @override
   void initState() {
     super.initState();
-    _sub = widget.room.reactions.listen(_add);
+    _sub = widget.reactions.listen(_add);
   }
 
   void _add(Reaction r) {
@@ -116,41 +120,45 @@ class _FlyingEmojiState extends State<_FlyingEmoji>
           final t = _c.value;
           final x = widget.flying.x * box.maxWidth + sin(t * 2 * pi) * 18 - 30;
           final y = box.maxHeight * (0.85 - 0.75 * t);
-          return Stack(
-            children: [
-              Positioned(
-                left: x,
-                top: y,
-                child: Opacity(
-                  opacity: t < 0.75 ? 1 : (1 - t) * 4,
-                  child: Column(
-                    children: [
-                      Text(
-                        widget.flying.reaction.emoji,
-                        style: TextStyle(fontSize: 40 + 10 * sin(t * pi)),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
+          // Also used above all pages, where no Material gives text a style.
+          return Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: x,
+                  top: y,
+                  child: Opacity(
+                    opacity: t < 0.75 ? 1 : (1 - t) * 4,
+                    child: Column(
+                      children: [
+                        Text(
+                          widget.flying.reaction.emoji,
+                          style: TextStyle(fontSize: 40 + 10 * sin(t * pi)),
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          widget.flying.reaction.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            widget.flying.reaction.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

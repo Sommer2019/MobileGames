@@ -19,7 +19,9 @@ import 'package:mobile_games/core/saved_games.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_logic.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/home_screen.dart';
+import 'package:mobile_games/ui/fuzzy.dart';
 import 'package:mobile_games/ui/play_setup.dart';
+import 'package:mobile_games/ui/watchers_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_nostr.dart';
@@ -57,10 +59,61 @@ void main() {
       'Letzte Karte',
       'Stapelfix',
       'Pfeile',
+      'Schocken',
+      'Geobingo',
+      'Wo bin ich?',
+      'Länderquiz',
     ];
     for (final t in titles) {
       expect(find.text(t), findsWidgets);
     }
+  });
+
+  testWidgets('home: search and categories', (tester) async {
+    tester.view.physicalSize = const Size(1200, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const HomeScreen()));
+    expect(find.text('Geo & Quiz'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), 'wurfel');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-yahtzee')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-chess')), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), 'xyzzy');
+    await tester.pump();
+    expect(find.text('Kein Spiel gefunden 🤷'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), '');
+    await tester.tap(find.byKey(const ValueKey('category-cards')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-klondike')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-chess')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('category-all')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-chess')), findsOneWidget);
+  });
+
+  test('fuzzy game search', () {
+    expect(fuzzyMatch('schak', 'Schach'), isTrue);
+    expect(fuzzyMatch('solitar', 'Solitär Klondike'), isTrue);
+    expect(fuzzyMatch('wurfelkonig', 'Würfelkönig'), isTrue);
+    expect(fuzzyMatch('wurfelknöig', 'Würfelkönig'), isTrue);
+    expect(fuzzyMatch('mahjog', 'Mahjong'), isTrue);
+    expect(fuzzyMatch('geobing', 'Geobingo'), isTrue);
+    expect(fuzzyMatch('flagen', 'Flaggen und Hauptstädte'), isTrue);
+    expect(fuzzyMatch('schach', 'Dame'), isFalse);
+    expect(fuzzyMatch('xyz', 'Snake'), isFalse);
+    expect(fuzzyMatch('dart', 'Darts'), isTrue);
+    expect(fuzzyMatch('karten allein', 'Solitär Karten allein'), isTrue);
+    expect(editDistance('ab', 'ba'), 1);
+  });
+
+  test('who is watching', () {
+    expect(watchersText(['Anna']), '👁 Anna schaut zu');
+    expect(watchersText(['Anna', 'Ben']), '👁 Anna und Ben schauen zu');
+    expect(
+      watchersText(['A', 'B', 'C', 'D', 'E']),
+      '👁 A, B und 3 weitere schauen zu',
+    );
   });
 
   testWidgets('connect four hot seat until a win', (tester) async {

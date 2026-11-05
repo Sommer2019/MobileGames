@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+
+import 'net/room.dart';
 
 /// Watching games that are played on one device (alone, against the
 /// computer or with people at the same device): the playing device sends
@@ -35,6 +39,7 @@ class MirrorFeed {
     required this.setup,
     Map<String, dynamic>? state,
     this.onClose,
+    this.send,
   }) : state = ValueNotifier(state);
 
   final String gameId;
@@ -46,7 +51,34 @@ class MirrorFeed {
   final ValueNotifier<bool> ended = ValueNotifier(false);
   final Future<void> Function()? onClose;
 
-  Future<void> close() async => onClose?.call();
+  /// Sends a message to the friend's device.
+  final void Function(Map<String, dynamic> message)? send;
+
+  final _reactions = StreamController<Reaction>.broadcast();
+  final Set<String> _seen = {};
+
+  /// Cheers of everybody watching (including our own).
+  Stream<Reaction> get reactions => _reactions.stream;
+
+  /// Cheers the player on (they see it, and so do the other watchers).
+  void react(String name, String emoji) {
+    final m = Reaction.message(name, emoji);
+    receive(m);
+    send?.call(m);
+  }
+
+  /// A cheer from another watcher (forwarded by the friend's device).
+  void receive(Map<String, dynamic> m) {
+    final r = Reaction.parse(m);
+    if (r == null || !_seen.add(m['i'] as String)) return;
+    if (_seen.length > 300) _seen.remove(_seen.first);
+    _reactions.add(r);
+  }
+
+  Future<void> close() async {
+    await _reactions.close();
+    await onClose?.call();
+  }
 }
 
 /// Above a game screen that shows a friend's game.

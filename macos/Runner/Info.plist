@@ -4,6 +4,10 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Zum Scannen von Freundes-QR-Codes.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Nur wenn du in „Wo bin ich?“ deinen Standort als eigenen Ort hinzufügst.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nur wenn du in „Wo bin ich?“ deinen Standort als eigenen Ort hinzufügst.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

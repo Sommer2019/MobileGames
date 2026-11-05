@@ -80,6 +80,8 @@ jobs:
           flutter build apk --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
           --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
+          --dart-define=GOOGLE_MAPS_KEY=${{ vars.GOOGLE_MAPS_KEY || secrets.GOOGLE_MAPS_KEY }}
+          --dart-define=MAPILLARY_TOKEN=${{ vars.MAPILLARY_TOKEN || secrets.MAPILLARY_TOKEN }}
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/MobileGames-${{ github.run_number }}.apk
       # Google Play: app bundle without the background service
@@ -92,6 +94,8 @@ jobs:
           --dart-define=PLAY_STORE=true
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
           --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
+          --dart-define=GOOGLE_MAPS_KEY=${{ vars.GOOGLE_MAPS_KEY || secrets.GOOGLE_MAPS_KEY }}
+          --dart-define=MAPILLARY_TOKEN=${{ vars.MAPILLARY_TOKEN || secrets.MAPILLARY_TOKEN }}
           --android-project-arg=playStore=true
       - name: Rename bundle
         if: env.HAS_KEYSTORE == 'true'
@@ -142,6 +146,8 @@ jobs:
           flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
           --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
+          --dart-define=GOOGLE_MAPS_KEY=${{ vars.GOOGLE_MAPS_KEY || secrets.GOOGLE_MAPS_KEY }}
+          --dart-define=MAPILLARY_TOKEN=${{ vars.MAPILLARY_TOKEN || secrets.MAPILLARY_TOKEN }}
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
@@ -244,6 +250,8 @@ jobs:
           flutter build macos --release --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
           --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
+          --dart-define=GOOGLE_MAPS_KEY=${{ vars.GOOGLE_MAPS_KEY || secrets.GOOGLE_MAPS_KEY }}
+          --dart-define=MAPILLARY_TOKEN=${{ vars.MAPILLARY_TOKEN || secrets.MAPILLARY_TOKEN }}
       - name: Package dmg and zip
         run: |
           n=${{ github.run_number }}
@@ -292,6 +300,8 @@ jobs:
           --build-number=${{ github.run_number }}
           --dart-define=REPORT_EMAIL=${{ vars.REPORT_EMAIL }}
           --dart-define=ADMIN_PUBKEYS=${{ vars.ADMIN_PUBKEYS || secrets.ADMIN_PUBKEYS }}
+          --dart-define=GOOGLE_MAPS_KEY=${{ vars.GOOGLE_MAPS_KEY || secrets.GOOGLE_MAPS_KEY }}
+          --dart-define=MAPILLARY_TOKEN=${{ vars.MAPILLARY_TOKEN || secrets.MAPILLARY_TOKEN }}
       - name: Add privacy policy
         run: cp docs/datenschutz.html build/web/
       - uses: actions/upload-pages-artifact@v3
