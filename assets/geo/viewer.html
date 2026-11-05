@@ -15,6 +15,7 @@
     font: 14px system-ui, -apple-system, Roboto, sans-serif; overflow: hidden; }
   .layer { position: absolute; inset: 0; visibility: hidden; }
   .layer.on { visibility: visible; }
+  .fill { width: 100%; height: 100%; }
   #flat { width: 100%; height: 100%; object-fit: contain; background: #000; }
   #map { position: absolute; inset: 0; }
   #mapwrap { position: absolute; inset: 0; display: none; background: #222; z-index: 4; }
@@ -41,8 +42,10 @@
 </head>
 <body>
 <div id="gsv" class="layer"></div>
-<div id="mly" class="layer"></div>
-<div id="psv" class="layer"></div>
+<!-- The viewers style their own container (position: relative), so each
+     gets an inner one that fills the layer. -->
+<div id="mly" class="layer"><div id="mlyview" class="fill"></div></div>
+<div id="psv" class="layer"><div id="psvview" class="fill"></div></div>
 <div id="flatwrap" class="layer"><img id="flat" alt=""></div>
 <div id="seqnav">
   <button id="prev" onclick="pnxStep('prev')">◀</button>
@@ -257,7 +260,7 @@ async function ensureMapillary() {
   await loadScript('https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js');
   const hunt = cfg.mode === 'hunt';
   mly.viewer = new mapillary.Viewer({
-    accessToken: cfg.keys.mapillary, container: 'mly',
+    accessToken: cfg.keys.mapillary, container: 'mlyview',
     component: { cover: false, bearing: true, zoom: true,
       sequence: hunt, direction: hunt, keyboard: hunt },
   });
@@ -345,7 +348,7 @@ async function panoramaxLoad(id, v) {
     if (!pnx.psv) {
       loadCss('https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.15.1/index.min.css');
       const { Viewer } = await import('@photo-sphere-viewer/core');
-      pnx.psv = new Viewer({ container: document.getElementById('psv'), panorama: url,
+      pnx.psv = new Viewer({ container: document.getElementById('psvview'), panorama: url,
         navbar: false, loadingTxt: '' });
       await new Promise(r => pnx.psv.addEventListener('ready', r, { once: true }));
     } else {
