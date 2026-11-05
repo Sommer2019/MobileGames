@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/net/room.dart';
+import '../../core/leaderboard.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../geo/regions.dart';
@@ -121,6 +122,10 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
       case 'reveal':
         _showResult();
         Sound.play(Sfx.thud);
+      case 'end':
+        if (setup.kind == PlayKind.local && game.countsForLeaderboard) {
+          Leaderboard.submit('geoguess', game.total(0));
+        }
     }
     if (mounted) setState(() {});
   }
@@ -308,6 +313,20 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (players == 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+              child: Text(
+                game.countsForLeaderboard
+                    ? '🏅 Zählt für die Bestenliste'
+                    : '🏅 Für die Bestenliste: ${GeoGuessGame.leaderboardRounds}'
+                          ' Runden, keine eigenen Orte',
+                key: const ValueKey('ggBoardHint'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          const SizedBox(height: 8),
           if (isHost)
             FilledButton.icon(
               key: const ValueKey('ggStart'),

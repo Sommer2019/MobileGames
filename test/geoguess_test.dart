@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_games/core/leaderboard.dart';
 import 'package:mobile_games/games/geo/street_view.dart';
 import 'package:mobile_games/games/geoguess/geoguess_logic.dart';
 import 'package:mobile_games/games/geoguess/geoguess_screen.dart';
@@ -204,6 +205,8 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ggStart')));
     await tester.pumpAndSettle();
     expect(page.randoms, 0, reason: 'own place first');
@@ -212,6 +215,43 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ggNext')));
     await tester.pumpAndSettle();
     expect(page.randoms, 1, reason: 'then random ones');
+  });
+
+  testWidgets('a standard game alone goes to the leaderboard', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GeoGuessScreen(
+          setup: const PlaySetup.local(players: 1),
+          sources: const [GeoSource.panoramax],
+          controller: FakePage(),
+          viewBuilder: () => const ColoredBox(color: Colors.grey),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('ggStart')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
+    expect(find.text('🏅 Zählt für die Bestenliste'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
+    for (var r = 0; r < 5; r++) {
+      await tester.tap(find.byKey(const ValueKey('ggGuess')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ggNext')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('von 25000 Punkten'), findsOneWidget);
+    // Munich instead of Berlin, five times.
+    expect(await Leaderboard.best('geoguess'), 5 * pointsFor(504.2));
   });
 
   testWidgets('Wo bin ich? alone: guess, reveal, result', (tester) async {
@@ -239,6 +279,8 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ggStart')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Runde 1/1'), findsOneWidget);

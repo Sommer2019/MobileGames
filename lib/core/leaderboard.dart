@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../games/geoguess/geoguess_logic.dart';
 import '../games/mahjong/mahjong_logic.dart';
 import '../games/snake/snake_logic.dart';
 import '../games/solitaire/klondike_logic.dart';
@@ -202,6 +203,15 @@ const boards = [
     min: 7,
     max: 2000,
     legacyKey: 'darts.best.aroundTheClock',
+  ),
+  // Not checkable (the places are on the player's device), so only the
+  // standard game counts: alone, 5 rounds, random places.
+  ScoreBoard(
+    'geoguess',
+    'geoguess',
+    'Wo bin ich? (5 Runden)',
+    'Punkte',
+    max: GeoGuessGame.leaderboardRounds * 5000,
   ),
   ScoreBoard(
     'billiard.eightLast',

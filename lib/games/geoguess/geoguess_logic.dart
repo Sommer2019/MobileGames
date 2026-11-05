@@ -35,6 +35,9 @@ class GeoGuessGame {
     : sources = sources ?? [GeoSource.panoramax];
 
   static const maxRounds = 10;
+
+  /// Games alone with this many random places go to the leaderboard.
+  static const leaderboardRounds = 5;
   static const timeChoices = [0, 60, 120, 300];
 
   final int players;
@@ -62,6 +65,10 @@ class GeoGuessGame {
 
   int get round => views.length - 1;
   bool get isOver => phase == GuessPhase.results;
+
+  /// A game alone that counts for the leaderboard (see [leaderboardRounds]).
+  bool get countsForLeaderboard =>
+      players == 1 && rounds == leaderboardRounds && !own;
   bool get lastRound => views.length >= rounds;
 
   bool apply(List e, int seat) {
