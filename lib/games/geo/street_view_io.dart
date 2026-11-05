@@ -12,11 +12,15 @@ Widget buildView({
   required String baseUrl,
   required void Function(String message) onMessage,
   required void Function(void Function(String json) post) attach,
-}) => _WebView(
-  html: html,
-  baseUrl: baseUrl,
-  onMessage: onMessage,
-  attach: attach,
+  bool interactive = true,
+}) => IgnorePointer(
+  ignoring: !interactive,
+  child: _WebView(
+    html: html,
+    baseUrl: baseUrl,
+    onMessage: onMessage,
+    attach: attach,
+  ),
 );
 
 class _WebView extends StatefulWidget {

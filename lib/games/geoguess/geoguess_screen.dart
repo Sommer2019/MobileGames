@@ -522,6 +522,8 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
               highlight: game.phase == GuessPhase.round && !game.hasGuessed(me),
             ),
           Expanded(
+            // Keeps the page when banner and bars come and go.
+            key: const ValueKey('ggStage'),
             child: Stack(
               children: [
                 // Always there, so the host can look for the next place.
@@ -532,6 +534,8 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
                         controller: _view,
                         sources: game.sources,
                         mode: StreetViewMode.guess,
+                        // Setup and results lie on top of it.
+                        interactive: playing,
                       ),
                 ),
                 if (game.phase == GuessPhase.setup)

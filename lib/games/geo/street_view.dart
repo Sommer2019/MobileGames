@@ -62,6 +62,9 @@ class StreetViewController extends ChangeNotifier {
   bool ready = false;
   String? error;
 
+  /// The last picture asked for: shown again if the page is reloaded.
+  String? _lastShow;
+
   Future<Map> _ask(Map<String, dynamic> m, Duration timeout) {
     final c = Completer<Map>();
     final id = ++_req;
@@ -110,7 +113,11 @@ class StreetViewController extends ChangeNotifier {
       _send({'t': 'goto', 'lat': lat, 'lng': lng});
 
   /// Shows a view (review, guessing round).
-  void show(GeoView v) => _send({'t': 'show', 'view': v.toJson()});
+  void show(GeoView v) {
+    final m = {'t': 'show', 'view': v.toJson()};
+    _lastShow = jsonEncode(m);
+    _send(m);
+  }
 
   /// Shows the right place and everybody's guesses on the map.
   void result(MapPin truth, List<MapPin> guesses) => _send({
@@ -139,10 +146,14 @@ class StreetViewController extends ChangeNotifier {
     if (m is! Map) return;
     switch (m['t']) {
       case 'loaded':
+        // A new page (also after the view was rebuilt): it knows nothing.
+        ready = false;
         _post?.call(jsonEncode(init));
       case 'ready':
         ready = true;
         error = null;
+        final show = _lastShow;
+        if (show != null && !_queue.contains(show)) _post?.call(show);
         for (final q in _queue) {
           _post?.call(q);
         }
@@ -166,11 +177,16 @@ class StreetView extends StatefulWidget {
     required this.controller,
     required this.sources,
     required this.mode,
+    this.interactive = true,
   });
 
   final StreetViewController controller;
   final List<GeoSource> sources;
   final StreetViewMode mode;
+
+  /// False while other widgets cover the pictures: in the browser the
+  /// page would otherwise take every click meant for them.
+  final bool interactive;
 
   @override
   State<StreetView> createState() => _StreetViewState();
@@ -220,6 +236,9 @@ class _StreetViewState extends State<StreetView> {
         baseUrl: viewerBaseUrl,
         onMessage: (m) => widget.controller._handle(m, _init),
         attach: (post) => widget.controller._post = post,
+        // A dialog or sheet on top: let the clicks through to it.
+        interactive:
+            widget.interactive && (ModalRoute.of(context)?.isCurrent ?? true),
       ),
     );
   }

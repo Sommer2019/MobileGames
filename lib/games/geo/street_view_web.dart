@@ -10,16 +10,27 @@ Widget buildView({
   required String baseUrl,
   required void Function(String message) onMessage,
   required void Function(void Function(String json) post) attach,
-}) => _Frame(html: html, onMessage: onMessage, attach: attach);
+  bool interactive = true,
+}) => _Frame(
+  html: html,
+  onMessage: onMessage,
+  attach: attach,
+  interactive: interactive,
+);
 
 class _Frame extends StatefulWidget {
   const _Frame({
     required this.html,
     required this.onMessage,
     required this.attach,
+    required this.interactive,
   });
 
   final String html;
+
+  /// Flutter widgets drawn over an iframe do not get clicks unless the
+  /// iframe lets them through.
+  final bool interactive;
   final void Function(String message) onMessage;
   final void Function(void Function(String json) post) attach;
 
@@ -61,6 +72,20 @@ class _FrameState extends State<_Frame> {
     });
   }
 
+  void _pointerEvents() {
+    final style = _frame?['style'];
+    if (style != null && style.isA<JSObject>()) {
+      (style as JSObject)['pointerEvents'] =
+          (widget.interactive ? 'auto' : 'none').toJS;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_Frame old) {
+    super.didUpdateWidget(old);
+    if (old.interactive != widget.interactive) _pointerEvents();
+  }
+
   @override
   void dispose() {
     globalContext.callMethod<JSAny?>(
@@ -83,6 +108,7 @@ class _FrameState extends State<_Frame> {
       style['height'] = '100%'.toJS;
       f['allow'] = 'fullscreen; accelerometer; gyroscope'.toJS;
       f['srcdoc'] = widget.html.toJS;
+      _pointerEvents();
     },
   );
 }
