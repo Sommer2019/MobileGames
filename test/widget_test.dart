@@ -57,10 +57,37 @@ void main() {
       'Letzte Karte',
       'Stapelfix',
       'Pfeile',
+      'Schocken',
+      'Geobingo',
+      'Wo bin ich?',
+      'Länderquiz',
     ];
     for (final t in titles) {
       expect(find.text(t), findsWidgets);
     }
+  });
+
+  testWidgets('home: search and categories', (tester) async {
+    tester.view.physicalSize = const Size(1200, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const HomeScreen()));
+    expect(find.text('Geo & Quiz'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), 'wurfel');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-yahtzee')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-chess')), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), 'xyzzy');
+    await tester.pump();
+    expect(find.text('Kein Spiel gefunden 🤷'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('gameSearch')), '');
+    await tester.tap(find.byKey(const ValueKey('category-cards')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-klondike')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-chess')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('category-all')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-chess')), findsOneWidget);
   });
 
   testWidgets('connect four hot seat until a win', (tester) async {

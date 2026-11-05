@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/geobingo/geobingo_logic.dart';
 import 'package:mobile_games/games/geobingo/geobingo_screen.dart';
-import 'package:mobile_games/games/geobingo/street_view.dart';
+import 'package:mobile_games/games/geo/street_view.dart';
 import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

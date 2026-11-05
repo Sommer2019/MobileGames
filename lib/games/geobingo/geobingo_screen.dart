@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import '../../core/net/room.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
+import '../geo/regions.dart';
+import '../geo/source_picker.dart';
+import '../geo/street_view.dart';
 import 'geobingo_logic.dart';
-import 'regions.dart';
-import 'street_view.dart';
 
 class GeoBingoScreen extends StatefulWidget {
   const GeoBingoScreen({
@@ -39,7 +40,7 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
   late final List<GeoSource> _sources = widget.sources ?? availableSources;
   late GeoBingoGame game = GeoBingoGame(
     players: players,
-    source: _sources.firstOrNull,
+    sources: widget.sources ?? defaultSources,
   );
   StreamSubscription<RoomMessage>? _sub;
   Timer? _tick;
@@ -79,11 +80,11 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
 
   Map<String, dynamic> _cfg({
     int? minutes,
-    GeoSource? source,
+    List<GeoSource>? sources,
     List<String>? blocked,
   }) => {
     'min': minutes ?? game.minutes,
-    'src': (source ?? game.source).name,
+    'src': [for (final s in sources ?? game.sources) s.name],
     'blocked': blocked ?? game.blocked,
   };
 
@@ -193,21 +194,11 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
                       )
                     : null,
               ),
-              ListTile(
-                leading: const Icon(Icons.public),
-                title: Text('Bilder: ${game.source.label}'),
-                subtitle: isHost && sources.length > 1
-                    ? Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final s in sources)
-                            ChoiceChip(
-                              label: Text(s.label),
-                              selected: game.source == s,
-                              onSelected: (_) => _act(['cfg', _cfg(source: s)]),
-                            ),
-                        ],
-                      )
+              SourcePicker(
+                available: sources,
+                selected: game.sources,
+                onChanged: isHost
+                    ? (s) => _act(['cfg', _cfg(sources: s)])
                     : null,
               ),
               ListTile(
@@ -371,7 +362,7 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
 
   Widget _view(StreetViewMode mode, StreetViewController c) =>
       widget.viewBuilder?.call(mode) ??
-      StreetView(controller: c, source: game.source, mode: mode);
+      StreetView(controller: c, sources: game.sources, mode: mode);
 
   Widget _hunt() {
     final left = game.timeLeft(_now());

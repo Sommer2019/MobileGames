@@ -155,6 +155,21 @@ Ziel: Begriffe irgendwo auf der Welt in Street View finden – und die besten Fu
 • Ein Fund bringt seinen Sterne-Schnitt × 20 Punkte (höchstens 100). Wer die meisten Punkte hat, gewinnt.
 • Bilder von Google Street View, Mapillary oder Panoramax (freie Bilder, viel in Frankreich, sonst lückenhaft).
 • Läuft am Handy, auf dem Mac und im Browser – nicht unter Windows und Linux.''',
+  'geoguess': '''
+Ziel: herausfinden, wo auf der Welt ein Straßenbild aufgenommen wurde.
+
+• Alle sehen dasselbe Bild und dürfen sich darin umschauen.
+• Tippe auf der Karte, wo du es vermutest, und gib deinen Tipp ab.
+• Je näher, desto mehr Punkte: 5000 genau am Ort, bei rund 1400 km Abstand noch die Hälfte.
+• Nach jeder Runde zeigt die Karte den richtigen Ort und alle Tipps.
+• Der Host legt Runden, Zeit pro Runde und die Bildquellen fest. Allein spielen geht auch.''',
+  'quiz': '''
+Ziel: die meisten Punkte mit Flaggen und Hauptstädten.
+
+• Je nach Einstellung: Flagge → Land, Land → Hauptstadt, Hauptstadt → Land oder gemischt.
+• Vier Antworten, eine ist richtig. Die falschen kommen meist vom selben Kontinent.
+• Richtig gibt 100 Punkte, dazu bis zu 50 für Tempo.
+• Allein oder online mit bis zu 8 Leuten – alle bekommen dieselben Fragen.''',
   'schocken': '''
 Ziel: keine Deckel bekommen. Wer am Ende verliert, gibt eine Runde aus 🍺
 

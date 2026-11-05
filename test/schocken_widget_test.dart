@@ -28,9 +28,11 @@ void main() {
       turns++;
       await tester.tap(find.byKey(const ValueKey('schockenRoll')));
       await tester.pump();
-      expect(find.byKey(const ValueKey('schockenThrow')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('schockenStop')));
-      await tester.pump();
+      // When the first player threw only once, that one throw was all.
+      if (find.byKey(const ValueKey('schockenThrow')).evaluate().isNotEmpty) {
+        await tester.tap(find.byKey(const ValueKey('schockenStop')));
+        await tester.pump();
+      }
       // The next player (maybe again us after losing) has not thrown yet.
       expect(find.byKey(const ValueKey('schockenThrow')), findsNothing);
     }
@@ -54,7 +56,11 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
     final i = find.byKey(const ValueKey('rules-schocken'));
-    await tester.scrollUntilVisible(i, 300);
+    await tester.scrollUntilVisible(
+      i,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(i);
     await tester.pumpAndSettle();
     expect(find.text('Regeln: Schocken'), findsOneWidget);

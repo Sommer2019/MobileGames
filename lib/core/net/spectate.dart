@@ -54,6 +54,8 @@ class SpectatorHub {
     'prophet',
     'schocken',
     'geobingo',
+    'geoguess',
+    'quiz',
   };
   static const maxWatchers = 10;
 

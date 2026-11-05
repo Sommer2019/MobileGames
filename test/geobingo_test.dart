@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/geobingo/geobingo_logic.dart';
-import 'package:mobile_games/games/geobingo/regions.dart';
+import 'package:mobile_games/games/geo/regions.dart';
 
 Map<String, dynamic> view(String id, {String cc = 'de'}) => GeoView(
   source: GeoSource.google,
@@ -16,7 +16,11 @@ GeoBingoGame hunting({int players = 3, List<String> blocked = const []}) {
   expect(
     g.apply([
       'cfg',
-      {'min': 5, 'src': 'google', 'blocked': blocked},
+      {
+        'min': 5,
+        'src': ['google'],
+        'blocked': blocked,
+      },
     ], 0),
     isTrue,
   );
@@ -33,7 +37,11 @@ void main() {
     expect(
       g.apply([
         'cfg',
-        {'min': 5, 'src': 'google', 'blocked': <String>[]},
+        {
+          'min': 5,
+          'src': ['google'],
+          'blocked': <String>[],
+        },
       ], 1),
       isFalse,
     );
@@ -57,18 +65,43 @@ void main() {
     expect(
       g.apply([
         'cfg',
-        {'min': 0, 'src': 'google', 'blocked': <String>[]},
+        {
+          'min': 0,
+          'src': ['google'],
+          'blocked': <String>[],
+        },
       ], 0),
       isFalse,
     );
     expect(
       g.apply([
         'cfg',
-        {'min': 3, 'src': 'bing', 'blocked': <String>[]},
+        {
+          'min': 3,
+          'src': ['bing'],
+          'blocked': <String>[],
+        },
       ], 0),
       isFalse,
     );
     expect(g.apply(['term', 'x' * 41], 0), isFalse);
+    // Google only alone; the free sources in any mix.
+    for (final (src, ok) in [
+      (['google', 'mapillary'], false),
+      (<String>[], false),
+      (['mapillary', 'mapillary'], false),
+      (['mapillary', 'panoramax'], true),
+      (['panoramax'], true),
+    ]) {
+      expect(
+        g.apply([
+          'cfg',
+          {'min': 3, 'src': src, 'blocked': <String>[]},
+        ], 0),
+        ok,
+        reason: '$src',
+      );
+    }
   });
 
   test('finds: one per term, blocked regions and wrong sources refused', () {
@@ -84,6 +117,29 @@ void main() {
     expect(g.apply(['find', 2, view('c')], 1), isFalse, reason: 'no term 2');
     final mapillary = {...view('m'), 'src': 'mapillary'};
     expect(g.apply(['find', 1, mapillary], 1), isFalse);
+    // With a mix, finds from every source in it count.
+    final mix = GeoBingoGame(players: 2);
+    mix.apply([
+      'cfg',
+      {
+        'min': 5,
+        'src': ['mapillary', 'panoramax'],
+        'blocked': <String>[],
+      },
+    ], 0);
+    mix.apply(['term', 'Ampel'], 0);
+    mix.apply(['term', 'Bank'], 0);
+    mix.apply(['start', 1], 0);
+    expect(mix.apply(['find', 0, mapillary], 1), isTrue);
+    expect(
+      mix.apply([
+        'find',
+        1,
+        {...view('x'), 'src': 'panoramax'},
+      ], 1),
+      isTrue,
+    );
+    expect(mix.apply(['find', 1, view('g')], 1), isFalse, reason: 'google');
     expect(g.apply(['find', 1, view('d', cc: '')], 2), isTrue);
   });
 

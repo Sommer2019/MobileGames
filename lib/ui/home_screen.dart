@@ -13,15 +13,50 @@ import 'lobby_screen.dart';
 import 'rules_sheet.dart';
 import 'secrets_sheet.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  /// Only this category (null: all).
+  GameCategory? _category;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Lower case without accents, so "wurfel" finds "Würfel".
+  static String _plain(String s) => s
+      .toLowerCase()
+      .replaceAll('ä', 'a')
+      .replaceAll('ö', 'o')
+      .replaceAll('ü', 'u')
+      .replaceAll('ß', 'ss');
+
+  bool _matches(GameInfo g) {
+    if (_category != null && g.category != _category) return false;
+    final q = _plain(_query.trim());
+    if (q.isEmpty) return true;
+    final text = _plain(
+      '${g.title} ${g.description} ${g.category.label} '
+      '${g.isMultiplayer ? 'mehrspieler online' : ''} '
+      '${g.singleplayerBuilder != null || g.offlineModes.any((m) => m.setup.players == 1) ? 'allein einzelspieler' : ''}',
+    );
+    return q.split(RegExp(r'\s+')).every(text.contains);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final multi = games.where((g) => g.isMultiplayer).toList();
-    final single = games
-        .where((g) => !g.isMultiplayer || g.alsoSingleplayer)
-        .toList();
+    final shown = games.where(_matches).toList();
+    final searching = _query.trim().isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mobile Games'),
@@ -140,14 +175,25 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            _header(
-              context,
-              'Mehrspieler',
-              'Online gegen Freunde oder zufällige Gegner – oder offline',
-            ),
-            _grid(context, multi),
-            _header(context, 'Einzelspieler', null),
-            _grid(context, single),
+            SliverToBoxAdapter(child: _filters(context)),
+            if (shown.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: Text('Kein Spiel gefunden 🤷')),
+                ),
+              )
+            else if (searching || _category != null)
+              _grid(context, shown)
+            else
+              for (final c in GameCategory.values)
+                if (shown.any((g) => g.category == c)) ...[
+                  _header(context, c),
+                  _grid(context, [
+                    for (final g in shown)
+                      if (g.category == c) g,
+                  ]),
+                ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
@@ -155,20 +201,80 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _header(BuildContext context, String title, String? subtitle) =>
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _filters(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey('gameSearch'),
+          controller: _search,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            hintText: 'Spiel suchen',
+            border: const OutlineInputBorder(),
+            isDense: true,
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Leeren',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() {
+                      _search.clear();
+                      _query = '';
+                    }),
+                  ),
+          ),
+          onChanged: (v) => setState(() => _query = v),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             children: [
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              if (subtitle != null)
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ChoiceChip(
+                key: const ValueKey('category-all'),
+                label: const Text('Alle'),
+                selected: _category == null,
+                onSelected: (_) => setState(() => _category = null),
+              ),
+              for (final c in GameCategory.values)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: ChoiceChip(
+                    key: ValueKey('category-${c.name}'),
+                    avatar: Icon(c.icon, size: 18),
+                    label: Text(c.label),
+                    selected: _category == c,
+                    onSelected: (_) =>
+                        setState(() => _category = _category == c ? null : c),
+                  ),
+                ),
             ],
           ),
         ),
-      );
+      ],
+    ),
+  );
+
+  Widget _header(BuildContext context, GameCategory c) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Row(
+        children: [
+          Icon(c.icon),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              c.label,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _grid(BuildContext context, List<GameInfo> list) => SliverPadding(
     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -227,7 +333,19 @@ class _GameCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(game.icon, size: 40, color: Colors.white),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Icon(game.icon, size: 40, color: Colors.white),
+                const SizedBox(width: 6),
+                // How it can be played: with others, alone.
+                if (game.isMultiplayer)
+                  const Icon(Icons.people, size: 16, color: Colors.white70),
+                if (game.singleplayerBuilder != null ||
+                    game.offlineModes.any((m) => m.setup.players == 1))
+                  const Icon(Icons.person, size: 16, color: Colors.white70),
+              ],
+            ),
             const Spacer(),
             // Long titles shrink to one line.
             FittedBox(
