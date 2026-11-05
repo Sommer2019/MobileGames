@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/mirror.dart';
 import '../../core/net/room.dart';
 import '../../core/leaderboard.dart';
 import '../../core/sound.dart';
@@ -33,7 +34,30 @@ class GeoGuessScreen extends StatefulWidget {
   State<GeoGuessScreen> createState() => _GeoGuessScreenState();
 }
 
-class _GeoGuessScreenState extends State<GeoGuessScreen> {
+class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
+  /// Friends may watch a game on this device (online: through the room).
+  @override
+  String? get mirrorGame => setup.online ? null : 'geoguess';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
+  @override
+  Map<String, dynamic>? mirrorState() => {'events': game.events};
+
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    final before = (game.views.length, game.phase);
+    game = GeoGuessGame.replay(players, state['events'] as List);
+    if ((game.views.length, game.phase) == before) return;
+    // A new round or its result: show it like the player sees it.
+    if (game.phase == GuessPhase.round) _view.show(game.views.last);
+    if (game.phase == GuessPhase.reveal) {
+      _view.show(game.views.last);
+      _showResult();
+    }
+  }
+
   PlaySetup get setup => widget.setup;
   int get players => setup.players;
   int get me => setup.mySeat;

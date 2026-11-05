@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/mirror.dart';
 import '../../core/net/room.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
@@ -16,7 +17,22 @@ class QuizScreen extends StatefulWidget {
   State<QuizScreen> createState() => _QuizScreenState();
 }
 
-class _QuizScreenState extends State<QuizScreen> {
+class _QuizScreenState extends State<QuizScreen> with GameMirror {
+  /// Friends may watch a game on this device (online: through the room).
+  @override
+  String? get mirrorGame => setup.online ? null : 'quiz';
+
+  @override
+  Map<String, dynamic> get mirrorSetup => setup.mirrorInfo;
+
+  @override
+  Map<String, dynamic>? mirrorState() => {'events': game.events};
+
+  @override
+  void applyMirror(Map<String, dynamic> state) {
+    game = QuizGame.replay(players, state['events'] as List);
+  }
+
   PlaySetup get setup => widget.setup;
   int get players => setup.players;
   int get me => setup.mySeat;
