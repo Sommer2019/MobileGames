@@ -128,7 +128,8 @@ test/             Unit- und Widget-Tests
 
 ### Geobingo: Street-View-Schlüssel
 
-Geobingo läuft ohne Schlüssel mit **Panoramax** (freie Straßenbilder, viel in Frankreich).
+Die Geo-Spiele laufen ohne Schlüssel mit **Panoramax** (freie Straßenbilder, viel in Frankreich)
+und **KartaView** (früher OpenStreetView).
 Für Google Street View und Mapillary braucht es Schlüssel. Die Build-Pipeline nimmt sie als
 Repository-Variable oder -Secret:
 

@@ -2,13 +2,14 @@
 enum GeoSource {
   google('Google Street View'),
   mapillary('Mapillary'),
-  panoramax('Panoramax');
+  panoramax('Panoramax'),
+  kartaview('KartaView');
 
   const GeoSource(this.label);
   final String label;
 
-  /// Panoramax is open to everybody; the others need a key.
-  bool get needsKey => this != panoramax;
+  /// Panoramax and KartaView are open to everybody; the others need a key.
+  bool get needsKey => this == google || this == mapillary;
 
   /// Whether these sources can be played together: Google only alone
   /// (its map and coverage cannot be mixed with the free ones), the free

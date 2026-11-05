@@ -48,8 +48,8 @@
 <div id="psv" class="layer"><div id="psvview" class="fill"></div></div>
 <div id="flatwrap" class="layer"><img id="flat" alt=""></div>
 <div id="seqnav">
-  <button id="prev" onclick="pnxStep('prev')">◀</button>
-  <button id="next" onclick="pnxStep('next')">▶</button>
+  <button id="prev" onclick="photoStep('prev')">◀</button>
+  <button id="next" onclick="photoStep('next')">▶</button>
 </div>
 <div id="mapwrap">
   <div id="map"></div>
@@ -72,7 +72,8 @@ let resultMarkers = [];
 const PNX = 'https://api.panoramax.xyz/api';
 const google_ = { sv: null, maps: null, pano: null, service: null };
 const mly = { viewer: null };
-const pnx = { psv: null, item: null, flat: false, loading: false };
+const photo = { psv: null, item: null, flat: false, loading: false };
+const PHOTOS = ['panoramax', 'kartaview'];
 
 function send(o) {
   const s = JSON.stringify(o);
@@ -114,11 +115,11 @@ function display(src) {
   current = src;
   const on = {
     gsv: src === 'google', mly: src === 'mapillary',
-    psv: src === 'panoramax' && !pnx.flat, flatwrap: src === 'panoramax' && pnx.flat,
+    psv: PHOTOS.includes(src) && !photo.flat, flatwrap: PHOTOS.includes(src) && photo.flat,
   };
   for (const [id, v] of Object.entries(on)) document.getElementById(id).classList.toggle('on', v);
   document.getElementById('seqnav').style.display =
-    src === 'panoramax' && cfg.mode === 'hunt' && pnx.item ? 'flex' : 'none';
+    PHOTOS.includes(src) && cfg.mode === 'hunt' && photo.item ? 'flex' : 'none';
 }
 
 function loadScript(src) {
@@ -296,13 +297,17 @@ async function mapillaryView() {
   return { src: 'mapillary', id: img.id, lat: ll.lat, lng: ll.lng, h: c[0], p: c[1], z };
 }
 
-// ------------------------------------------------------------ Panoramax
+// ------------------------------------------- photos: Panoramax, KartaView
+
+/// Both are free collections of single photos (some of them 360°), shown
+/// with Photo Sphere Viewer or as a plain picture. An item is normalised
+/// to {src, id, lat, lng, url, is360, raw}.
 
 async function pnxItem(id) {
   const j = await fetchJson(PNX + '/search?ids=' + encodeURIComponent(id));
   const f = j.features && j.features[0];
   if (!f) throw new Error('Bild nicht gefunden');
-  return f;
+  return pnxNormal(f);
 }
 
 function pnxIs360(f) {
@@ -312,81 +317,132 @@ function pnxIs360(f) {
   return !!(d && d[0] === 2 * d[1]);
 }
 
+function pnxNormal(f) {
+  const is360 = pnxIs360(f);
+  const a = f.assets || {};
+  const [lng, lat] = f.geometry.coordinates;
+  return { src: 'panoramax', id: f.id, lat, lng, is360, raw: f,
+    url: ((is360 ? a.hd || a.sd : a.sd || a.hd) || {}).href };
+}
+
 async function panoramaxNear(lng, lat, sizes) {
   for (const d of sizes) {
     const r = await fetchJson(PNX + '/search?limit=50&bbox=' + [lng - d, lat - d, lng + d, lat + d].join(','));
     const list = (r.features || []).map(f => f.geometry
-      && { src: 'panoramax', id: f.id, c: f.geometry.coordinates, f }).filter(Boolean);
+      && { src: 'panoramax', id: f.id, c: f.geometry.coordinates, is360: pnxIs360(f) }).filter(Boolean);
     if (list.length) return list;
   }
   return [];
 }
 
-/// Shows picture [id]; [v] = {h, p, z}: yaw and pitch in degrees, zoom
-/// 0–100 (360° pictures only).
-async function panoramaxShow(id, v) {
-  pnx.loading = true;
+const KV = 'https://api.kartaview.org/2.0';
+
+function kvNormal(p) {
+  return { src: 'kartaview', id: String(p.id), lat: +p.lat, lng: +p.lng, raw: p,
+    is360: p.projection === 'SPHERE', url: p.fileurlProc || p.imageProcUrl };
+}
+
+async function kvItem(id) {
+  const j = await fetchJson(KV + '/photo/' + encodeURIComponent(id));
+  if (!j.result || !j.result.data) throw new Error('Bild nicht gefunden');
+  return kvNormal(j.result.data);
+}
+
+/// KartaView searches a circle of at most 500 m.
+async function kartaviewNear(lng, lat, sizes) {
+  for (const d of sizes) {
+    const radius = Math.max(20, Math.min(500, Math.round(d * 111000)));
+    const j = await fetchJson(KV + '/photo/?itemsPerPage=50&lat=' + lat + '&lng=' + lng + '&radius=' + radius);
+    const list = ((j.result && j.result.data) || []).map(p =>
+      ({ src: 'kartaview', id: String(p.id), c: [+p.lng, +p.lat], is360: p.projection === 'SPHERE' }));
+    if (list.length) return list;
+  }
+  return [];
+}
+
+function photoItem(src, id) { return src === 'kartaview' ? kvItem(id) : pnxItem(id); }
+
+/// The next or previous photo of the same drive, or null.
+async function photoNeighbour(rel) {
+  const it = photo.item;
+  if (!it) return null;
+  if (it.src === 'panoramax') {
+    const l = (it.raw.links || []).find(l => l.rel === rel);
+    return l ? l.id : null;
+  }
+  const idx = +it.raw.sequenceIndex + (rel === 'next' ? 1 : -1);
+  if (idx < 0) return null;
   try {
-    await panoramaxLoad(id, v);
-  } finally {
-    pnx.loading = false;
+    const j = await fetchJson(KV + '/photo/?sequenceId=' + it.raw.sequenceId + '&sequenceIndex=' + idx);
+    const p = j.result && j.result.data && j.result.data[0];
+    return p ? String(p.id) : null;
+  } catch (e) {
+    return null;
   }
 }
 
-async function panoramaxLoad(id, v) {
+/// Shows photo [id] of [src]; [v] = {h, p, z}: yaw and pitch in degrees,
+/// zoom 0–100 (360° photos only).
+async function photoShow(src, id, v) {
+  photo.loading = true;
+  try {
+    await photoLoad(src, id, v);
+  } finally {
+    photo.loading = false;
+  }
+}
+
+async function photoLoad(src, id, v) {
   hint('Lade Bild …');
-  const f = await pnxItem(id);
-  const is360 = pnxIs360(f);
-  const a = f.assets || {};
-  const url = ((is360 ? a.hd || a.sd : a.sd || a.hd) || {}).href;
-  if (!url) throw new Error('Bild ohne Datei');
-  if (is360) {
+  const it = await photoItem(src, id);
+  if (!it.url) throw new Error('Bild ohne Datei');
+  if (it.is360) {
     const position = { yaw: ((v && v.h) || 0) * Math.PI / 180, pitch: ((v && v.p) || 0) * Math.PI / 180 };
     const zoom = v && v.z != null ? v.z : 30;
-    pnx.flat = false;
-    display('panoramax');
-    if (!pnx.psv) {
+    photo.flat = false;
+    display(src);
+    if (!photo.psv) {
       loadCss('https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.15.1/index.min.css');
       const { Viewer } = await import('@photo-sphere-viewer/core');
-      pnx.psv = new Viewer({ container: document.getElementById('psvview'), panorama: url,
+      photo.psv = new Viewer({ container: document.getElementById('psvview'), panorama: it.url,
         navbar: false, loadingTxt: '' });
-      await new Promise(r => pnx.psv.addEventListener('ready', r, { once: true }));
+      await new Promise(r => photo.psv.addEventListener('ready', r, { once: true }));
     } else {
-      await pnx.psv.setPanorama(url, { position, zoom, transition: false });
+      await photo.psv.setPanorama(it.url, { position, zoom, transition: false });
     }
     // Set again once loaded: the first layout resets the view.
-    pnx.psv.rotate(position);
-    pnx.psv.zoom(zoom);
+    photo.psv.rotate(position);
+    photo.psv.zoom(zoom);
   } else {
-    document.getElementById('flat').src = url;
-    pnx.flat = true;
+    document.getElementById('flat').src = it.url;
+    photo.flat = true;
   }
-  pnx.item = f;
-  display('panoramax');
-  for (const rel of ['prev', 'next']) document.getElementById(rel).disabled = !pnxNeighbour(rel);
+  photo.item = it;
+  display(src);
   hint('');
+  if (cfg.mode === 'hunt') {
+    for (const rel of ['prev', 'next']) {
+      const b = document.getElementById(rel);
+      b.disabled = true;
+      photoNeighbour(rel).then(n => { if (photo.item === it) b.disabled = !n; });
+    }
+  }
 }
 
-function pnxNeighbour(rel) {
-  const l = pnx.item && (pnx.item.links || []).find(l => l.rel === rel);
-  return l && l.id;
-}
-
-async function pnxStep(rel) {
-  const id = pnxNeighbour(rel);
+async function photoStep(rel) {
+  const id = await photoNeighbour(rel);
   if (!id) return;
-  try { await panoramaxShow(id); } catch (e) { hint('Bild konnte nicht geladen werden', 2000); }
+  try { await photoShow(photo.item.src, id); } catch (e) { hint('Bild konnte nicht geladen werden', 2000); }
 }
 
-function panoramaxView() {
-  const f = pnx.item;
-  const [lng, lat] = f.geometry.coordinates;
-  const v = { src: 'panoramax', id: f.id, lat, lng, h: 0, p: 0, z: 0 };
-  if (!pnx.flat) {
-    const pos = pnx.psv.getPosition();
+function photoView() {
+  const it = photo.item;
+  const v = { src: it.src, id: it.id, lat: it.lat, lng: it.lng, h: 0, p: 0, z: 0 };
+  if (!photo.flat) {
+    const pos = photo.psv.getPosition();
     v.h = pos.yaw * 180 / Math.PI;
     v.p = pos.pitch * 180 / Math.PI;
-    v.z = pnx.psv.getZoomLevel();
+    v.z = photo.psv.getZoomLevel();
   }
   return v;
 }
@@ -396,13 +452,13 @@ function panoramaxView() {
 async function showPicture(v) {
   if (v.src === 'google') await googleShow(v.id, v);
   else if (v.src === 'mapillary') await mapillaryShow(v.id, v);
-  else await panoramaxShow(v.id, v);
+  else await photoShow(v.src, v.id, v);
 }
 
 async function currentView() {
   if (current === 'google') return googleView();
   if (current === 'mapillary') return await mapillaryView();
-  return panoramaxView();
+  return photoView();
 }
 
 /// Pictures near a point from every source in play.
@@ -411,6 +467,7 @@ async function near(lng, lat, sizes) {
     try {
       if (s === 'mapillary') return await mapillaryNear(lng, lat, sizes, false);
       if (s === 'panoramax') return await panoramaxNear(lng, lat, sizes);
+      if (s === 'kartaview') return await kartaviewNear(lng, lat, sizes);
       const g = await googleNear(lng, lat, 300);
       return g ? [g] : [];
     } catch (e) {
@@ -428,7 +485,8 @@ async function ensureLibre() {
   await loadScript('https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js');
 }
 
-const COLORS = { mapillary: '#05cb63', panoramax: '#1e88e5' };
+// KartaView draws its own (purple) lines.
+const COLORS = { mapillary: '#05cb63', panoramax: '#ff6d00' };
 
 /// The pick map of the hunt: tapping loads the nearest picture.
 async function huntMap() {
@@ -443,10 +501,11 @@ async function huntMap() {
     map.addListener('click', (e) => huntPick(e.latLng.lng(), e.latLng.lat()));
     document.getElementById('pickhint').textContent = 'Tippe auf eine blaue Linie';
   } else {
+    openMap(true);
     await libreMap(addCoverage);
     map.on('click', (e) => huntPick(e.lngLat.lng, e.lngLat.lat));
     document.getElementById('pickhint').textContent =
-      cfg.sources.length > 1 ? 'Grün: Mapillary · Blau: Panoramax' : 'Tippe auf eine Linie';
+      cfg.sources.length > 1 ? sourceLegend() : 'Tippe auf eine Linie';
   }
   openMap(true);
 }
@@ -457,8 +516,16 @@ async function libreMap(onLoad) {
     container: 'map', style: 'https://tiles.openfreemap.org/styles/liberty',
     center: [10, 30], zoom: 1.5, attributionControl: { compact: true },
   });
-  // While the map is hidden 'load' may wait until it is shown.
-  if (onLoad) map.on('load', () => onLoad(map));
+  // 'load' waits for a first frame, which a hidden map never draws: the
+  // layers go in as soon as the style is there.
+  if (onLoad) {
+    let done = false;
+    map.once('style.load', () => {
+      if (done) return;
+      done = true;
+      onLoad(map);
+    });
+  }
 }
 
 function addCoverage(map) {
@@ -482,6 +549,18 @@ function addCoverage(map) {
     map.addLayer({ id: 'pnx-pic', type: 'circle', source: 'pnx', 'source-layer': 'pictures',
       minzoom: 15, paint: { 'circle-color': COLORS.panoramax, 'circle-radius': 3 } });
   }
+  if (cfg.sources.includes('kartaview')) {
+    // Picture tiles of the drives; slow when zoomed far out.
+    map.addSource('kv', { type: 'raster', tileSize: 256, minzoom: 11, maxzoom: 18,
+      tiles: [KV + '/sequence/tiles/{x}/{y}/{z}.png'] });
+    map.addLayer({ id: 'kv', type: 'raster', source: 'kv', minzoom: 11 });
+  }
+}
+
+function sourceLegend() {
+  const names = { mapillary: 'Grün: Mapillary', panoramax: 'Orange: Panoramax',
+    kartaview: 'Lila: KartaView (nah ran)' };
+  return cfg.sources.map(s => names[s]).filter(Boolean).join(' · ');
 }
 
 async function huntPick(lng, lat, sizes) {
@@ -576,9 +655,11 @@ async function randomPicture(sources) {
     const src = pick(sources);
     const seeds = src === 'panoramax' && attempt % 2 === 0 ? SEEDS_FR : SEEDS;
     const [lat0, lng0] = pick(seeds);
-    // Somewhere within ~30 km of the seed.
-    const lat = lat0 + (Math.random() - 0.5) * 0.5;
-    const lng = lng0 + (Math.random() - 0.5) * 0.5 / Math.max(0.2, Math.cos(lat0 * Math.PI / 180));
+    // Somewhere within ~30 km of the seed (KartaView only searches 500 m
+    // around a point: close to the centre then).
+    const spread = src === 'kartaview' ? 0.03 : 0.5;
+    const lat = lat0 + (Math.random() - 0.5) * spread;
+    const lng = lng0 + (Math.random() - 0.5) * spread / Math.max(0.2, Math.cos(lat0 * Math.PI / 180));
     try {
       let list = [];
       if (src === 'google') {
@@ -588,8 +669,10 @@ async function randomPicture(sources) {
         list = await mapillaryNear(lng, lat, [0.02, 0.05], true);
         if (!list.length) list = await mapillaryNear(lng, lat, [0.02], false);
       } else {
-        list = await panoramaxNear(lng, lat, [0.02, 0.05]);
-        const round = list.filter(x => pnxIs360(x.f));
+        list = src === 'kartaview'
+          ? await kartaviewNear(lng, lat, [0.0045])
+          : await panoramaxNear(lng, lat, [0.02, 0.05]);
+        const round = list.filter(x => x.is360);
         if (round.length) list = round;
       }
       if (list.length) {
@@ -611,7 +694,7 @@ async function receive(json) {
     switch (m.t) {
       case 'init': {
         cfg = m;
-        const missing = cfg.sources.find(s => s !== 'panoramax' && !(cfg.keys || {})[s]);
+        const missing = cfg.sources.find(s => !PHOTOS.includes(s) && !(cfg.keys || {})[s]);
         if (missing) { send({ t: 'error', msg: 'Kein Schlüssel für ' + missing }); return; }
         if (cfg.mode === 'hunt') await huntMap();
         else if (cfg.mode === 'guess') await guessMap();
@@ -620,7 +703,7 @@ async function receive(json) {
       }
       case 'mark': {
         if (!current) { reply({ error: 'Erst einen Ort auf der Karte wählen' }); return; }
-        if (pnx.loading) { reply({ error: 'Das Bild lädt noch …' }); return; }
+        if (photo.loading) { reply({ error: 'Das Bild lädt noch …' }); return; }
         const v = await currentView();
         v.cc = await countryOf(v.lat, v.lng);
         reply({ view: v });

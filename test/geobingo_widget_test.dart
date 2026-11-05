@@ -33,6 +33,10 @@ void main() {
   test('Panoramax works without a key, the others need one', () {
     expect(GeoSource.panoramax.needsKey, isFalse);
     expect(availableSources, contains(GeoSource.panoramax));
+    expect(availableSources, contains(GeoSource.kartaview));
+    expect(GeoSource.kartaview.needsKey, isFalse);
+    expect(GeoSource.parseMix(['kartaview', 'panoramax']), isNotNull);
+    expect(GeoSource.parseMix(['kartaview', 'google']), isNull);
     expect(availableSources, isNot(contains(GeoSource.google)));
   });
 

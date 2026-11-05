@@ -16,7 +16,7 @@ const mapillaryToken = String.fromEnvironment('MAPILLARY_TOKEN');
 String keyFor(GeoSource s) => switch (s) {
   GeoSource.google => googleMapsKey,
   GeoSource.mapillary => mapillaryToken,
-  GeoSource.panoramax => '',
+  GeoSource.panoramax || GeoSource.kartaview => '',
 };
 
 /// Sources this build can use (with a key where one is needed).
@@ -25,9 +25,12 @@ List<GeoSource> get availableSources => [
     if (!s.needsKey || keyFor(s).isNotEmpty) s,
 ];
 
-/// The free sources this build can use, or Google alone without them.
+/// The free sources this build can use (KartaView only when chosen: few
+/// pictures far from big cities), or Google alone without them.
 List<GeoSource> get defaultSources {
-  final free = availableSources.where((s) => s != GeoSource.google).toList();
+  final free = availableSources
+      .where((s) => s != GeoSource.google && s != GeoSource.kartaview)
+      .toList();
   return free.isEmpty ? [GeoSource.google] : free;
 }
 
