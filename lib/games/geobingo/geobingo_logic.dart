@@ -5,10 +5,14 @@ import 'regions.dart';
 /// Where the street pictures come from.
 enum GeoSource {
   google('Google Street View'),
-  mapillary('Mapillary');
+  mapillary('Mapillary'),
+  panoramax('Panoramax');
 
   const GeoSource(this.label);
   final String label;
+
+  /// Panoramax is open to everybody; the others need a key.
+  bool get needsKey => this != panoramax;
 }
 
 /// A marked spot in a street panorama: the picture and the direction the

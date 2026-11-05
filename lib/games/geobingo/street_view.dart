@@ -16,12 +16,13 @@ const mapillaryToken = String.fromEnvironment('MAPILLARY_TOKEN');
 String keyFor(GeoSource s) => switch (s) {
   GeoSource.google => googleMapsKey,
   GeoSource.mapillary => mapillaryToken,
+  GeoSource.panoramax => '',
 };
 
-/// Sources this build has a key for.
+/// Sources this build can use (with a key where one is needed).
 List<GeoSource> get availableSources => [
   for (final s in GeoSource.values)
-    if (keyFor(s).isNotEmpty) s,
+    if (!s.needsKey || keyFor(s).isNotEmpty) s,
 ];
 
 /// The page is loaded as if it came from the web app, so one key

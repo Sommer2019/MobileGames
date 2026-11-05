@@ -163,18 +163,6 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        if (sources.isEmpty)
-          const Card(
-            color: Color(0xFFFFE0B2),
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'In dieser Version ist kein Street-View-Schlüssel '
-                'hinterlegt – Geobingo kann nicht starten.',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-          ),
         if (!streetViewSupported)
           const Card(
             child: Padding(

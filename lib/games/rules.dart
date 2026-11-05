@@ -153,6 +153,7 @@ Ziel: Begriffe irgendwo auf der Welt in Street View finden – und die besten Fu
 • Funde in gesperrten Regionen zählen nicht. Neu markieren ersetzt den alten Fund.
 • Ist die Zeit um, bewertet jeder die Funde der anderen mit 1 bis 5 Sternen.
 • Ein Fund bringt seinen Sterne-Schnitt × 20 Punkte (höchstens 100). Wer die meisten Punkte hat, gewinnt.
+• Bilder von Google Street View, Mapillary oder Panoramax (freie Bilder, viel in Frankreich, sonst lückenhaft).
 • Läuft am Handy, auf dem Mac und im Browser – nicht unter Windows und Linux.''',
   'schocken': '''
 Ziel: keine Deckel bekommen. Wer am Ende verliert, gibt eine Runde aus 🍺

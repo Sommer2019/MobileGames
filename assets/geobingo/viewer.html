@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Geobingo</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
+  "@photo-sphere-viewer/core": "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.15.1/index.module.js"
+} }
+</script>
 <style>
   html, body { margin: 0; height: 100%; background: #111; color: #eee;
     font: 14px system-ui, -apple-system, Roboto, sans-serif; overflow: hidden; }
@@ -21,6 +27,9 @@
   #hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     background: #000a; padding: 10px 14px; border-radius: 10px; text-align: center;
     max-width: 80%; z-index: 7; display: none; }
+  #flat { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+    display: none; background: #000; }
+  #seqnav { position: absolute; right: 8px; bottom: 8px; z-index: 6; display: none; gap: 6px; }
   #pickhint { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 5;
     white-space: nowrap;
     background: #000a; padding: 6px 10px; border-radius: 8px; }
@@ -28,6 +37,11 @@
 </head>
 <body>
 <div id="pano"></div>
+<img id="flat" alt="">
+<div id="seqnav">
+  <button id="prev" onclick="pnxStep('prev')">◀</button>
+  <button id="next" onclick="pnxStep('next')">▶</button>
+</div>
 <div id="mapwrap">
   <div id="map"></div>
   <form id="search" onsubmit="searchPlace(event)">
@@ -200,6 +214,45 @@ function googleShow(v) {
   viewer.setZoom(v.z || 1);
 }
 
+// ------------------------------------------------------- MapLibre map
+
+/// Id of the picture closest to (lng, lat) among {id, c: [lng, lat]}.
+function nearest(list, lng, lat) {
+  let best = null, bestD = Infinity;
+  for (const x of list) {
+    if (!x) continue;
+    const d = Math.hypot(x.c[0] - lng, x.c[1] - lat);
+    if (d < bestD) { bestD = d; best = x.id; }
+  }
+  return best;
+}
+
+/// The pick map for Mapillary and Panoramax (OpenFreeMap tiles): [coverage]
+/// adds the layers, [pick] loads the picture near a tap (false: none there).
+async function libreMap(coverage, pick) {
+  loadCss('https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css');
+  await loadScript('https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js');
+  map = new maplibregl.Map({
+    container: 'map', style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [10, 30], zoom: 1.5, attributionControl: { compact: true },
+  });
+  map.on('load', () => coverage(map));
+  map.on('click', async (e) => {
+    const { lng, lat } = e.lngLat;
+    try {
+      if (!await pick(lng, lat)) {
+        hint('Hier gibt es keine Bilder – tippe auf eine grüne Linie', 2000);
+        return;
+      }
+      hasPicture = true;
+      openMap(false);
+    } catch (err) {
+      hint('Bild konnte nicht geladen werden', 2000);
+    }
+  });
+  openMap(true);
+}
+
 // ------------------------------------------------------------- Mapillary
 
 async function initMapillary() {
@@ -213,13 +266,7 @@ async function initMapillary() {
   });
   viewer.on('image', () => { hasPicture = true; });
   if (hunt) {
-    loadCss('https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css');
-    await loadScript('https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js');
-    map = new maplibregl.Map({
-      container: 'map', style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [10, 30], zoom: 1.5, attributionControl: { compact: true },
-    });
-    map.on('load', () => {
+    await libreMap((map) => {
       map.addSource('mly', {
         type: 'vector', maxzoom: 14,
         tiles: ['https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token='
@@ -229,34 +276,133 @@ async function initMapillary() {
         paint: { 'line-color': '#05cb63', 'line-width': 2, 'line-opacity': 0.8 } });
       map.addLayer({ id: 'mly-img', type: 'circle', source: 'mly', 'source-layer': 'image',
         minzoom: 14, paint: { 'circle-color': '#05cb63', 'circle-radius': 3 } });
-    });
-    map.on('click', async (e) => {
-      const { lng, lat } = e.lngLat;
-      try {
-        let best = null;
-        for (const d of [0.002, 0.01]) {
-          const r = await fetchJson('https://graph.mapillary.com/images?fields=id,computed_geometry,geometry&limit=50'
-            + '&bbox=' + [lng - d, lat - d, lng + d, lat + d].join(',')
-            + '&access_token=' + encodeURIComponent(cfg.key));
-          for (const img of r.data || []) {
-            const g = img.computed_geometry || img.geometry;
-            if (!g) continue;
-            const dist = Math.hypot(g.coordinates[0] - lng, g.coordinates[1] - lat);
-            if (!best || dist < best.dist) best = { id: img.id, dist };
-          }
-          if (best) break;
-        }
-        if (!best) { hint('Hier gibt es keine Bilder – tippe auf eine grüne Linie', 2000); return; }
-        await viewer.moveTo(best.id);
-        hasPicture = true;
-        openMap(false);
-      } catch (err) {
-        hint('Bild konnte nicht geladen werden', 2000);
+    }, async (lng, lat) => {
+      let best = null;
+      for (const d of [0.002, 0.01]) {
+        const r = await fetchJson('https://graph.mapillary.com/images?fields=id,computed_geometry,geometry&limit=50'
+          + '&bbox=' + [lng - d, lat - d, lng + d, lat + d].join(',')
+          + '&access_token=' + encodeURIComponent(cfg.key));
+        best = nearest((r.data || []).map(img => {
+          const g = img.computed_geometry || img.geometry;
+          return g && { id: img.id, c: g.coordinates };
+        }), lng, lat);
+        if (best) break;
       }
+      if (!best) return false;
+      await viewer.moveTo(best);
+      return true;
     });
-    openMap(true);
   }
   send({ t: 'ready' });
+}
+
+// ------------------------------------------------------------ Panoramax
+
+const PNX = 'https://api.panoramax.xyz/api';
+const pnx = { psv: null, item: null, flat: false };
+
+async function pnxItem(id) {
+  const j = await fetchJson(PNX + '/search?ids=' + encodeURIComponent(id));
+  const f = j.features && j.features[0];
+  if (!f) throw new Error('Bild nicht gefunden');
+  return f;
+}
+
+function pnxIs360(f) {
+  const o = f.properties['pers:interior_orientation'] || {};
+  if (o.field_of_view === 360) return true;
+  const d = o.sensor_array_dimensions;
+  return !!(d && d[0] === 2 * d[1]);
+}
+
+/// Shows picture [id]; [pos] = {h, p, z} (yaw and pitch in degrees, zoom
+/// 0–100) for 360° pictures.
+async function pnxShow(id, pos) {
+  hint('Lade Bild …');
+  const f = await pnxItem(id);
+  const is360 = pnxIs360(f);
+  const a = f.assets || {};
+  const url = ((is360 ? a.hd || a.sd : a.sd || a.hd) || {}).href;
+  if (!url) throw new Error('Bild ohne Datei');
+  const pano = document.getElementById('pano');
+  const flat = document.getElementById('flat');
+  if (is360) {
+    flat.style.display = 'none';
+    pano.style.visibility = 'visible';
+    const position = { yaw: (pos ? pos.h : 0) * Math.PI / 180, pitch: (pos ? pos.p : 0) * Math.PI / 180 };
+    const zoom = pos && pos.z != null ? pos.z : 30;
+    if (!pnx.psv) {
+      loadCss('https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.15.1/index.min.css');
+      const { Viewer } = await import('@photo-sphere-viewer/core');
+      pnx.psv = new Viewer({ container: pano, panorama: url, navbar: false, loadingTxt: '',
+        defaultYaw: position.yaw, defaultPitch: position.pitch, defaultZoomLvl: zoom });
+      await new Promise(r => pnx.psv.addEventListener('ready', r, { once: true }));
+    } else {
+      await pnx.psv.setPanorama(url, { position, zoom, transition: false });
+    }
+    // Set again once loaded: the first layout resets the defaults.
+    pnx.psv.rotate(position);
+    pnx.psv.zoom(zoom);
+  } else {
+    pano.style.visibility = 'hidden';
+    flat.src = url;
+    flat.style.display = 'block';
+  }
+  pnx.item = f;
+  pnx.flat = !is360;
+  const nav = cfg.mode === 'hunt' && (f.links || []).some(l => l.rel === 'prev' || l.rel === 'next');
+  document.getElementById('seqnav').style.display = nav ? 'flex' : 'none';
+  for (const rel of ['prev', 'next']) {
+    document.getElementById(rel).disabled = !pnxNeighbour(rel);
+  }
+  hint('');
+}
+
+function pnxNeighbour(rel) {
+  const l = pnx.item && (pnx.item.links || []).find(l => l.rel === rel);
+  return l && l.id;
+}
+
+async function pnxStep(rel) {
+  const id = pnxNeighbour(rel);
+  if (!id) return;
+  try { await pnxShow(id); } catch (e) { hint('Bild konnte nicht geladen werden', 2000); }
+}
+
+async function initPanoramax() {
+  if (cfg.mode === 'hunt') {
+    await libreMap((map) => {
+      map.addSource('pnx', { type: 'vector', maxzoom: 15, tiles: [PNX + '/map/{z}/{x}/{y}.mvt'] });
+      map.addLayer({ id: 'pnx-grid', type: 'fill', source: 'pnx', 'source-layer': 'grid',
+        paint: { 'fill-color': '#05cb63', 'fill-opacity': 0.35 } });
+      map.addLayer({ id: 'pnx-seq', type: 'line', source: 'pnx', 'source-layer': 'sequences',
+        paint: { 'line-color': '#05cb63', 'line-width': 2, 'line-opacity': 0.8 } });
+      map.addLayer({ id: 'pnx-pic', type: 'circle', source: 'pnx', 'source-layer': 'pictures',
+        minzoom: 15, paint: { 'circle-color': '#05cb63', 'circle-radius': 3 } });
+    }, async (lng, lat) => {
+      for (const d of [0.002, 0.01]) {
+        const r = await fetchJson(PNX + '/search?limit=50&bbox='
+          + [lng - d, lat - d, lng + d, lat + d].join(','));
+        const id = nearest((r.features || []).map(f => f.geometry && { id: f.id, c: f.geometry.coordinates }), lng, lat);
+        if (id) { await pnxShow(id); return true; }
+      }
+      return false;
+    });
+  }
+  send({ t: 'ready' });
+}
+
+function pnxView() {
+  const f = pnx.item;
+  const [lng, lat] = f.geometry.coordinates;
+  const v = { src: 'panoramax', id: f.id, lat, lng, h: 0, p: 0, z: 0 };
+  if (!pnx.flat) {
+    const pos = pnx.psv.getPosition();
+    v.h = pos.yaw * 180 / Math.PI;
+    v.p = pos.pitch * 180 / Math.PI;
+    v.z = pnx.psv.getZoomLevel();
+  }
+  return v;
 }
 
 async function mapillaryView() {
@@ -281,19 +427,24 @@ async function receive(json) {
     switch (m.t) {
       case 'init':
         cfg = m;
-        if (!cfg.key) { send({ t: 'error', msg: 'Kein Schlüssel für ' + cfg.source }); return; }
-        if (cfg.source === 'google') await initGoogle(); else await initMapillary();
+        if (!cfg.key && cfg.source !== 'panoramax') { send({ t: 'error', msg: 'Kein Schlüssel für ' + cfg.source }); return; }
+        if (cfg.source === 'google') await initGoogle();
+        else if (cfg.source === 'mapillary') await initMapillary();
+        else await initPanoramax();
         break;
       case 'mark': {
-        if (!viewer || !hasPicture) { send({ t: 'marked', req: m.req, error: 'Erst einen Ort auf der Karte wählen' }); return; }
-        const v = cfg.source === 'google' ? googleView() : await mapillaryView();
+        if (!hasPicture || !(cfg.source === 'panoramax' ? pnx.item : viewer)) { send({ t: 'marked', req: m.req, error: 'Erst einen Ort auf der Karte wählen' }); return; }
+        const v = cfg.source === 'google' ? googleView()
+          : cfg.source === 'mapillary' ? await mapillaryView() : pnxView();
         v.cc = await countryOf(v.lat, v.lng);
         send({ t: 'marked', req: m.req, view: v });
         break;
       }
       case 'show':
         hasPicture = true;
-        if (cfg.source === 'google') googleShow(m.view); else await mapillaryShow(m.view);
+        if (cfg.source === 'google') googleShow(m.view);
+        else if (cfg.source === 'mapillary') await mapillaryShow(m.view);
+        else await pnxShow(m.view.id, m.view);
         break;
     }
   } catch (e) {

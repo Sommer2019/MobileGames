@@ -30,6 +30,12 @@ class FakeMarker extends StreetViewController {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test('Panoramax works without a key, the others need one', () {
+    expect(GeoSource.panoramax.needsKey, isFalse);
+    expect(availableSources, contains(GeoSource.panoramax));
+    expect(availableSources, isNot(contains(GeoSource.google)));
+  });
+
   testWidgets('Geobingo: suggest, start, mark, rate, winner', (tester) async {
     tester.view.physicalSize = const Size(2200, 1600);
     tester.view.devicePixelRatio = 1;

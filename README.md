@@ -128,7 +128,8 @@ test/             Unit- und Widget-Tests
 
 ### Geobingo: Street-View-Schlüssel
 
-Geobingo braucht mindestens einen der beiden Schlüssel. Die Build-Pipeline nimmt sie als
+Geobingo läuft ohne Schlüssel mit **Panoramax** (freie Straßenbilder, viel in Frankreich).
+Für Google Street View und Mapillary braucht es Schlüssel. Die Build-Pipeline nimmt sie als
 Repository-Variable oder -Secret:
 
 * `GOOGLE_MAPS_KEY` – Google Cloud: Projekt mit Zahlungsart anlegen, **Maps JavaScript API**
