@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -9,6 +10,8 @@ import '../geo/regions.dart';
 import '../geo/source_picker.dart';
 import '../geo/street_view.dart';
 import 'geoguess_logic.dart';
+import 'my_places.dart';
+import 'my_places_screen.dart';
 
 class GeoGuessScreen extends StatefulWidget {
   const GeoGuessScreen({
@@ -47,6 +50,9 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
   Timer? _tick;
   bool _busy = false;
 
+  /// Host: the places saved on this device.
+  List<GeoView> _myPlaces = [];
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +63,24 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
     });
     if (isHost) _act(['cfg', _cfg()]);
     _tick = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+    if (isHost) _loadPlaces();
+  }
+
+  Future<void> _loadPlaces() async {
+    final list = await MyPlaces.load();
+    if (!mounted) return;
+    setState(() => _myPlaces = list);
+    if (list.isEmpty && game.own) _act(['cfg', _cfg(own: false)]);
+  }
+
+  Future<void> _managePlaces() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => MyPlacesScreen(sources: game.sources),
+      ),
+    );
+    await _loadPlaces();
   }
 
   @override
@@ -67,10 +91,16 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
     super.dispose();
   }
 
-  Map<String, dynamic> _cfg({int? rounds, int? sec, List<GeoSource>? src}) => {
+  Map<String, dynamic> _cfg({
+    int? rounds,
+    int? sec,
+    List<GeoSource>? src,
+    bool? own,
+  }) => {
     'rounds': rounds ?? game.rounds,
     'sec': sec ?? game.seconds,
     'src': [for (final s in src ?? game.sources) s.name],
+    'own': own ?? game.own,
   };
 
   int _now() => DateTime.now().millisecondsSinceEpoch;
@@ -104,6 +134,19 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
   /// Host: finds a random place and starts the next round.
   Future<void> _nextRound() async {
     if (!isHost || _busy) return;
+    // Own places first, each once per game; then random ones.
+    if (game.own) {
+      final played = {for (final v in game.views) '${v.source.name}:${v.id}'};
+      final left = [
+        for (final p in _myPlaces)
+          if (!played.contains('${p.source.name}:${p.id}')) p,
+      ];
+      if (left.isNotEmpty) {
+        final pick = left[Random().nextInt(left.length)];
+        _act(['round', game.views.length, pick.toJson(), _now()]);
+        return;
+      }
+    }
     setState(() => _busy = true);
     final (view, error) = await _view.random(game.sources);
     if (!mounted) return;
@@ -229,6 +272,38 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> {
                   selected: game.sources,
                   onChanged: isHost ? (s) => _act(['cfg', _cfg(src: s)]) : null,
                 ),
+                if (isHost)
+                  SwitchListTile(
+                    key: const ValueKey('ggOwn'),
+                    secondary: const Icon(Icons.bookmark),
+                    title: const Text('Eigene Orte spielen'),
+                    subtitle: Text(
+                      _myPlaces.isEmpty
+                          ? 'Noch keine gespeichert'
+                          : '${_myPlaces.length} gespeichert – danach '
+                                'geht es zufällig weiter',
+                    ),
+                    value: game.own,
+                    onChanged: _myPlaces.isEmpty
+                        ? null
+                        : (v) => _act(['cfg', _cfg(own: v)]),
+                  )
+                else if (game.own)
+                  const ListTile(
+                    leading: Icon(Icons.bookmark),
+                    title: Text('Der Host spielt seine eigenen Orte'),
+                  ),
+                if (isHost)
+                  ListTile(
+                    key: const ValueKey('ggManagePlaces'),
+                    leading: const Icon(Icons.add_location_alt),
+                    title: const Text('Eigene Orte verwalten'),
+                    subtitle: const Text(
+                      'Orte auf der Karte oder am eigenen Standort sammeln',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _managePlaces,
+                  ),
               ],
             ),
           ),

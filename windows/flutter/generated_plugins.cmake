@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   battery_plus
   flutter_secure_storage_windows
   flutter_webrtc
+  geolocator_windows
   share_plus
   url_launcher_windows
   volume_controller

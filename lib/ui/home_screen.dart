@@ -8,6 +8,7 @@ import '../core/sound.dart';
 import '../games/registry.dart';
 import '../games/tournament/tournament_screen.dart';
 import 'friends_screen.dart';
+import 'fuzzy.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 import 'rules_sheet.dart';
@@ -33,24 +34,16 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Lower case without accents, so "wurfel" finds "Würfel".
-  static String _plain(String s) => s
-      .toLowerCase()
-      .replaceAll('ä', 'a')
-      .replaceAll('ö', 'o')
-      .replaceAll('ü', 'u')
-      .replaceAll('ß', 'ss');
-
   bool _matches(GameInfo g) {
     if (_category != null && g.category != _category) return false;
-    final q = _plain(_query.trim());
+    final q = _query.trim();
     if (q.isEmpty) return true;
-    final text = _plain(
+    return fuzzyMatch(
+      q,
       '${g.title} ${g.description} ${g.category.label} '
       '${g.isMultiplayer ? 'mehrspieler online' : ''} '
       '${g.singleplayerBuilder != null || g.offlineModes.any((m) => m.setup.players == 1) ? 'allein einzelspieler' : ''}',
     );
-    return q.split(RegExp(r'\s+')).every(text.contains);
   }
 
   @override

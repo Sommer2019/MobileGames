@@ -91,6 +91,23 @@ void main() {
     expect(feed.gameId, 'snake');
     expect(feed.state.value, {'score': 1});
     expect(hub.watchers.value, 1);
+    expect(hub.watcherNames.value, ['Wanda']);
+
+    // Wanda cheers: Gerd sees it, with the name he knows her by.
+    final cheers = <Reaction>[];
+    final cheerSub = hub.mirrorReactions.listen(cheers.add);
+    final mine = <Reaction>[];
+    final mineSub = feed.reactions.listen(mine.add);
+    feed.react('W.', '🎉');
+    feed.react('W.', '💩'); // not a cheer
+    for (var i = 0; i < 40 && cheers.isEmpty; i++) {
+      await pump();
+    }
+    expect(cheers.single.name, 'Wanda');
+    expect(cheers.single.emoji, '🎉');
+    expect(mine.single.emoji, '🎉', reason: 'she sees her own cheer');
+    await cheerSub.cancel();
+    await mineSub.cancel();
 
     // Changes arrive live.
     source.state = {'score': 2};

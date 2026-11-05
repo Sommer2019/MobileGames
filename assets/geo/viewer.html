@@ -481,11 +481,11 @@ function addCoverage(map) {
   }
 }
 
-async function huntPick(lng, lat) {
+async function huntPick(lng, lat, sizes) {
   const before = current;
   try {
     hint('Suche Bild …');
-    const best = nearest(await near(lng, lat, [0.002, 0.01]), lng, lat);
+    const best = nearest(await near(lng, lat, sizes || [0.002, 0.01]), lng, lat);
     if (!best) { hint('Hier gibt es keine Bilder – tippe auf eine Linie', 2000); return; }
     await showPicture({ src: best.src, id: best.id });
     hint('');
@@ -641,6 +641,11 @@ async function receive(json) {
       }
       case 'result':
         showResult(m.truth, m.guesses || []);
+        break;
+      case 'goto':
+        if (map && map.jumpTo) map.jumpTo({ center: [m.lng, m.lat], zoom: 16 });
+        else if (map) { map.setCenter({ lat: m.lat, lng: m.lng }); map.setZoom(16); }
+        await huntPick(m.lng, m.lat, [0.001, 0.005, 0.02]);
         break;
       case 'random':
         reply({ view: await randomPicture(m.sources) });

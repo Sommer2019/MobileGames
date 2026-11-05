@@ -84,6 +84,37 @@ class SpectatorHub {
   /// Number of friends watching right now.
   final ValueNotifier<int> watchers = ValueNotifier(0);
 
+  /// Their names, for "Anna schaut zu".
+  final ValueNotifier<List<String>> watcherNames = ValueNotifier(const []);
+
+  final _mirrorCheers = StreamController<Reaction>.broadcast();
+  final Set<String> _seenCheers = {};
+
+  /// Cheers of friends watching a game played on this device.
+  Stream<Reaction> get mirrorReactions => _mirrorCheers.stream;
+
+  void _countWatchers() {
+    watchers.value = _watchers.length + _mirrorWatchers.length;
+    watcherNames.value = [
+      for (final w in _watchers) w.session.match.opponentName,
+      for (final w in _mirrorWatchers) w.session.match.opponentName,
+    ];
+  }
+
+  /// A cheer from [from]: shown here and passed on to the other watchers.
+  void _mirrorCheer(Map<String, dynamic> m, _MirrorWatcher from) {
+    final r = Reaction.parse(m);
+    if (r == null || !_seenCheers.add(m['i'] as String)) return;
+    if (_seenCheers.length > 300) _seenCheers.remove(_seenCheers.first);
+    // The name we know them by, not what they claim.
+    final name = from.session.match.opponentName;
+    _mirrorCheers.add(Reaction(name, r.emoji));
+    final msg = {...m, 'n': name};
+    for (final w in _mirrorWatchers) {
+      if (w != from) w.session.send(msg);
+    }
+  }
+
   /// Our current online game (called by the game screen). In a tournament
   /// the room plays several games one after another: [game] is the current
   /// one and [scope] tags its messages.
@@ -144,7 +175,7 @@ class SpectatorHub {
       );
       final w = _MirrorWatcher(session, mirror, this);
       _mirrorWatchers.add(w);
-      watchers.value = _watchers.length + _mirrorWatchers.length;
+      _countWatchers();
       w.start();
       return;
     }
@@ -159,18 +190,18 @@ class SpectatorHub {
     );
     final w = _Watcher(session, room, this, _game!, _scope, _firstRound);
     _watchers.add(w);
-    watchers.value = _watchers.length + _mirrorWatchers.length;
+    _countWatchers();
     w.start();
   }
 
   void _remove(_Watcher w) {
     _watchers.remove(w);
-    watchers.value = _watchers.length + _mirrorWatchers.length;
+    _countWatchers();
   }
 
   void _removeMirror(_MirrorWatcher w) {
     _mirrorWatchers.remove(w);
-    watchers.value = _watchers.length + _mirrorWatchers.length;
+    _countWatchers();
   }
 
   Future<void> dispose() async {
@@ -182,6 +213,7 @@ class SpectatorHub {
     for (final w in List.of(_watchers)) {
       w.close();
     }
+    await _mirrorCheers.close();
   }
 }
 
@@ -267,6 +299,7 @@ class _MirrorWatcher {
   final MirrorSource source;
   final SpectatorHub hub;
   StreamSubscription<LinkState>? _state;
+  StreamSubscription<Map<String, dynamic>>? _cheers;
   Timer? _timer;
   String? _last;
   bool _closed = false;
@@ -275,6 +308,10 @@ class _MirrorWatcher {
     _state = session.stateChanges.listen((s) {
       if (s == LinkState.connected && _timer == null) _begin();
       if (s == LinkState.opponentLeft) close();
+    });
+    // Watchers can only cheer.
+    _cheers = session.messages.listen((m) {
+      if (m['k'] == 'x') hub._mirrorCheer(m, this);
     });
     session.start();
   }
@@ -314,6 +351,7 @@ class _MirrorWatcher {
     _closed = true;
     _timer?.cancel();
     _state?.cancel();
+    _cheers?.cancel();
     session.close();
     hub._removeMirror(this);
   }
@@ -395,6 +433,7 @@ Future<Object> connectToFriendGame({
     }
     final f = mirror;
     if (f != null) {
+      if (m['k'] == 'x') f.receive(m);
       if (m['k'] != 'm') return;
       if (m['end'] == true) f.ended.value = true;
       final state = m['state'];
@@ -413,6 +452,7 @@ Future<Object> connectToFriendGame({
           await link.cancel();
           await session.close();
         },
+        send: session.send,
       );
       if (!result.isCompleted) result.complete(mirror!);
       return;

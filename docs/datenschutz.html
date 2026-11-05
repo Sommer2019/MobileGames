@@ -46,6 +46,10 @@
   <li>Spielername, Freundesliste, Chatverläufe, Spielstände, Bestwerte und Einstellungen.</li>
   <li><strong>Kamera:</strong> Sie wird nur zum Scannen von Freundes-QR-Codes genutzt.
       Bilder werden weder gespeichert noch übertragen.</li>
+  <li><strong>Standort:</strong> Nur wenn du in „Wo bin ich?“ auf „Mein Standort“ tippst, fragt die
+      App einmal nach deinem Standort, um dort ein Straßenbild zu suchen. Gespeicherte eigene Orte
+      bleiben auf deinem Gerät; wenn du als Host einen davon spielst, sehen die Mitspieler das Bild
+      und seine Koordinaten.</li>
 </ul>
 
 <h3>Über öffentliche Nostr-Relays</h3>
@@ -86,6 +90,19 @@
   <li>Cloudflare: <code>stun.cloudflare.com</code></li>
 </ul>
 <p>Diese Server sehen ebenfalls deine IP-Adresse.</p>
+
+<h3>Geo-Spiele (Geobingo, Wo bin ich?, Länderquiz)</h3>
+<p>Diese Spiele laden Karten und Bilder direkt von diesen Diensten. Sie sehen dabei deine IP-Adresse
+   und welche Orte und Bilder abgerufen werden:</p>
+<ul>
+  <li>Straßenbilder: Google Street View (Google), Mapillary (Meta) und Panoramax
+      (<code>api.panoramax.xyz</code>) – je nachdem, welche Quelle gewählt ist</li>
+  <li>Karten: OpenFreeMap (<code>tiles.openfreemap.org</code>) und bei Google-Bildern Google Maps</li>
+  <li>Ortssuche und Länder: OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>)</li>
+  <li>Flaggen im Länderquiz: <code>flagcdn.com</code></li>
+  <li>Programmbibliotheken der Bildanzeige: <code>unpkg.com</code> und <code>cdn.jsdelivr.net</code></li>
+</ul>
+<p>In Geobingo und „Wo bin ich?“ sehen deine Mitspieler die Bilder und Orte, die du markierst oder tippst.</p>
 
 <h3>Zuschauen</h3>
 <p>Während du online spielst, sehen deine Freunde, welches Spiel du spielst, und können zuschauen.

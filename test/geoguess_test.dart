@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/games/geo/street_view.dart';
 import 'package:mobile_games/games/geoguess/geoguess_logic.dart';
 import 'package:mobile_games/games/geoguess/geoguess_screen.dart';
+import 'package:mobile_games/games/geoguess/my_places.dart';
+import 'package:mobile_games/games/geoguess/my_places_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,9 +18,29 @@ Map<String, dynamic> berlin() => const GeoView(
 
 /// Answers like the street picture page, without a page.
 class FakePage extends StreetViewController {
+  final List<(double, double)> jumps = [];
+  int randoms = 0;
+
   @override
-  Future<(GeoView?, String?)> random(List<GeoSource> sources) async =>
-      (GeoView.fromJson(berlin()), null);
+  void goTo(double lat, double lng) => jumps.add((lat, lng));
+
+  @override
+  Future<(GeoView?, String?)> mark() async => (
+    const GeoView(
+      source: GeoSource.mapillary,
+      id: 'home',
+      lat: 50.1,
+      lng: 8.7,
+      country: 'de',
+    ),
+    null,
+  );
+
+  @override
+  Future<(GeoView?, String?)> random(List<GeoSource> sources) async {
+    randoms++;
+    return (GeoView.fromJson(berlin()), null);
+  }
 
   @override
   Future<((double, double)?, String?)> guess() async =>
@@ -101,6 +123,97 @@ void main() {
     expect(GeoGuessGame.replay(2, g.events).total(1), g.total(1));
   });
 
+  test('own places may come from any source', () {
+    final g = GeoGuessGame(players: 1);
+    final mapillary = {...berlin(), 'src': 'mapillary'};
+    expect(g.apply(['round', 0, mapillary, 1], 0), isFalse);
+    g.apply([
+      'cfg',
+      {
+        'rounds': 2,
+        'sec': 0,
+        'src': ['panoramax'],
+        'own': true,
+      },
+    ], 0);
+    expect(g.own, isTrue);
+    expect(g.apply(['round', 0, mapillary, 1], 0), isTrue);
+  });
+
+  test('my places: saved once, removed again', () async {
+    SharedPreferences.setMockInitialValues({});
+    final v = GeoView.fromJson(berlin())!;
+    expect(await MyPlaces.add(v), isTrue);
+    expect(await MyPlaces.add(v), isFalse);
+    expect((await MyPlaces.load()).single.id, 'b');
+    await MyPlaces.remove(v);
+    expect(await MyPlaces.load(), isEmpty);
+  });
+
+  testWidgets('collect a place where you are', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    final page = FakePage();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MyPlacesScreen(
+          sources: const [GeoSource.mapillary],
+          controller: page,
+          viewBuilder: () => const ColoredBox(color: Colors.grey),
+          locate: () async => ((50.11, 8.68), null),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('myPlacesHere')));
+    await tester.pumpAndSettle();
+    expect(page.jumps.single, (50.11, 8.68));
+    await tester.tap(find.byKey(const ValueKey('myPlacesSave')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ort gespeichert 📍'), findsOneWidget);
+    expect((await MyPlaces.load()).single.id, 'home');
+    await tester.tap(find.byKey(const ValueKey('myPlacesList')));
+    await tester.pumpAndSettle();
+    expect(find.text('Deutschland'), findsOneWidget);
+  });
+
+  testWidgets('the host plays own places first', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    await MyPlaces.add(
+      const GeoView(source: GeoSource.mapillary, id: 'mine', lat: 1, lng: 2),
+    );
+    final page = FakePage();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GeoGuessScreen(
+          setup: const PlaySetup.local(players: 1),
+          sources: const [GeoSource.panoramax],
+          controller: page,
+          viewBuilder: () => const ColoredBox(color: Colors.grey),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ggOwn')));
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('ggStart')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
+    expect(page.randoms, 0, reason: 'own place first');
+    await tester.tap(find.byKey(const ValueKey('ggGuess')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ggNext')));
+    await tester.pumpAndSettle();
+    expect(page.randoms, 1, reason: 'then random ones');
+  });
+
   testWidgets('Wo bin ich? alone: guess, reveal, result', (tester) async {
     tester.view.physicalSize = const Size(1080, 2200);
     tester.view.devicePixelRatio = 2.75;
@@ -121,6 +234,11 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Runden: 1'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('ggStart')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const ValueKey('ggStart')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Runde 1/1'), findsOneWidget);

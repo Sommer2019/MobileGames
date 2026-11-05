@@ -24,7 +24,8 @@ int pointsFor(double km) => km < 0.05 ? 5000 : (5000 * exp(-km / 2000)).round();
 /// map where it was taken; the closer, the more points.
 ///
 /// Played through [apply] with plain events (seat of the sender given):
-/// host only: `['cfg', {rounds, sec, src}]`, `['round', r, view, epochMs]`,
+/// host only: `['cfg', {rounds, sec, src, own}]`,
+/// `['round', r, view, epochMs]`,
 /// `['reveal', r, {seat: [lat, lng]}]`, `['end']`, `['new']`;
 /// everybody: `['guess', r, lat, lng]`.
 /// The host's `reveal` carries the guesses as the host has them, so every
@@ -45,6 +46,10 @@ class GeoGuessGame {
   /// Seconds per round, 0 = no limit.
   int seconds = 0;
   List<GeoSource> sources;
+
+  /// The host plays places it saved (from any source) instead of random
+  /// ones.
+  bool own = false;
 
   /// The pictures of the rounds so far.
   final List<GeoView> views = [];
@@ -70,13 +75,16 @@ class GeoGuessGame {
         rounds = r;
         seconds = sec;
         sources = s;
+        own = c['own'] == true;
       case ['round', final int r, final Object? v, final int at]
           when host &&
               (phase == GuessPhase.setup || phase == GuessPhase.reveal) &&
               r == views.length &&
               r < rounds:
         final view = GeoView.fromJson(v);
-        if (view == null || !sources.contains(view.source)) return false;
+        if (view == null || (!own && !sources.contains(view.source))) {
+          return false;
+        }
         views.add(view);
         startedAt = at;
         phase = GuessPhase.round;

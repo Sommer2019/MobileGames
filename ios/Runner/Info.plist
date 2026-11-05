@@ -10,6 +10,8 @@
 	<string>Für direkte Peer-to-Peer-Verbindungen zu Mitspielern im selben Netzwerk.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Die Kamera wird nur zum Scannen von Freundes-QR-Codes verwendet.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nur wenn du in „Wo bin ich?“ deinen Standort als eigenen Ort hinzufügst. Er bleibt auf deinem Gerät.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Die App nutzt kein Mikrofon. (Von der WebRTC-Bibliothek gefordert.)</string>
 	<key>CFBundleDisplayName</key>

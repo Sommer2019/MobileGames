@@ -19,7 +19,9 @@ import 'package:mobile_games/core/saved_games.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_logic.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/home_screen.dart';
+import 'package:mobile_games/ui/fuzzy.dart';
 import 'package:mobile_games/ui/play_setup.dart';
+import 'package:mobile_games/ui/watchers_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_nostr.dart';
@@ -88,6 +90,30 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('category-all')));
     await tester.pump();
     expect(find.byKey(const ValueKey('game-chess')), findsOneWidget);
+  });
+
+  test('fuzzy game search', () {
+    expect(fuzzyMatch('schak', 'Schach'), isTrue);
+    expect(fuzzyMatch('solitar', 'Solitär Klondike'), isTrue);
+    expect(fuzzyMatch('wurfelkonig', 'Würfelkönig'), isTrue);
+    expect(fuzzyMatch('wurfelknöig', 'Würfelkönig'), isTrue);
+    expect(fuzzyMatch('mahjog', 'Mahjong'), isTrue);
+    expect(fuzzyMatch('geobing', 'Geobingo'), isTrue);
+    expect(fuzzyMatch('flagen', 'Flaggen und Hauptstädte'), isTrue);
+    expect(fuzzyMatch('schach', 'Dame'), isFalse);
+    expect(fuzzyMatch('xyz', 'Snake'), isFalse);
+    expect(fuzzyMatch('dart', 'Darts'), isTrue);
+    expect(fuzzyMatch('karten allein', 'Solitär Karten allein'), isTrue);
+    expect(editDistance('ab', 'ba'), 1);
+  });
+
+  test('who is watching', () {
+    expect(watchersText(['Anna']), '👁 Anna schaut zu');
+    expect(watchersText(['Anna', 'Ben']), '👁 Anna und Ben schauen zu');
+    expect(
+      watchersText(['A', 'B', 'C', 'D', 'E']),
+      '👁 A, B und 3 weitere schauen zu',
+    );
   });
 
   testWidgets('connect four hot seat until a win', (tester) async {

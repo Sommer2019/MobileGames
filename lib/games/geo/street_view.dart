@@ -105,6 +105,10 @@ class StreetViewController extends ChangeNotifier {
         : (v, null);
   }
 
+  /// Hunt: jumps to a place and loads the nearest picture there.
+  void goTo(double lat, double lng) =>
+      _send({'t': 'goto', 'lat': lat, 'lng': lng});
+
   /// Shows a view (review, guessing round).
   void show(GeoView v) => _send({'t': 'show', 'view': v.toJson()});
 
