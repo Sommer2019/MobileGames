@@ -53,6 +53,7 @@ class SpectatorHub {
     'stapelfix',
     'prophet',
     'schocken',
+    'geobingo',
   };
   static const maxWatchers = 10;
 

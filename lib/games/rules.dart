@@ -145,6 +145,15 @@ Allein: alle 15 Kugeln mit möglichst wenigen Stößen versenken. Fällt die wei
 • Du bleibst dran, solange du eigene Kugeln versenkst.
 • Foul (weiße Kugel fällt, nichts oder zuerst eine fremde Kugel getroffen): der Gegner ist dran.
 • Die 8 zuletzt und ohne Foul versenken gewinnt – zu früh oder mit Foul verliert.''',
+  'geobingo': '''
+Ziel: Begriffe irgendwo auf der Welt in Street View finden – und die besten Funde haben.
+
+• Der Host legt Begriffe, Zeit, Bildquelle und gesperrte Regionen fest. Alle anderen können Begriffe vorschlagen, der Host nimmt sie an oder lehnt ab.
+• Nach dem Start springst du über die Karte an jeden beliebigen Ort, läufst herum und markierst für jeden Begriff eine Ansicht, z. B. ein Feuerwehrauto.
+• Funde in gesperrten Regionen zählen nicht. Neu markieren ersetzt den alten Fund.
+• Ist die Zeit um, bewertet jeder die Funde der anderen mit 1 bis 5 Sternen.
+• Ein Fund bringt seinen Sterne-Schnitt × 20 Punkte (höchstens 100). Wer die meisten Punkte hat, gewinnt.
+• Läuft am Handy, auf dem Mac und im Browser – nicht unter Windows und Linux.''',
   'schocken': '''
 Ziel: keine Deckel bekommen. Wer am Ende verliert, gibt eine Runde aus 🍺
 

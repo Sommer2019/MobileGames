@@ -16,6 +16,7 @@ import 'connect_four/connect_four_screen.dart';
 import 'labyrinth/labyrinth_screen.dart';
 import 'mahjong/mahjong_screen.dart';
 import 'domino/domino_screen.dart';
+import 'geobingo/geobingo_screen.dart';
 import 'halma/halma_screen.dart';
 import 'lastcard/lastcard_screen.dart';
 import 'ludo/ludo_screen.dart';
@@ -373,6 +374,15 @@ final List<GameInfo> games = [
     maxOnlinePlayers: 6,
     playerCounts: const [2, 3, 4, 5, 6],
     multiplayerBuilder: (s) => SchockenScreen(setup: s),
+  ),
+  GameInfo(
+    id: 'geobingo',
+    title: 'Geobingo',
+    description: 'Begriffe weltweit in Street View aufspüren – online',
+    icon: Icons.travel_explore,
+    color: const Color(0xFF0277BD),
+    maxOnlinePlayers: 8,
+    multiplayerBuilder: (s) => GeoBingoScreen(setup: s),
   ),
   GameInfo(
     id: 'darts',
