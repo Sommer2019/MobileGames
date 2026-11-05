@@ -172,7 +172,8 @@ const boards = [
     'Kugellabyrinth',
     'Level',
     min: 1,
-    max: 200,
+    // Endless levels: no fixed end.
+    max: 100000,
   ),
   ScoreBoard(
     'darts.x501',
@@ -240,7 +241,8 @@ const boards = [
     'Labyrinth Albtraum 🎮',
     'Level',
     min: 1,
-    max: 200,
+    // Endless levels: no fixed end.
+    max: 100000,
     secret: true,
   ),
   ScoreBoard(
@@ -249,7 +251,8 @@ const boards = [
     'Labyrinth Gummiball 🎮',
     'Level',
     min: 1,
-    max: 200,
+    // Endless levels: no fixed end.
+    max: 100000,
     secret: true,
   ),
   ScoreBoard(

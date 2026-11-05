@@ -16,6 +16,12 @@ import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'labyrinth_logic.dart';
 
+/// Level numbers with a value under [prefix] (best time or a flag).
+Set<int> solvedLevels(SharedPreferences prefs, String prefix) => {
+  for (final k in prefs.getKeys())
+    if (k.startsWith(prefix)) ?int.tryParse(k.substring(prefix.length)),
+};
+
 class LabyrinthLevelsScreen extends StatefulWidget {
   const LabyrinthLevelsScreen({super.key});
 
@@ -46,13 +52,48 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final times = solvedLevels(prefs, 'labyrinth.best.');
     setState(() {
-      best = {
-        for (var i = 0; i < labyrinthLevels.length; i++)
-          if (prefs.getDouble('labyrinth.best.$i') != null)
-            i: prefs.getDouble('labyrinth.best.$i')!,
-      };
+      best = {for (final i in times) i: prefs.getDouble('labyrinth.best.$i')!};
     });
+  }
+
+  /// Endless levels in the list: all reached so far and a few ahead.
+  int get _endlessShown {
+    final reached = [
+      for (final i in best.keys)
+        if (isEndless(i)) i - labyrinthLevels.length + 1,
+    ].fold(0, max);
+    return reached + 3;
+  }
+
+  Widget _levelTile(int i) {
+    final level = levelAt(i);
+    return Card(
+      child: ListTile(
+        key: ValueKey('labyrinthLevel$i'),
+        leading: CircleAvatar(child: Text('${i + 1}')),
+        title: Text(level.name),
+        subtitle: Text(
+          best[i] != null
+              ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
+              : 'Noch nicht geschafft',
+        ),
+        enabled: easy || i == 0 || best.containsKey(i - 1),
+        trailing: Icon(
+          best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
+        ),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => LabyrinthScreen(levelIndex: i),
+            ),
+          );
+          _load();
+        },
+      ),
+    );
   }
 
   @override
@@ -77,31 +118,23 @@ class _LabyrinthLevelsScreenState extends State<LabyrinthLevelsScreen> {
             'Fällt sie in ein anderes Loch, geht es von vorne los.',
           ),
         ),
-        for (var i = 0; i < labyrinthLevels.length; i++)
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(child: Text('${i + 1}')),
-              title: Text(labyrinthLevels[i].name),
-              subtitle: Text(
-                best[i] != null
-                    ? 'Bestzeit: ${best[i]!.toStringAsFixed(1)} s'
-                    : 'Noch nicht geschafft',
-              ),
-              enabled: easy || i == 0 || best.containsKey(i - 1),
-              trailing: Icon(
-                best.containsKey(i) ? Icons.check_circle : Icons.play_arrow,
-              ),
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => LabyrinthScreen(levelIndex: i),
-                  ),
-                );
-                _load();
-              },
-            ),
+        for (var i = 0; i < labyrinthLevels.length; i++) _levelTile(i),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 20, 8, 4),
+          child: Text(
+            '♾️ Endlos',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(8, 0, 8, 8),
+          child: Text(
+            'Ab hier erzeugt die App immer neue Level – jedes Level sieht '
+            'auf jedem Gerät gleich aus. Sie werden größer und tückischer.',
+          ),
+        ),
+        for (var n = 0; n < _endlessShown; n++)
+          _levelTile(labyrinthLevels.length + n),
       ],
     );
   }
@@ -159,7 +192,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
 
   /// A game with the secret modes applied.
   LabyrinthGame _newGame() {
-    final g = LabyrinthGame(labyrinthLevels[levelIndex]);
+    final g = LabyrinthGame(levelAt(levelIndex));
     if (Secrets.on(Secret.rubberBall)) g.restitution = 0.9;
     if (Secrets.on(Secret.nightmare)) g.damping = 0.25;
     return g;
@@ -283,10 +316,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     if (prev == null || game.elapsed < prev) {
       await prefs.setDouble(key, game.elapsed);
     }
-    final solved = [
-      for (var i = 0; i < labyrinthLevels.length; i++)
-        if (prefs.getDouble('labyrinth.best.$i') != null) i,
-    ].length;
+    final solved = solvedLevels(prefs, 'labyrinth.best.').length;
     await Leaderboard.submit('labyrinth', solved);
     // The harder Konami extras have their own rankings.
     for (final (secret, id) in const [
@@ -295,14 +325,11 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     ]) {
       if (!Secrets.on(secret)) continue;
       await prefs.setBool('$id.$levelIndex', true);
-      final count = [
-        for (var i = 0; i < labyrinthLevels.length; i++)
-          if (prefs.getBool('$id.$i') ?? false) i,
-      ].length;
+      final count = solvedLevels(prefs, '$id.').length;
       await Leaderboard.submit(id, count);
     }
     if (!mounted) return;
-    final hasNext = levelIndex + 1 < labyrinthLevels.length;
+    // There is always a next level: the endless ones follow the fixed ones.
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -322,26 +349,25 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
             },
             child: const Text('Nochmal'),
           ),
-          if (hasNext)
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(c);
-                setState(() {
-                  levelIndex++;
-                  game = _newGame();
-                  falls = 0;
-                });
-              },
-              child: const Text('Nächstes Level'),
-            )
-          else
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(c);
-                Navigator.pop(context);
-              },
-              child: const Text('Fertig'),
-            ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(c);
+              Navigator.pop(context);
+            },
+            child: const Text('Zur Liste'),
+          ),
+          FilledButton(
+            key: const ValueKey('labyrinthNext'),
+            onPressed: () {
+              Navigator.pop(c);
+              setState(() {
+                levelIndex++;
+                game = _newGame();
+                falls = 0;
+              });
+            },
+            child: const Text('Nächstes Level'),
+          ),
         ],
       ),
     );

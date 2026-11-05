@@ -1,9 +1,9 @@
 import 'dart:collection';
 import 'dart:math';
-
-import '../../core/sphere.dart';
-
 import 'dart:typed_data';
+
+import '../../core/proof.dart';
+import '../../core/sphere.dart';
 
 /// Axis aligned wall rectangle in board units.
 class Wall {
@@ -171,6 +171,55 @@ final List<LabyrinthLevel> labyrinthLevels = _LazyLevels([
     ),
 ]);
 
+/// Level [i]: the fixed ones first, then endless generated ones.
+LabyrinthLevel levelAt(int i) => i < labyrinthLevels.length
+    ? labyrinthLevels[i]
+    : _endless.putIfAbsent(
+        i - labyrinthLevels.length,
+        () => endlessLevel(i - labyrinthLevels.length),
+      );
+
+final Map<int, LabyrinthLevel> _endless = {};
+
+/// Whether level [i] is one of the endless generated ones.
+bool isEndless(int i) => i >= labyrinthLevels.length;
+
+/// Endless level [n] (0 = the first after the fixed ones), built from its
+/// number alone: the dice come from SHA-256 ([SeededRandom]), so the same
+/// number gives the same level on every device. Mazes grow slowly up to
+/// the largest size that still plays well and get more holes; every sixth
+/// is a hole field, every fourth maze has no frame.
+LabyrinthLevel endlessLevel(int n) {
+  final r = SeededRandom('labyrinth-endless-$n');
+  final grow = min(n ~/ 6, 3);
+  if (n % 6 == 5) {
+    final cols = 4 + grow;
+    return generateMazeLevel(
+      name: 'Endlos ${n + 1} · Lochfeld',
+      cols: cols,
+      rows: cols + 3,
+      holeShare: 1.0,
+      pathTraps: min(1.0, 0.7 + n * 0.02),
+      seed: 0,
+      mazeWalls: false,
+      frame: n % 12 != 11,
+      random: r,
+    );
+  }
+  final cols = 6 + grow;
+  final framed = n % 4 != 3;
+  return generateMazeLevel(
+    name: 'Endlos ${n + 1} · ${framed ? 'Irrgarten' : 'ohne Rand'}',
+    cols: cols,
+    rows: (cols * 1.5).round(),
+    holeShare: min(1.0, 0.5 + n * 0.02),
+    pathTraps: min(1.0, 0.6 + n * 0.02),
+    seed: 0,
+    frame: framed,
+    random: r,
+  );
+}
+
 class _LazyLevels extends ListBase<LabyrinthLevel> {
   _LazyLevels(this._builders) : _cache = List.filled(_builders.length, null);
   final List<LabyrinthLevel Function()> _builders;
@@ -265,8 +314,9 @@ LabyrinthLevel generateMazeLevel({
   double pathTraps = 0,
   bool mazeWalls = true,
   bool frame = true,
+  Random? random,
 }) {
-  final r = Random(seed);
+  final r = random ?? Random(seed);
   const inner = _t; // frame thickness
   final cw = (boardWidth - 2 * inner) / cols;
   final ch = (boardHeight - 2 * inner) / rows;

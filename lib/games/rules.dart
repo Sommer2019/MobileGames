@@ -106,7 +106,8 @@ Ziel: die Kugel ins Ziel rollen.
 
 • Kippe das Handy, um die Kugel zu lenken.
 • Fällt sie in ein Loch, geht es von vorn los.
-• Die Level werden immer größer und haben mehr Löcher.''',
+• Die Level werden immer größer und haben mehr Löcher.
+• Nach den festen Leveln geht es endlos weiter: Die App erzeugt immer neue – dieselbe Levelnummer sieht auf jedem Gerät gleich aus.''',
   'arrows': '''
 Ziel: alle Pfeile vom Feld tippen.
 

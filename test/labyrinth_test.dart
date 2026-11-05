@@ -65,6 +65,31 @@ void main() {
     }
   });
 
+  test('endless levels: solvable, the same number gives the same level', () {
+    final first = labyrinthLevels.length;
+    expect(isEndless(first), isTrue);
+    expect(isEndless(first - 1), isFalse);
+    for (var n = 0; n < 24; n++) {
+      final l = endlessLevel(n);
+      expect(levelSolvable(l), isTrue, reason: l.name);
+      // Built again from scratch: exactly the same.
+      final again = endlessLevel(n);
+      expect(again.walls.length, l.walls.length);
+      expect(
+        [for (final h in again.holes) (h.x, h.y, h.radius)],
+        [for (final h in l.holes) (h.x, h.y, h.radius)],
+      );
+    }
+    expect(levelAt(first).name, 'Endlos 1 · Irrgarten');
+    expect(levelAt(first + 5).name, 'Endlos 6 · Lochfeld');
+    expect(levelAt(first + 3).frame, isFalse);
+    // Later ones are harder.
+    expect(
+      endlessLevel(20).holes.length,
+      greaterThan(endlessLevel(0).holes.length),
+    );
+  });
+
   test('ball rolls with tilt and stops at walls', () {
     final g = LabyrinthGame(labyrinthLevels.first);
     final x0 = g.x;
