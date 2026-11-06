@@ -337,15 +337,39 @@ async function panoramaxNear(lng, lat, sizes) {
 
 const KV = 'https://api.kartaview.org/2.0';
 
-function kvNormal(p) {
-  return { src: 'kartaview', id: String(p.id), lat: +p.lat, lng: +p.lng, raw: p,
-    is360: p.projection === 'SPHERE', url: p.fileurlProc || p.imageProcUrl };
+/// Whether the picture at [url] loads (many KartaView files are gone).
+function imageLoads(url, ms) {
+  return new Promise((ok) => {
+    if (!url) { ok(false); return; }
+    const img = new Image();
+    const timer = setTimeout(() => ok(false), ms || 10000);
+    img.onload = () => { clearTimeout(timer); ok(img.naturalWidth > 0); };
+    img.onerror = () => { clearTimeout(timer); ok(false); };
+    img.src = url;
+  });
 }
 
+const kvCache = new Map();
+
+/// A KartaView photo with a file that really loads: the single photo's
+/// addresses (the search results often point to files that are gone),
+/// processed first, then the large preview and the original. Throws if
+/// none loads.
 async function kvItem(id) {
+  if (kvCache.has(id)) return kvCache.get(id);
   const j = await fetchJson(KV + '/photo/' + encodeURIComponent(id));
-  if (!j.result || !j.result.data) throw new Error('Bild nicht gefunden');
-  return kvNormal(j.result.data);
+  const p = j.result && j.result.data;
+  if (!p || p.status !== 'active') throw new Error('Bild nicht gefunden');
+  const urls = [p.fileurlProc, p.fileurlLTh, p.fileurl && p.fileurl.replace('{{sizeprefix}}', 'ori')];
+  for (const url of urls) {
+    if (await imageLoads(url)) {
+      const it = { src: 'kartaview', id: String(p.id), lat: +p.lat, lng: +p.lng, raw: p,
+        is360: p.projection === 'SPHERE', url };
+      kvCache.set(id, it);
+      return it;
+    }
+  }
+  throw new Error('Dieses KartaView-Bild ist nicht mehr verfügbar');
 }
 
 /// KartaView searches a circle of at most 500 m.
@@ -353,7 +377,7 @@ async function kartaviewNear(lng, lat, sizes) {
   for (const d of sizes) {
     const radius = Math.max(20, Math.min(500, Math.round(d * 111000)));
     const j = await fetchJson(KV + '/photo/?itemsPerPage=50&lat=' + lat + '&lng=' + lng + '&radius=' + radius);
-    const list = ((j.result && j.result.data) || []).map(p =>
+    const list = ((j.result && j.result.data) || []).filter(p => p.status === 'active').map(p =>
       ({ src: 'kartaview', id: String(p.id), c: [+p.lng, +p.lat], is360: p.projection === 'SPHERE' }));
     if (list.length) return list;
   }
@@ -362,15 +386,16 @@ async function kartaviewNear(lng, lat, sizes) {
 
 function photoItem(src, id) { return src === 'kartaview' ? kvItem(id) : pnxItem(id); }
 
-/// The next or previous photo of the same drive, or null.
-async function photoNeighbour(rel) {
+/// The next or previous photo of the same drive ([steps] away, KartaView
+/// only), or null.
+async function photoNeighbour(rel, steps) {
   const it = photo.item;
   if (!it) return null;
   if (it.src === 'panoramax') {
     const l = (it.raw.links || []).find(l => l.rel === rel);
     return l ? l.id : null;
   }
-  const idx = +it.raw.sequenceIndex + (rel === 'next' ? 1 : -1);
+  const idx = +it.raw.sequenceIndex + (rel === 'next' ? 1 : -1) * (steps || 1);
   if (idx < 0) return null;
   try {
     const j = await fetchJson(KV + '/photo/?sequenceId=' + it.raw.sequenceId + '&sequenceIndex=' + idx);
@@ -430,9 +455,17 @@ async function photoLoad(src, id, v) {
 }
 
 async function photoStep(rel) {
-  const id = await photoNeighbour(rel);
-  if (!id) return;
-  try { await photoShow(photo.item.src, id); } catch (e) { hint('Bild konnte nicht geladen werden', 2000); }
+  const src = photo.item.src;
+  // KartaView: photos whose file is gone are skipped.
+  for (let k = 1; k <= (src === 'kartaview' ? 6 : 1); k++) {
+    const id = await photoNeighbour(rel, k);
+    if (!id) break;
+    try {
+      await photoShow(src, id);
+      return;
+    } catch (e) {}
+  }
+  hint('Bild konnte nicht geladen werden', 2000);
 }
 
 function photoView() {
@@ -567,9 +600,19 @@ async function huntPick(lng, lat, sizes) {
   const before = current;
   try {
     hint('Suche Bild …');
-    const best = nearest(await near(lng, lat, sizes || [0.002, 0.01]), lng, lat);
-    if (!best) { hint('Hier gibt es keine Bilder – tippe auf eine Linie', 2000); return; }
-    await showPicture({ src: best.src, id: best.id });
+    const list = await near(lng, lat, sizes || [0.002, 0.01]);
+    if (!list.length) { hint('Hier gibt es keine Bilder – tippe auf eine Linie', 2000); return; }
+    // Nearest first; one that does not load is skipped.
+    list.sort((a, b) => Math.hypot(a.c[0] - lng, a.c[1] - lat) - Math.hypot(b.c[0] - lng, b.c[1] - lat));
+    let shown = false;
+    for (const x of list.slice(0, 6)) {
+      try {
+        await showPicture({ src: x.src, id: x.id });
+        shown = true;
+        break;
+      } catch (e) {}
+    }
+    if (!shown) throw new Error('nothing loads');
     hint('');
     openMap(false);
   } catch (err) {
@@ -675,8 +718,12 @@ async function randomPicture(sources) {
         const round = list.filter(x => x.is360);
         if (round.length) list = round;
       }
-      if (list.length) {
-        const x = pick(list);
+      // KartaView: only a photo whose file still loads.
+      for (let k = 0; k < 4 && list.length; k++) {
+        const x = list.splice(Math.floor(Math.random() * list.length), 1)[0];
+        if (x.src === 'kartaview') {
+          try { await kvItem(x.id); } catch (e) { continue; }
+        }
         return { src: x.src, id: x.id, lat: x.c[1], lng: x.c[0], h: 0, p: 0, z: 0,
           cc: await countryOf(x.c[1], x.c[0]) };
       }
