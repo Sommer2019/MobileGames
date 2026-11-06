@@ -8,6 +8,7 @@ import '../games/geoguess/geoguess_logic.dart';
 import '../games/mahjong/mahjong_logic.dart';
 import '../games/snake/snake_logic.dart';
 import '../games/solitaire/klondike_logic.dart';
+import '../games/sudoku/sudoku_logic.dart';
 import '../games/yahtzee/kniffel_proof.dart';
 import 'account.dart';
 import 'legacy_scores.dart';
@@ -125,6 +126,44 @@ const boards = [
     min: 10,
     time: true,
     proven: true,
+  ),
+  ScoreBoard(
+    'sudoku.easy',
+    'sudoku',
+    'Sudoku Leicht',
+    's',
+    lowerIsBetter: true,
+    min: 20,
+    time: true,
+    proven: true,
+  ),
+  ScoreBoard(
+    'sudoku.medium',
+    'sudoku',
+    'Sudoku Mittel',
+    's',
+    lowerIsBetter: true,
+    min: 20,
+    time: true,
+    proven: true,
+  ),
+  ScoreBoard(
+    'sudoku.hard',
+    'sudoku',
+    'Sudoku Schwer',
+    's',
+    lowerIsBetter: true,
+    min: 20,
+    time: true,
+    proven: true,
+  ),
+  ScoreBoard(
+    'sudoku.solved',
+    'sudoku',
+    'Sudokus gelöst',
+    'Sudokus',
+    min: 1,
+    max: 1000000,
   ),
   ScoreBoard(
     'arrows.easy',
@@ -659,6 +698,11 @@ class Leaderboard {
         'kniffel' => KniffelProof.fromJson(proof)?.verify(author),
         'snake' => SnakeProof.verify(proof, author),
         'klondike' => KlondikeProof.verify(proof, author),
+        _ when board.startsWith('sudoku.') => SudokuProof.verify(
+          board,
+          proof,
+          author,
+        ),
         _ when board.startsWith('mahjong.') => MahjongProof.verify(
           board,
           proof,

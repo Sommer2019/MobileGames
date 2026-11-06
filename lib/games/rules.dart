@@ -171,6 +171,14 @@ Ziel: die meisten Punkte mit Flaggen und Hauptstädten.
 • Vier Antworten, eine ist richtig. Die falschen kommen meist vom selben Kontinent.
 • Richtig gibt 100 Punkte, dazu bis zu 50 für Tempo.
 • Allein oder online mit bis zu 8 Leuten – alle bekommen dieselben Fragen.''',
+  'sudoku': '''
+Ziel: das Feld so füllen, dass in jeder Zeile, jeder Spalte und jedem 3×3-Block jede Zahl von 1 bis 9 genau einmal vorkommt.
+
+• Feld antippen, dann die Zahl unten wählen. „Löschen“ leert das Feld, „Zurück“ macht den letzten Schritt rückgängig.
+• Mit „Notizen“ trägst du kleine Kandidaten ein; eine gesetzte Zahl räumt sie in Zeile, Spalte und Block weg.
+• Doppelte Zahlen werden rot. Unter jeder Ziffer steht, wie oft sie noch fehlt.
+• Endlos: Jede Stufe (Leicht, Mittel, Schwer) hat nummerierte Rätsel – nach dem Lösen kommt das nächste. Jedes hat genau eine Lösung.
+• Bestenliste: Bestzeit je Stufe (wird anhand deiner Eingaben nachgeprüft) und die Zahl gelöster Sudokus.''',
   'schocken': '''
 Ziel: keine Deckel bekommen. Wer am Ende verliert, gibt eine Runde aus 🍺
 

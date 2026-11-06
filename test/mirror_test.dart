@@ -38,6 +38,7 @@ final cases = <(String, PlaySetup?)>[
   ('darts', const PlaySetup.local(players: 2)),
   ('bingo', const PlaySetup.local(players: 3, bots: {1, 2})),
   ('labyrinth', null),
+  ('sudoku', null),
   ('quiz', const PlaySetup.local(players: 1)),
   ('geoguess', const PlaySetup.local(players: 1)),
 ];

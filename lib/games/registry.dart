@@ -28,6 +28,7 @@ import 'schocken/schocken_screen.dart';
 import 'snake/snake_screen.dart';
 import 'solitaire/klondike_screen.dart';
 import 'stapelfix/stapelfix_screen.dart';
+import 'sudoku/sudoku_screen.dart';
 import 'tournament/tournament_screen.dart';
 import 'yahtzee/yahtzee_screen.dart';
 
@@ -519,6 +520,15 @@ final List<GameInfo> games = [
     icon: Icons.style,
     color: const Color(0xFF2E7D32),
     singleplayerBuilder: () => const KlondikeScreen(),
+  ),
+  GameInfo(
+    id: 'sudoku',
+    category: GameCategory.puzzle,
+    title: 'Sudoku',
+    description: 'Endlos neue Rätsel in drei Stufen – mit Bestzeiten',
+    icon: Icons.grid_3x3,
+    color: const Color(0xFF455A64),
+    singleplayerBuilder: () => const SudokuScreen(),
   ),
   GameInfo(
     id: 'mahjong',
