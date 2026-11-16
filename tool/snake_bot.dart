@@ -6,6 +6,7 @@
 // The bot follows a Hamiltonian cycle (never dies), and once [score] is
 // reached it steers into the top wall so the game is over.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:mobile_games/core/nostr/keys.dart';
 import 'package:mobile_games/core/proof.dart';
@@ -13,7 +14,7 @@ import 'package:mobile_games/games/snake/snake_logic.dart';
 
 void main(List<String> args) {
   if (args.isEmpty) {
-    print('dart run tool/snake_bot.dart <private key hex> [score]');
+    stdout.writeln('dart run tool/snake_bot.dart <private key hex> [score]');
     return;
   }
   final pubkey = KeyPair(args[0]).publicKey;
@@ -53,6 +54,9 @@ void main(List<String> args) {
   ];
   // shared_preferences on the web stores every value JSON-encoded.
   final value = jsonEncode(jsonEncode(entries));
-  print('Score ${g.score}, ${g.steps} Schritte, ${g.log!.length} Züge\n');
-  print("localStorage.setItem('flutter.lb.snake', ${jsonEncode(value)});");
+  stdout
+    ..writeln('Score ${g.score}, ${g.steps} Schritte, ${g.log!.length} Züge\n')
+    ..writeln(
+      "localStorage.setItem('flutter.lb.snake', ${jsonEncode(value)});",
+    );
 }
