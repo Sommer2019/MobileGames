@@ -78,8 +78,16 @@ class _HomeScreenState extends State<HomeScreen> {
             listenable: Listenable.merge([
               Companion.I.hasScreen,
               Companion.I.enabled,
+              Companion.I.runningBelow,
             ]),
-            builder: (context, _) => !Companion.I.hasScreen.value
+            builder: (context, _) => Companion.I.runningBelow.value
+                ? IconButton(
+                    key: const ValueKey('moveUpButton'),
+                    tooltip: 'Auf den oberen Bildschirm',
+                    icon: const Icon(Icons.vertical_align_top),
+                    onPressed: Companion.I.moveUp,
+                  )
+                : !Companion.I.hasScreen.value
                 ? const SizedBox.shrink()
                 : IconButton(
                     key: const ValueKey('companionToggle'),

@@ -315,7 +315,43 @@ class Companion {
       hasScreen.value =
           await _channel.invokeMethod<bool>('available') ?? hasScreen.value;
       _update();
+      runningBelow.value =
+          await _channel.invokeMethod<bool>('runningBelow') ?? false;
     } catch (_) {}
+  }
+
+  static const _stayKey = 'companion.stayBelow';
+
+  /// Whether the app was started on the lower screen of a dual-screen
+  /// handheld (then it can move up, see [moveUp]).
+  final ValueNotifier<bool> runningBelow = ValueNotifier(false);
+
+  /// The player chose to keep the app on the lower screen.
+  Future<bool> get staysBelow async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      return p.getBool(_stayKey) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> setStaysBelow(bool stay) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(_stayKey, stay);
+    } catch (_) {}
+  }
+
+  /// Restarts the app on the main screen (the lower one then shows the
+  /// companion). False when that is not possible.
+  Future<bool> moveUp() async {
+    if (!_platform) return false;
+    try {
+      return await _channel.invokeMethod<bool>('moveUp') ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> setEnabled(bool on) async {
@@ -422,6 +458,7 @@ class Companion {
     _replies = const [];
     _say = null;
     hasScreen.value = false;
+    runningBelow.value = false;
     enabled.value = true;
     active.value = false;
   }

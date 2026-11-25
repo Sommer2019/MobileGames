@@ -54,6 +54,15 @@ class CompanionScreen(private val activity: Activity, mainMessenger: BinaryMesse
           result.success(null)
         }
         "available" -> result.success(target() != null)
+        // Started on the lower screen (e.g. from its launcher): the app can
+        // move to the main screen, the lower one then shows the companion.
+        "runningBelow" ->
+            result.success(
+                ownDisplayId() != Display.DEFAULT_DISPLAY &&
+                    displays.getDisplay(Display.DEFAULT_DISPLAY)?.isValid == true)
+        "moveUp" -> {
+          result.success(moveUp())
+        }
         "setEnabled" -> {
           enabled = call.arguments == true
           if (enabled) show() else hide()
@@ -98,6 +107,25 @@ class CompanionScreen(private val activity: Activity, mainMessenger: BinaryMesse
     val preferred = displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).toList()
     return (preferred + displays.displays.toList()).firstOrNull {
       it.displayId != own && it.isValid && (it.flags and Display.FLAG_PRIVATE) == 0
+    }
+  }
+
+  /** Starts the app anew on the main screen and closes it here. */
+  private fun moveUp(): Boolean {
+    if (ownDisplayId() == Display.DEFAULT_DISPLAY) return false
+    return try {
+      val intent =
+          Intent(activity, activity.javaClass)
+              .setAction(Intent.ACTION_MAIN)
+              .addCategory(Intent.CATEGORY_LAUNCHER)
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+      val options = ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY)
+      activity.startActivity(intent, options.toBundle())
+      activity.finishAndRemoveTask()
+      true
+    } catch (ex: Exception) {
+      Log.w(TAG, "Could not move to the main screen", ex)
+      false
     }
   }
 

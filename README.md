@@ -48,7 +48,9 @@ Steuerkreuz das Feld. *Schiffe versenken*: eigene Flotte unten, oben das ganze M
 Rückgängig) unten. *Letzte Karte, Stapelfix, Domino*: die eigene Hand unten (spielbare Karten
 hell, antippen zum Ablegen; Ziehen/Passen), der Tisch oben. *Schach*: Zugliste und geschlagene
 Figuren unten. *Online-Spiele*: der Chat mit Schnellantworten unten. Andere Spiele zeigen unten,
-wer dran ist, ohne Spiel eine Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
+wer dran ist, ohne Spiel eine Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite. Wird die App
+versehentlich auf dem unteren Bildschirm gestartet, bietet sie den Wechsel nach oben an
+(auch später über ⤒ auf der Startseite).
 
 ## Download
 
