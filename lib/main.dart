@@ -63,7 +63,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   @override
   void initState() {
     super.initState();
-    Companion.I.init();
+    Companion.I.init().then((_) => _offerMoveUp());
     if (Services.isReady) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Notifications.I.init();
@@ -111,6 +111,54 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
     _accepts?.cancel();
     _lifecycle?.dispose();
     super.dispose();
+  }
+
+  /// Dual-screen handhelds: started on the lower screen, the app offers
+  /// to move to the main screen (the lower one then shows the extras).
+  Future<void> _offerMoveUp() async {
+    if (!Companion.I.runningBelow.value || await Companion.I.staysBelow) {
+      return;
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    final ctx = _navigator.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    final choice = await showDialog<String>(
+      context: ctx,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.vertical_align_top, size: 40),
+        title: const Text('Auf den oberen Bildschirm?'),
+        content: const Text(
+          'Die App läuft gerade auf dem unteren Bildschirm. Oben ist mehr '
+          'Platz fürs Spiel – hier unten erscheinen dann Block, Karten und '
+          'Knöpfe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, 'never'),
+            child: const Text('Nicht mehr fragen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, 'stay'),
+            child: const Text('Hier bleiben'),
+          ),
+          FilledButton(
+            key: const ValueKey('moveUp'),
+            onPressed: () => Navigator.pop(c, 'up'),
+            child: const Text('Nach oben'),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'never') await Companion.I.setStaysBelow(true);
+    if (choice == 'up' && !await Companion.I.moveUp()) {
+      _messenger.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Wechsel nicht möglich – starte die App auf dem oberen Bildschirm.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _onFriendRequest(String pubkey) async {

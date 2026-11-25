@@ -319,8 +319,12 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
     }
     if (r != null) {
       r.addListener(_onRoomChanged);
+      _chatBelow();
       _chatSub = r.chatStream.listen((line) {
+        _chatBelow();
         if (!mounted || line.seat == r.mySeat) return;
+        // Dual-screen handhelds: the chat is on the screen below anyway.
+        if (Companion.I.active.value) return;
         // Only the screen on top shows popups (tournament table + game).
         if (ModalRoute.of(context)?.isCurrent == false) return;
         if (!_chatOpen) {
@@ -335,6 +339,31 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
         }
       });
     }
+  }
+
+  static const _quickReplies = [
+    'Gutes Spiel!',
+    'Nochmal?',
+    'Glückwunsch! 🎉',
+    'Oh nein 😅',
+    'Moment …',
+  ];
+
+  /// Dual-screen handhelds: the latest chat lines and quick replies on the
+  /// screen below.
+  void _chatBelow() {
+    final r = _room;
+    if (r == null) return;
+    final lines = [
+      for (final l in r.chat)
+        if (!_hidden(r, l.seat))
+          '${l.seat == r.mySeat ? 'Du' : l.name}: ${l.text}',
+    ];
+    Companion.I.setChat(
+      lines.length > 4 ? lines.sublist(lines.length - 4) : lines,
+      _quickReplies,
+      r.spectator ? null : r.sendChat,
+    );
   }
 
   void _onRoomChanged() {
@@ -362,6 +391,7 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
   @override
   void dispose() {
     _chatSub?.cancel();
+    if (_room != null) Companion.I.setChat(const [], const [], null);
     _room?.removeListener(_onRoomChanged);
     final r = _room;
     if (r != null && Services.isReady) {
@@ -403,6 +433,7 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
     } else if (action == 'mute') {
       setState(() => _muted.add(seat));
     }
+    _chatBelow();
   }
 
   Future<void> _openChat() async {
@@ -472,13 +503,7 @@ class _OnlineGameFrameState extends State<OnlineGameFrame> {
                           ),
                     ],
                     onSend: r.sendChat,
-                    quickReplies: const [
-                      'Gutes Spiel!',
-                      'Nochmal?',
-                      'Glückwunsch! 🎉',
-                      'Oh nein 😅',
-                      'Moment …',
-                    ],
+                    quickReplies: _quickReplies,
                   ),
                 ),
               ],

@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'domino_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 const dominoColors = [
@@ -191,6 +192,64 @@ class _DominoScreenState extends State<DominoScreen>
     return c != null && setup.humanControls(c) && !_needsHandover;
   }
 
+  /// Pips as a number (blank half: an empty circle).
+  static String _pips(int n) => n == 0 ? '○' : '$n';
+
+  /// Dual-screen handhelds: the own tiles on the screen below.
+  CompanionPage _companionPage(List<int> hand, Set<int> playable) {
+    if (!match.dealt || _needsHandover || _viewer == null) {
+      return const CompanionPage();
+    }
+    final mine = _myTurn && _viewer == match.current;
+    return CompanionPage(
+      title: 'Deine Steine (${hand.length}) · Talon: ${match.boneyard.length}',
+      grid: CompanionGrid(
+        columns: hand.length <= 7
+            ? max(hand.length, 5)
+            : (hand.length + 1) ~/ 2,
+        aspect: 1.8,
+        cells: [
+          for (final tile in hand)
+            CompanionCell(
+              label:
+                  '${_pips(Domino.tiles[tile].$1)}\n${_pips(Domino.tiles[tile].$2)}',
+              color: playable.isEmpty || playable.contains(tile)
+                  ? 0xFFFFF8E1
+                  : 0xFF8D8A80,
+              action: playable.contains(tile) ? 'tile:$tile' : null,
+              marked: tile == _selected,
+            ),
+        ],
+      ),
+      buttonsTitle: mine && _selected != null ? 'Wo anlegen?' : null,
+      buttons: [
+        if (mine && _selected != null) ...[
+          const CompanionButton('end:0', '◀ Links'),
+          const CompanionButton('end:1', 'Rechts ▶'),
+        ],
+        if (mine && match.canDraw) const CompanionButton('draw', '+ Ziehen'),
+        if (mine && match.mustPass) const CompanionButton('pass', 'Passen'),
+      ],
+    );
+  }
+
+  void _onCompanion(String a) {
+    if (!_myTurn) return;
+    if (a.startsWith('tile:')) {
+      final tile = int.tryParse(a.substring(5));
+      if (tile != null && match.hands[match.current].contains(tile)) {
+        _tapTile(tile);
+      }
+    } else if (a.startsWith('end:')) {
+      final side = int.tryParse(a.substring(4));
+      if (side != null) _tapEnd(side);
+    } else if (a == 'draw' && match.canDraw) {
+      _act(['draw'], match.current);
+    } else if (a == 'pass' && match.mustPass) {
+      _act(['pass'], match.current);
+    }
+  }
+
   void _tapTile(int tile) {
     if (!_myTurn) return;
     final sides = match.sidesFor(tile);
@@ -245,158 +304,169 @@ class _DominoScreenState extends State<DominoScreen>
       setup: setup,
       title: 'Domino',
       actions: [if (saveKey != null) RestartButton(onRestart: _restart)],
-      child: Stack(
-        children: [
-          GameLayout(
+      child: CompanionSlot(
+        page: _companionPage(hand, playable),
+        onAction: _onCompanion,
+        child: CompanionBuilder(
+          builder: (context, below) => Stack(
             children: [
-              TurnBanner(
-                text: _status(),
-                highlight: _myTurn || match.roundOver,
-                color:
-                    dominoColors[(match.isOver
-                                ? match.winner!
-                                : match.current) %
-                            4]
-                        .withValues(alpha: 0.3),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (var p = 0; p < players; p++)
-                      Chip(
-                        avatar: CircleAvatar(
-                          backgroundColor: dominoColors[p],
-                          child: Text(
-                            match.dealt ? '${match.hands[p].length}' : '',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
+              GameLayout(
+                children: [
+                  TurnBanner(
+                    text: _status(),
+                    highlight: _myTurn || match.roundOver,
+                    color:
+                        dominoColors[(match.isOver
+                                    ? match.winner!
+                                    : match.current) %
+                                4]
+                            .withValues(alpha: 0.3),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        for (var p = 0; p < players; p++)
+                          Chip(
+                            avatar: CircleAvatar(
+                              backgroundColor: dominoColors[p],
+                              child: Text(
+                                match.dealt ? '${match.hands[p].length}' : '',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
+                            label: Text(
+                              '${setup.seatName(p)}: ${match.scores[p]}',
+                            ),
+                            side: p == match.toMove
+                                ? BorderSide(color: dominoColors[p], width: 2)
+                                : null,
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E7D32),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: AnimatedBuilder(
+                          animation: _topple,
+                          builder: (context, _) => Wrap(
+                            spacing: 3,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              if (_selected != null) _endTarget(0),
+                              for (var i = 0; i < match.line.length; i++)
+                                _toppling(i, match.line[i]),
+                              if (_selected != null) _endTarget(1),
+                            ],
                           ),
                         ),
-                        label: Text('${setup.seatName(p)}: ${match.scores[p]}'),
-                        side: p == match.toMove
-                            ? BorderSide(color: dominoColors[p], width: 2)
-                            : null,
-                      ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
-                    child: AnimatedBuilder(
-                      animation: _topple,
-                      builder: (context, _) => Wrap(
-                        spacing: 3,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          if (_selected != null) _endTarget(0),
-                          for (var i = 0; i < match.line.length; i++)
-                            _toppling(i, match.line[i]),
-                          if (_selected != null) _endTarget(1),
-                        ],
                       ),
                     ),
                   ),
-                ),
-              ),
-              if (match.dealt && !match.roundOver)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Text('Talon: ${match.boneyard.length}'),
-                      const Spacer(),
-                      if (_myTurn && match.canDraw)
-                        FilledButton.tonalIcon(
-                          key: const ValueKey('dominoDraw'),
-                          onPressed: () => _act(['draw'], match.current),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Ziehen'),
-                        ),
-                      if (_myTurn && match.mustPass)
-                        FilledButton.tonalIcon(
-                          key: const ValueKey('dominoPass'),
-                          onPressed: () => _act(['pass'], match.current),
-                          icon: const Icon(Icons.skip_next),
-                          label: const Text('Passen'),
-                        ),
-                    ],
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final t in hand)
-                      GestureDetector(
-                        key: ValueKey('domino$t'),
-                        onTap: () => _tapTile(t),
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 150),
-                          opacity: playable.isEmpty || playable.contains(t)
-                              ? 1
-                              : 0.45,
-                          child: DominoTile(
-                            a: Domino.tiles[t].$1,
-                            b: Domino.tiles[t].$2,
-                            vertical: true,
-                            size: 26,
-                            highlight: t == _selected
-                                ? scheme.primary
-                                : playable.contains(t)
-                                ? Colors.amber
-                                : null,
-                          ),
-                        ),
+                  if (match.dealt && !match.roundOver)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Text('Talon: ${match.boneyard.length}'),
+                          const Spacer(),
+                          if (_myTurn && match.canDraw)
+                            FilledButton.tonalIcon(
+                              key: const ValueKey('dominoDraw'),
+                              onPressed: () => _act(['draw'], match.current),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Ziehen'),
+                            ),
+                          if (_myTurn && match.mustPass)
+                            FilledButton.tonalIcon(
+                              key: const ValueKey('dominoPass'),
+                              onPressed: () => _act(['pass'], match.current),
+                              icon: const Icon(Icons.skip_next),
+                              label: const Text('Passen'),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
+                    ),
+                  // Dual-screen handhelds: the own tiles are below.
+                  if (!below)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          for (final t in hand)
+                            GestureDetector(
+                              key: ValueKey('domino$t'),
+                              onTap: () => _tapTile(t),
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 150),
+                                opacity:
+                                    playable.isEmpty || playable.contains(t)
+                                    ? 1
+                                    : 0.45,
+                                child: DominoTile(
+                                  a: Domino.tiles[t].$1,
+                                  b: Domino.tiles[t].$2,
+                                  vertical: true,
+                                  size: 26,
+                                  highlight: t == _selected
+                                      ? scheme.primary
+                                      : playable.contains(t)
+                                      ? Colors.amber
+                                      : null,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (match.isOver)
+                    GameOverActions(
+                      setup: setup,
+                      winnerSeats: [match.winner!],
+                      onRematch: _next,
+                      rematchLabel: setup.online ? 'Revanche' : 'Neues Match',
+                    )
+                  else if (match.roundOver && match.dealt)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: FilledButton.icon(
+                        key: const ValueKey('dominoNext'),
+                        onPressed: _next,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Nächste Runde'),
+                      ),
+                    ),
+                ],
               ),
-              if (match.isOver)
-                GameOverActions(
-                  setup: setup,
-                  winnerSeats: [match.winner!],
-                  onRematch: _next,
-                  rematchLabel: setup.online ? 'Revanche' : 'Neues Match',
-                )
-              else if (match.roundOver && match.dealt)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: FilledButton.icon(
-                    key: const ValueKey('dominoNext'),
-                    onPressed: _next,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Nächste Runde'),
+              if (_needsHandover)
+                Positioned.fill(
+                  child: PassDeviceCover(
+                    playerName: setup.seatName(match.current),
+                    onReady: () => setState(() => _viewer = match.current),
                   ),
                 ),
             ],
           ),
-          if (_needsHandover)
-            Positioned.fill(
-              child: PassDeviceCover(
-                playerName: setup.seatName(match.current),
-                onReady: () => setState(() => _viewer = match.current),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
