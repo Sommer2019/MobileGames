@@ -12,6 +12,7 @@ import '../../ui/bot_speed.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'prophet_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 const prophetColors = [
@@ -246,88 +247,167 @@ class _ProphetScreenState extends State<ProphetScreen>
             },
           ),
       ],
-      child: Stack(
-        children: [
-          GameLayout(
-            children: [
-              TurnBanner(
-                text: _status(),
-                highlight: mine || game.isOver,
-                color: game.trump >= 0
-                    ? prophetColors[game.trump].withValues(alpha: 0.35)
-                    : null,
-              ),
-              if (game.dealt) _info(),
-              if (game.dealt) _seats(),
-              Expanded(child: _table()),
-              if (mine && game.phase == ProphetPhase.bidding) _bidButtons(),
-              if (mine && game.phase == ProphetPhase.trumpChoice)
-                _trumpButtons(),
-              if (game.phase == ProphetPhase.roundOver && _canDeal)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: FilledButton.icon(
-                    key: const ValueKey('prophetNext'),
-                    onPressed: () {
-                      _nextRound?.cancel();
-                      _deal();
-                    },
-                    icon: const Icon(Icons.skip_next),
-                    label: const Text('Nächste Runde'),
-                  ),
+      child: CompanionSlot(
+        page: _companionPage(mine),
+        onAction: (a) => _onCompanion(a, mine),
+        child: Stack(
+          children: [
+            GameLayout(
+              children: [
+                TurnBanner(
+                  text: _status(),
+                  highlight: mine || game.isOver,
+                  color: game.trump >= 0
+                      ? prophetColors[game.trump].withValues(alpha: 0.35)
+                      : null,
                 ),
-              GameMain(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      for (final c in hand)
-                        GestureDetector(
-                          key: ValueKey('pc$c'),
-                          onTap: playing && game.canPlay(c)
-                              ? () => _act(['play', c], game.current)
-                              : null,
-                          child: AnimatedSlide(
-                            duration: const Duration(milliseconds: 150),
-                            offset: playing && game.canPlay(c)
-                                ? const Offset(0, -0.08)
-                                : Offset.zero,
-                            child: Opacity(
-                              opacity: !playing || game.canPlay(c) ? 1 : 0.45,
-                              child: ProphetCardView(
-                                card: c,
-                                width: hand.length > 12 ? 40 : 48,
+                if (game.dealt) _info(),
+                if (game.dealt) _seats(),
+                Expanded(child: _table()),
+                if (mine && game.phase == ProphetPhase.bidding) _bidButtons(),
+                if (mine && game.phase == ProphetPhase.trumpChoice)
+                  _trumpButtons(),
+                if (game.phase == ProphetPhase.roundOver && _canDeal)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: FilledButton.icon(
+                      key: const ValueKey('prophetNext'),
+                      onPressed: () {
+                        _nextRound?.cancel();
+                        _deal();
+                      },
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('Nächste Runde'),
+                    ),
+                  ),
+                GameMain(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        for (final c in hand)
+                          GestureDetector(
+                            key: ValueKey('pc$c'),
+                            onTap: playing && game.canPlay(c)
+                                ? () => _act(['play', c], game.current)
+                                : null,
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 150),
+                              offset: playing && game.canPlay(c)
+                                  ? const Offset(0, -0.08)
+                                  : Offset.zero,
+                              child: Opacity(
+                                opacity: !playing || game.canPlay(c) ? 1 : 0.45,
+                                child: ProphetCardView(
+                                  card: c,
+                                  width: hand.length > 12 ? 40 : 48,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (game.isOver)
-                GameOverActions(
-                  setup: setup,
-                  winnerSeats: game.winners(),
-                  onRematch: _again,
-                ),
-            ],
-          ),
-          if (_stars)
-            const Positioned.fill(child: IgnorePointer(child: _Stars())),
-          if (_needsHandover)
-            Positioned.fill(
-              child: PassDeviceCover(
-                playerName: _name(game.current),
-                onReady: () => setState(() => _viewer = game.current),
-              ),
+                if (game.isOver)
+                  GameOverActions(
+                    setup: setup,
+                    winnerSeats: game.winners(),
+                    onRematch: _again,
+                  ),
+              ],
             ),
-        ],
+            if (_stars)
+              const Positioned.fill(child: IgnorePointer(child: _Stars())),
+            if (_needsHandover)
+              Positioned.fill(
+                child: PassDeviceCover(
+                  playerName: _name(game.current),
+                  onReady: () => setState(() => _viewer = game.current),
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// Dual-screen handhelds: the score block lies below, like the paper
+  /// block next to the cards; bids and trump can be chosen there too.
+  CompanionPage _companionPage(bool mine) {
+    final bidding = mine && game.phase == ProphetPhase.bidding;
+    final trumpChoice = mine && game.phase == ProphetPhase.trumpChoice;
+    return CompanionPage(
+      title: game.dealt
+          ? 'Stichprophet – Runde ${game.cardsThisRound}/${game.rounds}'
+                '${game.trump >= 0 ? ' · Trumpf ${prophetColorNames[game.trump]}' : ''}'
+          : 'Stichprophet – Block',
+      table: CompanionTable(
+        columns: ['Runde', for (var p = 0; p < players; p++) _name(p)],
+        highlight: game.toMove == null ? null : game.toMove! + 1,
+        rows: [
+          for (var r = 0; r < game.history.length; r++)
+            CompanionRow([
+              '${r + 1}',
+              for (final d in game.history[r]) d > 0 ? '+$d' : '$d',
+            ]),
+          if (game.dealt && game.history.length <= game.round)
+            CompanionRow([
+              '${game.cardsThisRound}: Ansage',
+              for (var p = 0; p < players; p++)
+                p < game.bids.length && game.bids[p] != null
+                    ? '${game.won.length > p ? game.won[p] : 0}/${game.bids[p]}'
+                    : '–',
+            ]),
+          CompanionRow([
+            'Gesamt',
+            for (final s in game.scores) '$s',
+          ], bold: true),
+        ],
+      ),
+      buttonsTitle: bidding
+          ? 'Wie viele Stiche machst du? (bisher angesagt: '
+                '${game.bids.whereType<int>().fold(0, (a, b) => a + b)} '
+                'von ${game.cardsThisRound})'
+          : trumpChoice
+          ? 'Trumpf wählen'
+          : null,
+      buttons: [
+        if (bidding)
+          for (var n = 0; n <= game.cardsThisRound; n++)
+            if (game.canBid(n)) CompanionButton('bid:$n', '$n'),
+        if (trumpChoice)
+          for (var c = 0; c < 4; c++)
+            CompanionButton(
+              'trump:$c',
+              prophetColorNames[c],
+              color: prophetColors[c].toARGB32(),
+            ),
+      ],
+      hint: game.dealt
+          ? 'Stiche/Ansage dieser Runde, darüber die Punkte'
+          : null,
+    );
+  }
+
+  void _onCompanion(String a, bool mine) {
+    if (!mine) return;
+    final parts = a.split(':');
+    final n = parts.length == 2 ? int.tryParse(parts[1]) : null;
+    if (n == null) return;
+    if (parts[0] == 'bid' &&
+        game.phase == ProphetPhase.bidding &&
+        game.canBid(n)) {
+      _act(['bid', n], game.current);
+    } else if (parts[0] == 'trump' &&
+        game.phase == ProphetPhase.trumpChoice &&
+        n >= 0 &&
+        n < 4) {
+      _act(['trump', n], game.current);
+    }
   }
 
   static int _handOrder(int a, int b) {

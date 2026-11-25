@@ -15,6 +15,9 @@ class MainActivity : FlutterActivity() {
   /// Retroid, Odin …) while the app listens.
   private var gamepadSink: EventChannel.EventSink? = null
 
+  /// The lower screen of dual-screen handhelds.
+  private var companion: CompanionScreen? = null
+
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
     // ANDROID_ID: stays the same for this app on this phone across
@@ -35,6 +38,7 @@ class MainActivity : FlutterActivity() {
             result.notImplemented()
           }
         }
+    companion = CompanionScreen(this, flutterEngine.dartExecutor.binaryMessenger)
     EventChannel(flutterEngine.dartExecutor.binaryMessenger, "mobilegames/gamepad")
         .setStreamHandler(
             object : EventChannel.StreamHandler {
@@ -46,6 +50,22 @@ class MainActivity : FlutterActivity() {
                 gamepadSink = null
               }
             })
+  }
+
+  override fun onStart() {
+    super.onStart()
+    companion?.start()
+  }
+
+  override fun onStop() {
+    companion?.stop()
+    super.onStop()
+  }
+
+  override fun onDestroy() {
+    companion?.destroy()
+    companion = null
+    super.onDestroy()
   }
 
   /// Flutter itself ignores joystick axes. They are passed on as

@@ -48,6 +48,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The lower screen of dual-screen handhelds (AYN Thor), only where
+             the system does not take a Presentation there. -->
+        <activity
+            android:name="io.flutter.embedding.android.FlutterActivity"
+            android:exported="false"
+            android:theme="@style/NormalTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:excludeFromRecents="true"
+            android:resizeableActivity="true" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

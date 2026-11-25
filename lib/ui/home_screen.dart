@@ -12,6 +12,7 @@ import 'fuzzy.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 import 'rules_sheet.dart';
+import '../core/companion.dart';
 import 'secrets_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -71,6 +72,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () => showSecretsSheet(context),
                   )
                 : const SizedBox.shrink(),
+          ),
+          // Dual-screen handhelds (AYN Thor): lower screen on or off.
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              Companion.I.hasScreen,
+              Companion.I.enabled,
+            ]),
+            builder: (context, _) => !Companion.I.hasScreen.value
+                ? const SizedBox.shrink()
+                : IconButton(
+                    key: const ValueKey('companionToggle'),
+                    tooltip: Companion.I.enabled.value
+                        ? 'Zweiten Bildschirm aus'
+                        : 'Zweiten Bildschirm an',
+                    icon: Icon(
+                      Companion.I.enabled.value
+                          ? Icons.splitscreen
+                          : Icons.crop_landscape,
+                    ),
+                    onPressed: () =>
+                        Companion.I.setEnabled(!Companion.I.enabled.value),
+                  ),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: Sound.enabled,

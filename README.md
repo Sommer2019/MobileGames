@@ -38,6 +38,12 @@ das Kugellabyrinth kippt per Stick/Steuerkreuz oder Bewegungssensor; Snake und L
 legen ihr Hochkant-Feld im Querformat quer. Auf dem unteren Thor-Bildschirm läuft die App
 ebenfalls (Hochkant-Ansicht).
 
+📟 **Zweiter Bildschirm** (Dual-Screen wie AYN Thor): Unten läuft ein eigener kleiner Teil der
+App – wie beim DS. *Würfelkönig*: Würfel oben, der Block unten (Feld antippen zum Eintragen,
+Würfeln-Knopf). *Stichprophet*: Punkteblock mit Ansagen/Stichen der Runde unten, dort auch
+Stiche ansagen und Trumpf wählen. Andere Spiele zeigen unten, wer dran ist, ohne Spiel eine
+Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
+
 ## Download
 
 Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:

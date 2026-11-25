@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'companion/companion_app.dart';
 import 'core/background.dart';
+import 'core/companion.dart';
 import 'core/chat.dart';
 import 'core/motion_permission.dart';
 import 'core/home_widgets.dart';
@@ -23,6 +25,14 @@ import 'ui/gamepad_cursor.dart';
 import 'ui/home_screen.dart';
 import 'ui/watchers_overlay.dart';
 import 'ui/lobby_screen.dart';
+
+/// The lower screen of dual-screen handhelds (AYN Thor): started by
+/// MainActivity in an engine of its own.
+@pragma('vm:entry-point')
+void companionMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const CompanionApp());
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +63,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   @override
   void initState() {
     super.initState();
+    Companion.I.init();
     if (Services.isReady) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Notifications.I.init();
