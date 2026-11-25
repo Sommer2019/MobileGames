@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -104,6 +105,7 @@ class _CompanionAppState extends State<CompanionApp> {
       p.title == null &&
       p.status == null &&
       p.table == null &&
+      p.grid == null &&
       p.buttons.isEmpty;
 }
 
@@ -156,11 +158,17 @@ class CompanionPageView extends StatelessWidget {
                 ),
               ),
             ),
+          if (page.grid case final grid?)
+            Expanded(
+              flex: table == null ? 1 : 2,
+              child: _GridView(grid: grid, onAction: onAction),
+            ),
           if (table != null)
             Expanded(
+              flex: 3,
               child: _SheetView(table: table, onAction: onAction),
             )
-          else
+          else if (page.grid == null)
             const Spacer(),
           if (page.buttons.isNotEmpty) ...[
             if (page.buttonsTitle != null)
@@ -221,7 +229,9 @@ class _SheetView extends StatelessWidget {
     final scheme = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, c) {
-        final rows = table.rows.length + 1;
+        // A table of label/value pairs needs no header.
+        final header = table.columns.any((c) => c.isNotEmpty);
+        final rows = table.rows.length + (header ? 1 : 0);
         final h = (c.maxHeight / rows).clamp(16.0, 40.0) - 1;
         Widget cell(String text, {bool bold = false, Alignment? align}) =>
             SizedBox(
@@ -243,17 +253,18 @@ class _SheetView extends StatelessWidget {
           columnWidths: const {0: FlexColumnWidth(2)},
           defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           children: [
-            TableRow(
-              children: [
-                for (var i = 0; i < table.columns.length; i++)
-                  Container(
-                    color: i == table.highlight
-                        ? scheme.secondaryContainer
-                        : null,
-                    child: cell(table.columns[i], bold: true),
-                  ),
-              ],
-            ),
+            if (header)
+              TableRow(
+                children: [
+                  for (var i = 0; i < table.columns.length; i++)
+                    Container(
+                      color: i == table.highlight
+                          ? scheme.secondaryContainer
+                          : null,
+                      child: cell(table.columns[i], bold: true),
+                    ),
+                ],
+              ),
             for (final (r, row) in table.rows.indexed)
               TableRow(
                 children: [
@@ -354,6 +365,134 @@ class _IdlePage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Square fields as big as the space allows.
+class _GridView extends StatelessWidget {
+  const _GridView({required this.grid, required this.onAction});
+  final CompanionGrid grid;
+  final void Function(String action) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        if (grid.caption != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              grid.caption!,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final cols = grid.columns, rows = grid.rows;
+              final byHeight = (c.maxHeight - grid.gap * (rows - 1)) / rows;
+              final side = ((c.maxWidth - grid.gap * (cols - 1)) / cols)
+                  .clamp(0.0, byHeight)
+                  .clamp(0.0, 120.0);
+              Widget field(int i, CompanionCell cell) {
+                final bg = cell.color != null
+                    ? Color(cell.color!)
+                    : cell.action != null
+                    ? scheme.secondaryContainer
+                    : scheme.surfaceContainerHighest;
+                final fg =
+                    ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
+                    ? Colors.white
+                    : Colors.black;
+                final box = Container(
+                  width: side,
+                  height: side,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(
+                      grid.gap == 0 ? 0 : side * 0.18,
+                    ),
+                    border: cell.marked
+                        ? Border.all(color: scheme.primary, width: 3)
+                        : grid.gap == 0
+                        ? Border.all(color: Colors.black26, width: 0.5)
+                        : null,
+                  ),
+                  child: cell.label.isEmpty && cell.sub == null
+                      ? null
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (cell.label.isNotEmpty)
+                                  Text(
+                                    cell.label,
+                                    style: TextStyle(
+                                      color: fg,
+                                      fontSize: max(8, side * 0.42),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                if (cell.sub != null)
+                                  Text(
+                                    cell.sub!,
+                                    style: TextStyle(
+                                      color: fg.withValues(alpha: 0.7),
+                                      fontSize: max(6, side * 0.16),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                );
+                final a = cell.action;
+                if (a == null) return box;
+                return GestureDetector(
+                  key: ValueKey('companion-grid-$i'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onAction(a),
+                  child: box,
+                );
+              }
+
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var r = 0; r < rows; r++)
+                      Padding(
+                        padding: EdgeInsets.only(top: r == 0 ? 0 : grid.gap),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var k = 0; k < cols; k++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  left: k == 0 ? 0 : grid.gap,
+                                ),
+                                child: r * cols + k < grid.cells.length
+                                    ? field(
+                                        r * cols + k,
+                                        grid.cells[r * cols + k],
+                                      )
+                                    : SizedBox(width: side, height: side),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

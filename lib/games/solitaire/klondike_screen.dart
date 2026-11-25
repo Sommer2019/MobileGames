@@ -13,6 +13,7 @@ import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
 import 'card_cascade.dart';
+import '../../core/companion.dart';
 import 'klondike_logic.dart';
 
 class _Drag {
@@ -263,47 +264,85 @@ class _KlondikeScreenState extends State<KlondikeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1B5E20),
-      appBar: AppBar(
-        title: const Text('Solitär'),
-        actions: [
-          const LeaderboardButton(game: 'klondike'),
-          IconButton(
-            tooltip: 'Rückgängig',
-            onPressed: game.canUndo && !_autoRunning
-                ? () => setState(game.undo)
-                : null,
-            icon: const Icon(Icons.undo),
-          ),
-          PopupMenuButton<int>(
-            tooltip: 'Neues Spiel',
-            icon: const Icon(Icons.refresh),
-            onSelected: (n) {
-              drawCount = n;
-              _newGame();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 1,
-                child: Text('Neues Spiel – 1 Karte ziehen'),
-              ),
-              PopupMenuItem(
-                value: 3,
-                child: Text('Neues Spiel – 3 Karten ziehen'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: Stack(
-        key: _bodyKey,
-        children: [
-          SafeArea(child: _table()),
-          if (_cascade != null) Positioned.fill(child: _cascadeOverlay()),
-        ],
+    return CompanionSlot(
+      page: _companionPage(),
+      onAction: _onCompanion,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1B5E20),
+        appBar: AppBar(
+          title: const Text('Solitär'),
+          actions: [
+            const LeaderboardButton(game: 'klondike'),
+            IconButton(
+              tooltip: 'Rückgängig',
+              onPressed: game.canUndo && !_autoRunning
+                  ? () => setState(game.undo)
+                  : null,
+              icon: const Icon(Icons.undo),
+            ),
+            PopupMenuButton<int>(
+              tooltip: 'Neues Spiel',
+              icon: const Icon(Icons.refresh),
+              onSelected: (n) {
+                drawCount = n;
+                _newGame();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 1,
+                  child: Text('Neues Spiel – 1 Karte ziehen'),
+                ),
+                PopupMenuItem(
+                  value: 3,
+                  child: Text('Neues Spiel – 3 Karten ziehen'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: Stack(
+          key: _bodyKey,
+          children: [
+            SafeArea(child: _table()),
+            if (_cascade != null) Positioned.fill(child: _cascadeOverlay()),
+          ],
+        ),
       ),
     );
+  }
+
+  /// Dual-screen handhelds: score and buttons on the screen below.
+  CompanionPage _companionPage() => CompanionPage(
+    title: 'Solitär',
+    table: CompanionTable(
+      columns: const ['', ''],
+      rows: [
+        CompanionRow(['Punkte', '${game.score + bonus}'], bold: true),
+        CompanionRow(['Züge', '${game.moves}']),
+        CompanionRow(['Zeit', _time()]),
+      ],
+    ),
+    buttons: [
+      if (game.canUndo && !_autoRunning)
+        const CompanionButton('undo', '↶ Rückgängig'),
+      const CompanionButton('new1', '↻ Neu (1 Karte)'),
+      const CompanionButton('new3', '↻ Neu (3 Karten)'),
+    ],
+    hint: 'Karten ziehen geht auch mit dem rechten Stick: A halten und bewegen',
+  );
+
+  void _onCompanion(String a) {
+    if (_autoRunning) return;
+    switch (a) {
+      case 'undo' when game.canUndo:
+        setState(game.undo);
+      case 'new1':
+        drawCount = 1;
+        _newGame();
+      case 'new3':
+        drawCount = 3;
+        _newGame();
+    }
   }
 
   Widget _table() {

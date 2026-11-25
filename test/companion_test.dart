@@ -2,10 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/companion/companion_app.dart';
 import 'package:mobile_games/core/companion.dart';
+import 'package:mobile_games/games/battleship/battleship_screen.dart';
 import 'package:mobile_games/games/prophet/prophet_screen.dart';
+import 'package:mobile_games/games/snake/snake_screen.dart';
+import 'package:mobile_games/games/sudoku/sudoku_screen.dart';
 import 'package:mobile_games/games/yahtzee/yahtzee_screen.dart';
 import 'package:mobile_games/ui/play_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -153,5 +157,100 @@ void main() {
     await t.tap(find.byKey(const ValueKey('companion-cell-0-1')));
     await t.tap(find.byKey(const ValueKey('companion-roll')));
     expect(actions, ['score:chance', 'roll']);
+  });
+
+  Future<void> handheld(WidgetTester t, Widget home) async {
+    Companion.I.hasScreen.value = true;
+    Companion.I.active.value = true;
+    t.view.physicalSize = const Size(1708, 960);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(home: home));
+    await t.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await t.pump();
+    await t.pump();
+  }
+
+  testWidgets('Sudoku: digit pad below, D-pad picks the field above', (
+    t,
+  ) async {
+    await handheld(t, const SudokuScreen());
+    expect(find.byKey(const ValueKey('sudokuDigit1')), findsNothing);
+    var page = sent.last;
+    expect(page.grid!.columns, 3);
+    expect(page.grid!.cells.map((c) => c.label), [
+      for (var v = 1; v <= 9; v++) '$v',
+    ]);
+    // Find an empty field with the arrow keys, then enter a digit below.
+    String cellText(int i) => (t.widget<Text>(
+      find
+          .descendant(
+            of: find.byKey(ValueKey('sudokuCell$i')),
+            matching: find.byType(Text),
+          )
+          .first,
+    )).data!;
+    var i = 40;
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    i = 41;
+    while (find
+        .descendant(
+          of: find.byKey(ValueKey('sudokuCell$i')),
+          matching: find.byType(Text),
+        )
+        .evaluate()
+        .isNotEmpty) {
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      i = i ~/ 9 * 9 + (i % 9 + 1) % 9;
+      if (i == 36) {
+        await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        i = 45;
+      }
+    }
+    await t.pump();
+    final digit = page.grid!.cells.indexWhere((c) => c.action != null) + 1;
+    Companion.I.action('d:$digit');
+    await t.pump();
+    expect(cellText(i), '$digit');
+    Companion.I.action('undo');
+    await t.pump();
+    await t.pump();
+    page = sent.last;
+    expect(page.buttons.map((b) => b.action), ['undo', 'erase', 'notes']);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Schiffe versenken: own fleet on the lower screen', (t) async {
+    await handheld(t, const BattleshipScreen(setup: PlaySetup.ai()));
+    await t.tap(find.byKey(const ValueKey('fleetReady')));
+    await t.pump();
+    await t.pump();
+    final page = sent.last;
+    expect(page.title, 'Deine Flotte');
+    expect(page.grid!.cells, hasLength(100));
+    expect(page.grid!.cells.where((c) => c.color == 0xFF90A4AE), isNotEmpty);
+    // Only the enemy sea is left on top.
+    expect(find.text('Deine Flotte'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Snake: start and pause from below', (t) async {
+    await handheld(t, const SnakeScreen());
+    expect(sent.last.buttons.map((b) => b.action), ['start', 'wrap']);
+    Companion.I.action('wrap');
+    await t.pump();
+    await t.pump();
+    expect(sent.last.table!.rows.last.cells.last, 'durchlässig');
+    Companion.I.action('start');
+    await t.pump();
+    await t.pump();
+    expect(sent.last.buttons.single.action, 'pause');
+    Companion.I.action('pause');
+    await t.pump();
+    await t.pump();
+    expect(find.byKey(const ValueKey('snakeResume')), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
   });
 }

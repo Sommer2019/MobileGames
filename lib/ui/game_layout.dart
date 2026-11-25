@@ -22,7 +22,12 @@ class GameLayout extends StatelessWidget {
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.crossAxisAlignment = CrossAxisAlignment.center,
     this.sideWidth,
+    this.sidePanel = true,
   });
+
+  /// False: always one column (e.g. when the second screen took the
+  /// board's neighbours away).
+  final bool sidePanel;
 
   final List<Widget> children;
   final MainAxisAlignment mainAxisAlignment;
@@ -48,7 +53,8 @@ class GameLayout extends StatelessWidget {
           for (final w in children)
             if (w is! Flexible) w,
         ];
-        if (!c.hasBoundedHeight ||
+        if (!sidePanel ||
+            !c.hasBoundedHeight ||
             !isWideScreen(c) ||
             main.isEmpty ||
             side.isEmpty) {

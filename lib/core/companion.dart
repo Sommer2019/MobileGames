@@ -71,6 +71,79 @@ class CompanionTable {
   );
 }
 
+/// One field of a [CompanionGrid].
+class CompanionCell {
+  const CompanionCell({
+    this.label = '',
+    this.sub,
+    this.color,
+    this.action,
+    this.marked = false,
+  });
+
+  final String label;
+
+  /// Small text below the label (e.g. how many are left).
+  final String? sub;
+  final int? color;
+  final String? action;
+
+  /// Framed, e.g. the chosen one.
+  final bool marked;
+
+  Map<String, dynamic> toJson() => {
+    if (label.isNotEmpty) 'l': label,
+    'u': ?sub,
+    'c': ?color,
+    'a': ?action,
+    if (marked) 'm': true,
+  };
+
+  factory CompanionCell.fromJson(Map<String, dynamic> j) => CompanionCell(
+    label: j['l'] as String? ?? '',
+    sub: j['u'] as String?,
+    color: j['c'] as int?,
+    action: j['a'] as String?,
+    marked: j['m'] == true,
+  );
+}
+
+/// Square fields in rows: a number pad, the own fleet …
+class CompanionGrid {
+  const CompanionGrid({
+    required this.columns,
+    required this.cells,
+    this.gap = 6,
+    this.caption,
+  });
+
+  final int columns;
+  final List<CompanionCell> cells;
+
+  /// Space between the fields (0: a board without gaps).
+  final double gap;
+  final String? caption;
+
+  int get rows => (cells.length + columns - 1) ~/ columns;
+
+  Map<String, dynamic> toJson() => {
+    'n': columns,
+    'f': [for (final c in cells) c.toJson()],
+    'g': gap,
+    'cp': ?caption,
+  };
+
+  factory CompanionGrid.fromJson(Map<String, dynamic> j) => CompanionGrid(
+    columns: j['n'] as int,
+    cells: [
+      for (final c in j['f'] as List)
+        CompanionCell.fromJson((c as Map).cast<String, dynamic>()),
+    ],
+    gap: (j['g'] as num? ?? 6).toDouble(),
+    caption: j['cp'] as String?,
+  );
+}
+
 /// A button on the lower screen.
 class CompanionButton {
   const CompanionButton(this.action, this.label, {this.color});
@@ -91,10 +164,14 @@ class CompanionPage {
     this.status,
     this.statusColor,
     this.table,
+    this.grid,
     this.buttonsTitle,
     this.buttons = const [],
     this.hint,
   });
+
+  /// Shown instead of (or above) the table.
+  final CompanionGrid? grid;
 
   final String? title;
   final String? status;
@@ -110,6 +187,7 @@ class CompanionPage {
         status: status ?? this.status,
         statusColor: statusColor ?? this.statusColor,
         table: table,
+        grid: grid,
         buttonsTitle: buttonsTitle,
         buttons: buttons,
         hint: hint,
@@ -120,6 +198,7 @@ class CompanionPage {
     's': ?status,
     'sc': ?statusColor,
     'tb': ?table?.toJson(),
+    'gr': ?grid?.toJson(),
     'bt': ?buttonsTitle,
     if (buttons.isNotEmpty) 'b': [for (final b in buttons) b.toJson()],
     'hi': ?hint,
@@ -132,6 +211,9 @@ class CompanionPage {
     table: j['tb'] == null
         ? null
         : CompanionTable.fromJson((j['tb'] as Map).cast<String, dynamic>()),
+    grid: j['gr'] == null
+        ? null
+        : CompanionGrid.fromJson((j['gr'] as Map).cast<String, dynamic>()),
     buttonsTitle: j['bt'] as String?,
     buttons: [
       for (final b in j['b'] as List? ?? const [])

@@ -11,6 +11,7 @@ import '../../ui/bot_turns.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import 'schocken_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 class SchockenScreen extends StatefulWidget {
@@ -200,48 +201,121 @@ class _SchockenScreenState extends State<SchockenScreen>
       ],
       child: !game.started
           ? const Center(child: Text('Warte auf den Start …'))
-          : GameLayout(
-              children: [
-                TurnBanner(text: _status(), highlight: _myTurn || game.isOver),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    '${game.halfName} · Topf: ${game.pot} Deckel',
-                    key: const ValueKey('schockenPot'),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+          : CompanionSlot(
+              page: _companionPage(),
+              onAction: _onCompanion,
+              child: CompanionBuilder(
+                builder: (context, below) => GameLayout(
+                  sidePanel: !below,
+                  children: [
+                    TurnBanner(
+                      text: _status(),
+                      highlight: _myTurn || game.isOver,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        '${game.halfName} · Topf: ${game.pot} Deckel',
+                        key: const ValueKey('schockenPot'),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    if (last != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          last,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    // Dual-screen handhelds: the table lies below, the dice
+                    // take the space on top.
+                    if (below) const Spacer() else Expanded(child: _table()),
+                    if (!game.isOver) ...[
+                      // Without the table the dice would grow too big.
+                      if (below)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: _diceRow(),
+                        )
+                      else
+                        _diceRow(),
+                      if (game.rolls > 0)
+                        Text(
+                          game.currentThrow.name,
+                          key: const ValueKey('schockenThrow'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      _buttons(),
+                    ] else
+                      GameOverActions(
+                        setup: setup,
+                        winnerSeats: [
+                          for (var p = 0; p < players; p++)
+                            if (p != game.loser) p,
+                        ],
+                        onRematch: _again,
+                      ),
+                  ],
                 ),
-                if (last != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      last,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                Expanded(child: _table()),
-                if (!game.isOver) ...[
-                  _diceRow(),
-                  if (game.rolls > 0)
-                    Text(
-                      game.currentThrow.name,
-                      key: const ValueKey('schockenThrow'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  _buttons(),
-                ] else
-                  GameOverActions(
-                    setup: setup,
-                    winnerSeats: [
-                      for (var p = 0; p < players; p++)
-                        if (p != game.loser) p,
-                    ],
-                    onRematch: _again,
-                  ),
-              ],
+              ),
             ),
     );
+  }
+
+  String _info(int p) {
+    final result = game.results.where((r) => r.seat == p).firstOrNull;
+    if (!game.inHalf[p]) return 'schaut zu';
+    if (!game.active[p]) return 'raus';
+    if (result != null) {
+      final n = result.rolls;
+      return '${result.result.name} ($n)';
+    }
+    return game.toMove == p ? 'würfelt …' : '';
+  }
+
+  CompanionPage _companionPage() {
+    final mine = _myTurn && !game.isOver;
+    final order = [
+      for (var k = 0; k < players; k++) (game.order.first + k) % players,
+    ];
+    return CompanionPage(
+      title: 'Schocken · ${game.halfName} · Topf: ${game.pot} Deckel',
+      table: CompanionTable(
+        columns: const ['Spieler', 'Deckel', 'Wurf', 'Hälften'],
+        rows: [
+          for (final p in order)
+            CompanionRow([
+              '${game.toMove == p ? '▶ ' : ''}${_name(p)}',
+              '${game.lids[p]}',
+              _info(p),
+              '🍺' * game.halfLosers.where((l) => l == p).length,
+            ], bold: game.toMove == p),
+        ],
+      ),
+      buttons: [
+        if (mine && game.canRoll)
+          CompanionButton(
+            'roll',
+            game.rolls == 0 ? '🎲 Würfeln' : '🎲 Nochmal',
+          ),
+        if (mine && game.canTurn) const CompanionButton('turn', '6 6 → 1'),
+        if (mine && game.canStop) const CompanionButton('stop', 'Fertig'),
+      ],
+    );
+  }
+
+  void _onCompanion(String a) {
+    if (!_myTurn || game.isOver) return;
+    switch (a) {
+      case 'roll' when game.canRoll:
+        _roll();
+      case 'turn' when game.canTurn:
+        _act(['t'], game.current);
+      case 'stop' when game.canStop:
+        _act(['s'], game.current);
+    }
   }
 
   Widget _table() {

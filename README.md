@@ -41,7 +41,11 @@ ebenfalls (Hochkant-Ansicht).
 📟 **Zweiter Bildschirm** (Dual-Screen wie AYN Thor): Unten läuft ein eigener kleiner Teil der
 App – wie beim DS. *Würfelkönig*: Würfel oben, der Block unten (Feld antippen zum Eintragen,
 Würfeln-Knopf). *Stichprophet*: Punkteblock mit Ansagen/Stichen der Runde unten, dort auch
-Stiche ansagen und Trumpf wählen. Andere Spiele zeigen unten, wer dran ist, ohne Spiel eine
+Stiche ansagen und Trumpf wählen. *Sudoku*: großer Ziffernblock unten, oben wählt das
+Steuerkreuz das Feld. *Schiffe versenken*: eigene Flotte unten, oben das ganze Meer zum Schießen.
+*Schocken*: Spielertabelle mit Deckeln unten. *Darts*: Board oben, Punktetafel unten.
+*Snake, Kugellabyrinth, Solitär, Mahjong*: Punkte/Zeit und Knöpfe (Start/Pause, Neu, Tipp,
+Rückgängig) unten. Andere Spiele zeigen unten, wer dran ist, ohne Spiel eine
 Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
 
 ## Download
