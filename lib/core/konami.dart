@@ -166,6 +166,10 @@ final keyboardInputs = {
   LogicalKeyboardKey.keyA: KonamiInput.volumeDown,
   LogicalKeyboardKey.enter: KonamiInput.plugIn,
   LogicalKeyboardKey.numpadEnter: KonamiInput.plugIn,
+  // Gamepads and handhelds: B, A, Start – like on the old consoles.
+  LogicalKeyboardKey.gameButtonB: KonamiInput.volumeUp,
+  LogicalKeyboardKey.gameButtonA: KonamiInput.volumeDown,
+  LogicalKeyboardKey.gameButtonStart: KonamiInput.plugIn,
 };
 
 /// Listens for swipes on [child], the volume buttons and the charger and

@@ -17,6 +17,7 @@ import '../../ui/bot_speed.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import 'ludo_logic.dart';
+import '../../ui/game_layout.dart';
 
 const ludoColors = [
   Color(0xFFE53935), // Rot
@@ -413,7 +414,7 @@ class _LudoScreenState extends State<LudoScreen>
       child: Stack(
         key: _stackKey,
         children: [
-          Column(
+          GameLayout(
             children: [
               TurnBanner(
                 text: _status(),

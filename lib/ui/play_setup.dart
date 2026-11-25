@@ -11,6 +11,7 @@ import 'bot_speed.dart';
 import 'chat_view.dart';
 import 'moderation_ui.dart';
 import 'reactions.dart';
+import 'game_layout.dart';
 
 enum PlayKind { local, ai, online }
 
@@ -639,11 +640,12 @@ class TurnBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final short = isShortScreen(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       width: double.infinity,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      margin: EdgeInsets.all(short ? 8 : 12),
+      padding: EdgeInsets.symmetric(vertical: short ? 8 : 12, horizontal: 16),
       decoration: BoxDecoration(
         color: highlight
             ? (color ?? scheme.primaryContainer)

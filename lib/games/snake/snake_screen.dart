@@ -174,17 +174,48 @@ class _SnakeScreenState extends State<SnakeScreen>
     final d = e.position - from;
     if (d.distance < _swipeDistance) return;
     if (d.dx.abs() > d.dy.abs()) {
-      game.turn(d.dx > 0 ? Dir.right : Dir.left);
+      game.turn(_fromScreen(d.dx > 0 ? Dir.right : Dir.left));
     } else {
-      game.turn(d.dy > 0 ? Dir.down : Dir.up);
+      game.turn(_fromScreen(d.dy > 0 ? Dir.down : Dir.up));
     }
     _swipeFrom = e.position;
   }
 
   void _pointerUp(PointerEvent _) => _swipeFrom = null;
 
+  /// On wide screens (landscape, AYN Thor) the upright field lies on its
+  /// side, turned clockwise; swipes and keys still mean screen directions.
+  bool _rotated = false;
+
+  Dir _fromScreen(Dir d) => !_rotated
+      ? d
+      : switch (d) {
+          Dir.up => Dir.left,
+          Dir.down => Dir.right,
+          Dir.left => Dir.down,
+          Dir.right => Dir.up,
+        };
+
   KeyEventResult _key(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    // Gamepads and keyboards: A / Start / Enter start or continue,
+    // Start pauses.
+    final k = e.logicalKey;
+    if (!mirroring &&
+        (k == LogicalKeyboardKey.gameButtonStart ||
+            (!running &&
+                (k == LogicalKeyboardKey.gameButtonA ||
+                    k == LogicalKeyboardKey.enter ||
+                    k == LogicalKeyboardKey.space)))) {
+      if (running) {
+        _pause();
+      } else if (paused) {
+        _resume();
+      } else {
+        _start();
+      }
+      return KeyEventResult.handled;
+    }
     final d = switch (e.logicalKey) {
       LogicalKeyboardKey.arrowUp => Dir.up,
       LogicalKeyboardKey.arrowDown => Dir.down,
@@ -193,7 +224,7 @@ class _SnakeScreenState extends State<SnakeScreen>
       _ => null,
     };
     if (d == null) return KeyEventResult.ignored;
-    game.turn(d);
+    game.turn(_fromScreen(d));
     return KeyEventResult.handled;
   }
 
@@ -239,46 +270,59 @@ class _SnakeScreenState extends State<SnakeScreen>
             child: Column(
               children: [
                 Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: game.width / game.height,
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: _nokia ? _SnakePainter.lcd : null,
-                          border: Border.all(
-                            color: _nokia
-                                ? _SnakePainter.pixel
-                                : wrap
-                                ? Colors.lightGreen.shade800
-                                : Colors.lightGreen,
-                            width: 3,
-                          ),
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: CustomPaint(
-                                painter: _SnakePainter(game, nokia: _nokia),
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      _rotated = c.maxWidth > c.maxHeight * 1.15 && !mirroring;
+                      return Center(
+                        child: AspectRatio(
+                          aspectRatio: _rotated
+                              ? game.height / game.width
+                              : game.width / game.height,
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _nokia ? _SnakePainter.lcd : null,
+                              border: Border.all(
+                                color: _nokia
+                                    ? _SnakePainter.pixel
+                                    : wrap
+                                    ? Colors.lightGreen.shade800
+                                    : Colors.lightGreen,
+                                width: 3,
                               ),
                             ),
-                            if (!running && !mirroring)
-                              Positioned.fill(
-                                child: ColoredBox(
-                                  color: Colors.black54,
-                                  child: Center(child: _menu()),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: RotatedBox(
+                                    quarterTurns: _rotated ? 1 : 0,
+                                    child: CustomPaint(
+                                      painter: _SnakePainter(
+                                        game,
+                                        nokia: _nokia,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                          ],
+                                if (!running && !mirroring)
+                                  Positioned.fill(
+                                    child: ColoredBox(
+                                      color: Colors.black54,
+                                      child: Center(child: _menu()),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
                 const Padding(
                   padding: EdgeInsets.all(8),
                   child: Text(
-                    'Wischen zum Lenken',
+                    'Wischen oder Steuerkreuz zum Lenken',
                     style: TextStyle(color: Colors.white54),
                   ),
                 ),

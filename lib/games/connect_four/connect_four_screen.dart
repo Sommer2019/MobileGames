@@ -9,6 +9,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'connect_four_logic.dart';
+import '../../ui/game_layout.dart';
 
 class ConnectFourScreen extends StatefulWidget {
   const ConnectFourScreen({super.key, required this.setup});
@@ -181,7 +182,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(
             text: _status(),

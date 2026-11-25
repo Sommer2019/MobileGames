@@ -8,6 +8,7 @@ import '../../core/net/room.dart';
 import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'quiz_logic.dart';
+import '../../ui/game_layout.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key, required this.setup});
@@ -238,7 +239,7 @@ class _QuizScreenState extends State<QuizScreen> with GameMirror {
       for (var p = 0; p < players; p++)
         if (game.points(game.q, p) > 0) setup.seatName(p),
     ];
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text:
@@ -339,7 +340,7 @@ class _QuizScreenState extends State<QuizScreen> with GameMirror {
       ..sort((a, b) => game.total(b).compareTo(game.total(a)));
     final winners = game.winners();
     final name = setup.seatName(winners.first);
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: players == 1

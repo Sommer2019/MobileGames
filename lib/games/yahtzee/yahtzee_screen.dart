@@ -16,6 +16,7 @@ import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'kniffel_proof.dart';
 import 'yahtzee_logic.dart';
+import '../../ui/game_layout.dart';
 
 class YahtzeeScreen extends StatefulWidget {
   const YahtzeeScreen({super.key, required this.setup});
@@ -304,7 +305,7 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
             onRestart: _aiRunning ? null : () => _rematch(next: false),
           ),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(text: _status(), highlight: myTurn || game.isOver),
           _diceRow(),

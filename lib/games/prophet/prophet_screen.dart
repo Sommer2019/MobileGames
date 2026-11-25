@@ -12,6 +12,7 @@ import '../../ui/bot_speed.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'prophet_logic.dart';
+import '../../ui/game_layout.dart';
 
 const prophetColors = [
   Color(0xFF1E88E5), // Blau
@@ -247,7 +248,7 @@ class _ProphetScreenState extends State<ProphetScreen>
       ],
       child: Stack(
         children: [
-          Column(
+          GameLayout(
             children: [
               TurnBanner(
                 text: _status(),
@@ -275,34 +276,36 @@ class _ProphetScreenState extends State<ProphetScreen>
                     label: const Text('Nächste Runde'),
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                child: Wrap(
-                  spacing: 4,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final c in hand)
-                      GestureDetector(
-                        key: ValueKey('pc$c'),
-                        onTap: playing && game.canPlay(c)
-                            ? () => _act(['play', c], game.current)
-                            : null,
-                        child: AnimatedSlide(
-                          duration: const Duration(milliseconds: 150),
-                          offset: playing && game.canPlay(c)
-                              ? const Offset(0, -0.08)
-                              : Offset.zero,
-                          child: Opacity(
-                            opacity: !playing || game.canPlay(c) ? 1 : 0.45,
-                            child: ProphetCardView(
-                              card: c,
-                              width: hand.length > 12 ? 40 : 48,
+              GameMain(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final c in hand)
+                        GestureDetector(
+                          key: ValueKey('pc$c'),
+                          onTap: playing && game.canPlay(c)
+                              ? () => _act(['play', c], game.current)
+                              : null,
+                          child: AnimatedSlide(
+                            duration: const Duration(milliseconds: 150),
+                            offset: playing && game.canPlay(c)
+                                ? const Offset(0, -0.08)
+                                : Offset.zero,
+                            child: Opacity(
+                              opacity: !playing || game.canPlay(c) ? 1 : 0.45,
+                              child: ProphetCardView(
+                                card: c,
+                                width: hand.length > 12 ? 40 : 48,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (game.isOver)

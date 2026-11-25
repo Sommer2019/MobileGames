@@ -11,6 +11,7 @@ import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
+import '../../ui/game_layout.dart';
 
 enum _Phase { placing, waitingForOpponent, playing, over }
 
@@ -287,7 +288,7 @@ class _BattleshipScreenState extends State<BattleshipScreen>
         if (saveKey != null && phase != _Phase.placing)
           RestartButton(onRestart: () => _rematch(next: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(
             text: _status(),

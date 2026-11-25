@@ -15,6 +15,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
 import 'motion_throw.dart';
+import '../../ui/game_layout.dart';
 
 class DartsScreen extends StatefulWidget {
   const DartsScreen({super.key, required this.setup});
@@ -389,7 +390,7 @@ class _DartsScreenState extends State<DartsScreen>
                           Expanded(flex: 2, child: info),
                         ],
                       )
-                    : Column(
+                    : GameLayout(
                         children: [
                           TurnBanner(
                             text: _status(),

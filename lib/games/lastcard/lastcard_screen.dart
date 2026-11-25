@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'lastcard_logic.dart';
+import '../../ui/game_layout.dart';
 
 const lcColors = [
   Color(0xFFE53935), // Rot
@@ -251,7 +252,7 @@ class _LastCardScreenState extends State<LastCardScreen>
       ],
       child: Stack(
         children: [
-          Column(
+          GameLayout(
             children: [
               TurnBanner(
                 text: _status(),
@@ -288,29 +289,31 @@ class _LastCardScreenState extends State<LastCardScreen>
                     ],
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-                child: Wrap(
-                  spacing: 4,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final c in hand)
-                      GestureDetector(
-                        key: ValueKey('lc$c'),
-                        onTap: () => _tapCard(c),
-                        child: AnimatedSlide(
-                          duration: const Duration(milliseconds: 150),
-                          offset: mine && game.canPlay(c)
-                              ? const Offset(0, -0.08)
-                              : Offset.zero,
-                          child: Opacity(
-                            opacity: !mine || game.canPlay(c) ? 1 : 0.5,
-                            child: LcCardView(card: c, width: 52),
+              GameMain(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final c in hand)
+                        GestureDetector(
+                          key: ValueKey('lc$c'),
+                          onTap: () => _tapCard(c),
+                          child: AnimatedSlide(
+                            duration: const Duration(milliseconds: 150),
+                            offset: mine && game.canPlay(c)
+                                ? const Offset(0, -0.08)
+                                : Offset.zero,
+                            child: Opacity(
+                              opacity: !mine || game.canPlay(c) ? 1 : 0.5,
+                              child: LcCardView(card: c, width: 52),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (game.isOver)

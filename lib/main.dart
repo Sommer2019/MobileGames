@@ -18,6 +18,8 @@ import 'core/services.dart';
 import 'core/sound.dart';
 import 'games/registry.dart';
 import 'ui/friends_screen.dart';
+import 'ui/game_layout.dart';
+import 'ui/gamepad_cursor.dart';
 import 'ui/home_screen.dart';
 import 'ui/watchers_overlay.dart';
 import 'ui/lobby_screen.dart';
@@ -259,10 +261,15 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      builder: (context, child) => Listener(
-        // Web (iOS Safari): motion sensors need a permission asked on a tap.
-        onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
-        child: SystemBarInsets(child: WatchersOverlay(child: child!)),
+      builder: (context, child) => GamepadCursor(
+        onBack: () => _navigator.currentState?.maybePop(),
+        child: Listener(
+          // Web (iOS Safari): motion sensors need a permission asked on a tap.
+          onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
+          child: SystemBarInsets(
+            child: CompactTheme(child: WatchersOverlay(child: child!)),
+          ),
+        ),
       ),
       home: const HomeScreen(),
     );
@@ -299,6 +306,26 @@ class SystemBarInsets extends StatelessWidget {
           child: child,
         ),
       ),
+    );
+  }
+}
+
+/// Landscape phones and handhelds (AYN Thor, 16:9): little height, so app
+/// bars are lower and everything a bit denser.
+class CompactTheme extends StatelessWidget {
+  const CompactTheme({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isShortScreen(context)) return child;
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(toolbarHeight: 44),
+        visualDensity: VisualDensity.compact,
+      ),
+      child: child,
     );
   }
 }

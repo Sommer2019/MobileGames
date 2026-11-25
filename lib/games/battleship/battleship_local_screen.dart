@@ -8,6 +8,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
+import '../../ui/game_layout.dart';
 
 /// Two players on one device ("pass and play"). Between turns a cover
 /// screen hides the boards until the next player is ready.
@@ -144,7 +145,7 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen>
     );
   }
 
-  Widget _placingView() => Column(
+  Widget _placingView() => GameLayout(
     children: [
       TurnBanner(text: '${_name(current)}: Flotte aufstellen', highlight: true),
       Expanded(
@@ -167,7 +168,7 @@ class _BattleshipLocalScreenState extends State<BattleshipLocalScreen>
 
   Widget _battleView() {
     final w = winner;
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: w != null

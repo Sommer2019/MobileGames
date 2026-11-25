@@ -10,6 +10,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'bingo_logic.dart';
+import '../../ui/game_layout.dart';
 
 const bingoColors = [
   Color(0xFF1E88E5), // B
@@ -271,7 +272,7 @@ class _BingoScreenState extends State<BingoScreen> with GameMirror {
     final recent = [
       for (var i = g.drawn - 2; i >= max(0, g.drawn - 6); i--) g.order[i],
     ];
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: _status(g),

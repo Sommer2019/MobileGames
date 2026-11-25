@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'chess_logic.dart';
+import '../../ui/game_layout.dart';
 
 /// Vector chess piece for a letter (uppercase = white).
 Widget chessPiece(String letter, double size) {
@@ -278,7 +279,7 @@ class _ChessScreenState extends State<ChessScreen>
             tooltip: 'Aufgeben',
           ),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(text: _status(), highlight: _canMove || over),
           Expanded(

@@ -11,6 +11,7 @@ import '../../ui/bot_turns.dart';
 import '../../ui/dice.dart';
 import '../../ui/play_setup.dart';
 import 'schocken_logic.dart';
+import '../../ui/game_layout.dart';
 
 class SchockenScreen extends StatefulWidget {
   const SchockenScreen({super.key, required this.setup});
@@ -199,7 +200,7 @@ class _SchockenScreenState extends State<SchockenScreen>
       ],
       child: !game.started
           ? const Center(child: Text('Warte auf den Start …'))
-          : Column(
+          : GameLayout(
               children: [
                 TurnBanner(text: _status(), highlight: _myTurn || game.isOver),
                 Padding(
