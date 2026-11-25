@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'lastcard_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 const lcColors = [
@@ -250,90 +251,162 @@ class _LastCardScreenState extends State<LastCardScreen>
             },
           ),
       ],
-      child: Stack(
-        children: [
-          GameLayout(
+      child: CompanionSlot(
+        page: _companionPage(hand, mine),
+        onAction: (a) => _onCompanion(a, mine),
+        child: CompanionBuilder(
+          builder: (context, below) => Stack(
             children: [
-              TurnBanner(
-                text: _status(),
-                highlight: mine || game.isOver,
-                color: game.dealt
-                    ? lcColors[game.color].withValues(alpha: 0.4)
-                    : null,
-              ),
-              _opponents(viewer),
-              Expanded(child: _table(mine)),
-              if (game.dealt && !game.isOver)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Wrap(
-                    spacing: 12,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      FilledButton.icon(
-                        key: const ValueKey('lcCall'),
-                        onPressed: mine && game.canCall
-                            ? () => _act(['last'], game.current)
-                            : null,
-                        icon: const Icon(Icons.campaign),
-                        label: Text(
-                          game.called && mine ? 'Gerufen!' : 'Letzte Karte!',
-                        ),
-                      ),
-                      if (mine && game.drawn != null)
-                        OutlinedButton(
-                          key: const ValueKey('lcKeep'),
-                          onPressed: () => _act(['keep'], game.current),
-                          child: const Text('Behalten'),
-                        ),
-                    ],
+              GameLayout(
+                children: [
+                  TurnBanner(
+                    text: _status(),
+                    highlight: mine || game.isOver,
+                    color: game.dealt
+                        ? lcColors[game.color].withValues(alpha: 0.4)
+                        : null,
                   ),
-                ),
-              GameMain(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      for (final c in hand)
-                        GestureDetector(
-                          key: ValueKey('lc$c'),
-                          onTap: () => _tapCard(c),
-                          child: AnimatedSlide(
-                            duration: const Duration(milliseconds: 150),
-                            offset: mine && game.canPlay(c)
-                                ? const Offset(0, -0.08)
-                                : Offset.zero,
-                            child: Opacity(
-                              opacity: !mine || game.canPlay(c) ? 1 : 0.5,
-                              child: LcCardView(card: c, width: 52),
+                  _opponents(viewer),
+                  Expanded(child: _table(mine)),
+                  if (game.dealt && !game.isOver)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Wrap(
+                        spacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          FilledButton.icon(
+                            key: const ValueKey('lcCall'),
+                            onPressed: mine && game.canCall
+                                ? () => _act(['last'], game.current)
+                                : null,
+                            icon: const Icon(Icons.campaign),
+                            label: Text(
+                              game.called && mine
+                                  ? 'Gerufen!'
+                                  : 'Letzte Karte!',
                             ),
                           ),
+                          if (mine && game.drawn != null)
+                            OutlinedButton(
+                              key: const ValueKey('lcKeep'),
+                              onPressed: () => _act(['keep'], game.current),
+                              child: const Text('Behalten'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (!below || _needsHandover)
+                    GameMain(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            for (final c in hand)
+                              GestureDetector(
+                                key: ValueKey('lc$c'),
+                                onTap: () => _tapCard(c),
+                                child: AnimatedSlide(
+                                  duration: const Duration(milliseconds: 150),
+                                  offset: mine && game.canPlay(c)
+                                      ? const Offset(0, -0.08)
+                                      : Offset.zero,
+                                  child: Opacity(
+                                    opacity: !mine || game.canPlay(c) ? 1 : 0.5,
+                                    child: LcCardView(card: c, width: 52),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                  if (game.isOver)
+                    GameOverActions(
+                      setup: setup,
+                      winnerSeats: [game.winner!],
+                      onRematch: _again,
+                    ),
+                ],
               ),
-              if (game.isOver)
-                GameOverActions(
-                  setup: setup,
-                  winnerSeats: [game.winner!],
-                  onRematch: _again,
+              if (_needsHandover)
+                Positioned.fill(
+                  child: PassDeviceCover(
+                    playerName: setup.seatName(game.current),
+                    onReady: () => setState(() => _viewer = game.current),
+                  ),
                 ),
             ],
           ),
-          if (_needsHandover)
-            Positioned.fill(
-              child: PassDeviceCover(
-                playerName: setup.seatName(game.current),
-                onReady: () => setState(() => _viewer = game.current),
-              ),
+        ),
+      ),
+    );
+  }
+
+  /// Dual-screen handhelds: the own hand lies on the screen below, like
+  /// cards held in the hand; the table stays on top.
+  CompanionPage _companionPage(List<int> hand, bool mine) {
+    if (!game.dealt || _needsHandover || _viewer == null) {
+      return const CompanionPage(hint: 'Gleich bekommst du deine Karten');
+    }
+    final playable = [for (final c in hand) mine && game.canPlay(c)];
+    return CompanionPage(
+      title: 'Deine Karten (${hand.length})',
+      grid: CompanionGrid(
+        columns: hand.length <= 7
+            ? max(hand.length, 4)
+            : (hand.length + 1) ~/ 2,
+        aspect: 1.45,
+        cells: [
+          for (final (i, c) in hand.indexed)
+            CompanionCell(
+              label: LcCardView._label(c),
+              color: playable[i] || !mine
+                  ? (LcCard.isWild(c)
+                        ? 0xFF212121
+                        : lcColors[LcCard.color(c)].toARGB32())
+                  : (LcCard.isWild(c)
+                        ? 0xFF424242
+                        : Color.lerp(
+                            lcColors[LcCard.color(c)],
+                            Colors.black,
+                            0.55,
+                          )!.toARGB32()),
+              action: playable[i] ? 'play:$c' : null,
+              marked: playable[i],
             ),
         ],
       ),
+      buttons: [
+        if (mine && game.drawn == null)
+          const CompanionButton('draw', '🂠 Ziehen'),
+        if (mine && game.drawn != null)
+          const CompanionButton('keep', 'Behalten'),
+        if (game.canCall && mine)
+          CompanionButton(
+            'last',
+            game.called ? 'Gerufen!' : '📣 Letzte Karte!',
+          ),
+      ],
+      hint: mine ? 'Hell = spielbar · antippen zum Ablegen' : null,
     );
+  }
+
+  void _onCompanion(String a, bool mine) {
+    if (!mine) return;
+    if (a.startsWith('play:')) {
+      final c = int.tryParse(a.substring(5));
+      if (c != null && game.hands[game.current].contains(c)) _tapCard(c);
+    } else if (a == 'draw' && game.drawn == null) {
+      _act(['draw'], game.current);
+    } else if (a == 'keep' && game.drawn != null) {
+      _act(['keep'], game.current);
+    } else if (a == 'last' && game.canCall) {
+      _act(['last'], game.current);
+    }
   }
 
   static int _handOrder(int a, int b) {

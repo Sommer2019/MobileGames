@@ -45,8 +45,10 @@ Stiche ansagen und Trumpf wählen. *Sudoku*: großer Ziffernblock unten, oben w�
 Steuerkreuz das Feld. *Schiffe versenken*: eigene Flotte unten, oben das ganze Meer zum Schießen.
 *Schocken*: Spielertabelle mit Deckeln unten. *Darts*: Board oben, Punktetafel unten.
 *Snake, Kugellabyrinth, Solitär, Mahjong*: Punkte/Zeit und Knöpfe (Start/Pause, Neu, Tipp,
-Rückgängig) unten. Andere Spiele zeigen unten, wer dran ist, ohne Spiel eine
-Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
+Rückgängig) unten. *Letzte Karte, Stapelfix, Domino*: die eigene Hand unten (spielbare Karten
+hell, antippen zum Ablegen; Ziehen/Passen), der Tisch oben. *Schach*: Zugliste und geschlagene
+Figuren unten. *Online-Spiele*: der Chat mit Schnellantworten unten. Andere Spiele zeigen unten,
+wer dran ist, ohne Spiel eine Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
 
 ## Download
 

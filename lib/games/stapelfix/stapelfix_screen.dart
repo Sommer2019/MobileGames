@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'stapelfix_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 class StapelfixScreen extends StatefulWidget {
@@ -217,77 +218,162 @@ class _StapelfixScreenState extends State<StapelfixScreen>
             },
           ),
       ],
-      child: Stack(
-        children: [
-          if (game.dealt)
-            GameLayout(
-              children: [
-                TurnBanner(text: _status(), highlight: _myTurn || game.isOver),
-                _opponents(viewer),
-                Expanded(
-                  // Small screens (AYN Thor's lower screen, landscape
-                  // phones): the piles and the own cards scroll.
-                  child: LayoutBuilder(
-                    builder: (context, c) => SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: c.maxHeight),
-                        child: IntrinsicHeight(
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              Text(
-                                'Ziehstapel: ${game.pile.length}',
-                                style: Theme.of(context).textTheme.bodySmall,
+      child: CompanionSlot(
+        page: _companionPage(viewer),
+        onAction: _onCompanion,
+        child: CompanionBuilder(
+          builder: (context, below) => Stack(
+            children: [
+              if (game.dealt)
+                GameLayout(
+                  children: [
+                    TurnBanner(
+                      text: _status(),
+                      highlight: _myTurn || game.isOver,
+                    ),
+                    _opponents(viewer),
+                    Expanded(
+                      // Small screens (AYN Thor's lower screen, landscape
+                      // phones): the piles and the own cards scroll.
+                      child: LayoutBuilder(
+                        builder: (context, c) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: c.maxHeight),
+                            child: IntrinsicHeight(
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Ziehstapel: ${game.pile.length}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                  // Build piles.
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        for (var i = 0; i < 4; i++)
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: GestureDetector(
+                                              key: ValueKey('sfBuild$i'),
+                                              onTap: () => _tapBuild(i),
+                                              child: _buildPile(i),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  // Dual-screen handhelds: the own cards are below.
+                                  if (viewer != null && !below)
+                                    _ownArea(viewer),
+                                ],
                               ),
-                              // Build piles.
-                              Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    for (var i = 0; i < 4; i++)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                        ),
-                                        child: GestureDetector(
-                                          key: ValueKey('sfBuild$i'),
-                                          onTap: () => _tapBuild(i),
-                                          child: _buildPile(i),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              if (viewer != null) _ownArea(viewer),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    if (game.isOver)
+                      GameOverActions(
+                        setup: setup,
+                        winnerSeats: [game.winner!],
+                        onRematch: _again,
+                      ),
+                  ],
+                )
+              else
+                const Center(child: Text('Warte auf das Austeilen …')),
+              if (_needsHandover)
+                Positioned.fill(
+                  child: PassDeviceCover(
+                    playerName: setup.seatName(game.current),
+                    onReady: () => setState(() => _viewer = game.current),
                   ),
                 ),
-                if (game.isOver)
-                  GameOverActions(
-                    setup: setup,
-                    winnerSeats: [game.winner!],
-                    onRematch: _again,
-                  ),
-              ],
-            )
-          else
-            const Center(child: Text('Warte auf das Austeilen …')),
-          if (_needsHandover)
-            Positioned.fill(
-              child: PassDeviceCover(
-                playerName: setup.seatName(game.current),
-                onReady: () => setState(() => _viewer = game.current),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  static String _cardLabel(int c) =>
+      StapelfixGame.isJoker(c) ? '★' : '${StapelfixGame.value(c)}';
+
+  static int _cardColor(int c) =>
+      SfCardView.colorOf(StapelfixGame.value(c)).toARGB32();
+
+  /// Dual-screen handhelds: own stock, discard piles and hand on the screen
+  /// below (select there, then tap a build pile on top or below).
+  CompanionPage _companionPage(int? me) {
+    if (!game.dealt || me == null || _needsHandover) {
+      return const CompanionPage(hint: 'Gleich gibt es Karten');
+    }
+    final mine = _myTurn;
+    final hand = game.hands[me];
+    final stock = game.stockTop(me);
+    CompanionCell source(int src, int? card, String sub) => CompanionCell(
+      label: card == null ? '' : _cardLabel(card),
+      sub: sub,
+      color: card == null ? null : _cardColor(card),
+      action: mine && (card != null || src <= -2) ? 'src:$src' : null,
+      marked: _selected == src,
+    );
+    final s = _selected;
+    return CompanionPage(
+      title: 'Deine Karten',
+      grid: CompanionGrid(
+        columns: 5,
+        aspect: 1.35,
+        cells: [
+          source(-1, stock, 'Stapel ${game.stock[me].length}'),
+          for (var d = 0; d < 4; d++)
+            source(-2 - d, game.discardTop(me, d), 'Ablage ${d + 1}'),
+          for (final c in hand) source(c, c, 'Hand'),
+        ],
+      ),
+      buttonsTitle: s == null || !mine
+          ? null
+          : 'Auf welchen Stapel in der Mitte?',
+      buttons: [
+        if (mine && s != null)
+          for (var i = 0; i < 4; i++)
+            if (game.canBuild(s, i))
+              CompanionButton('build:$i', 'Stapel ${i + 1} (${game.need(i)})'),
+        if (mine && hand.isEmpty) const CompanionButton('end', 'Zug beenden'),
+      ],
+      hint: mine
+          ? (s != null && s >= 0
+                ? 'Oder eine Ablage antippen: Karte ablegen, Zug endet'
+                : 'Karte wählen')
+          : null,
+    );
+  }
+
+  void _onCompanion(String a) {
+    if (!_myTurn) return;
+    if (a.startsWith('src:')) {
+      final src = int.tryParse(a.substring(4));
+      if (src == null) return;
+      if (src <= -2) {
+        _tapDiscard(-2 - src);
+      } else {
+        _select(src);
+      }
+    } else if (a.startsWith('build:')) {
+      final i = int.tryParse(a.substring(6));
+      if (i != null) _tapBuild(i);
+    } else if (a == 'end' && game.hands[game.current].isEmpty) {
+      _act(['x', -1, -1], game.current);
+    }
   }
 
   Widget _buildPile(int i) {

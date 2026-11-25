@@ -200,6 +200,8 @@ class CompanionPageView extends StatelessWidget {
               ],
             ),
           ],
+          if (page.chat.isNotEmpty || page.replies.isNotEmpty)
+            _ChatStrip(page: page, onAction: onAction),
           if (page.hint != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -392,10 +394,12 @@ class _GridView extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, c) {
               final cols = grid.columns, rows = grid.rows;
-              final byHeight = (c.maxHeight - grid.gap * (rows - 1)) / rows;
+              final a = grid.aspect;
+              final byHeight = (c.maxHeight - grid.gap * (rows - 1)) / rows / a;
               final side = ((c.maxWidth - grid.gap * (cols - 1)) / cols)
                   .clamp(0.0, byHeight)
                   .clamp(0.0, 120.0);
+              final tall = side * a;
               Widget field(int i, CompanionCell cell) {
                 final bg = cell.color != null
                     ? Color(cell.color!)
@@ -408,7 +412,7 @@ class _GridView extends StatelessWidget {
                     : Colors.black;
                 final box = Container(
                   width: side,
-                  height: side,
+                  height: tall,
                   decoration: BoxDecoration(
                     color: bg,
                     borderRadius: BorderRadius.circular(
@@ -481,7 +485,7 @@ class _GridView extends StatelessWidget {
                                         r * cols + k,
                                         grid.cells[r * cols + k],
                                       )
-                                    : SizedBox(width: side, height: side),
+                                    : SizedBox(width: side, height: tall),
                               ),
                           ],
                         ),
@@ -493,6 +497,58 @@ class _GridView extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The chat of an online game: the latest lines and quick replies.
+class _ChatStrip extends StatelessWidget {
+  const _ChatStrip({required this.page, required this.onAction});
+  final CompanionPage page;
+  final void Function(String action) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('companionChat'),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final l in page.chat)
+            Text(
+              '💬 $l',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+          if (page.replies.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final r in page.replies)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4, top: 4),
+                      child: ActionChip(
+                        key: ValueKey('companion-say-$r'),
+                        visualDensity: VisualDensity.compact,
+                        label: Text(r),
+                        onPressed: () => onAction('say:$r'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

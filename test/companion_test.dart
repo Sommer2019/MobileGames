@@ -7,6 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_games/companion/companion_app.dart';
 import 'package:mobile_games/core/companion.dart';
 import 'package:mobile_games/games/battleship/battleship_screen.dart';
+import 'package:mobile_games/games/chess/chess_screen.dart';
+import 'package:mobile_games/games/domino/domino_screen.dart';
+import 'package:mobile_games/games/lastcard/lastcard_screen.dart';
+import 'package:mobile_games/games/stapelfix/stapelfix_screen.dart';
 import 'package:mobile_games/games/prophet/prophet_screen.dart';
 import 'package:mobile_games/games/snake/snake_screen.dart';
 import 'package:mobile_games/games/sudoku/sudoku_screen.dart';
@@ -251,6 +255,110 @@ void main() {
     await t.pump();
     await t.pump();
     expect(find.byKey(const ValueKey('snakeResume')), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Letzte Karte: the hand is played from below', (t) async {
+    await handheld(
+      t,
+      const LastCardScreen(setup: PlaySetup.local(players: 2, bots: {1})),
+    );
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    final page = sent.last;
+    expect(page.title, startsWith('Deine Karten'));
+    expect(page.grid!.cells.length, greaterThanOrEqualTo(7));
+    // No hand on top any more.
+    expect(find.byKey(const ValueKey('lcCall')), findsOneWidget);
+    final playable = page.grid!.cells.where((c) => c.action != null);
+    if (playable.isEmpty) {
+      expect(page.buttons.map((b) => b.action), contains('draw'));
+      Companion.I.action('draw');
+    } else {
+      final before = page.grid!.cells.length;
+      final card = playable.firstWhere(
+        (c) => !const ['★', '+4'].contains(c.label),
+        orElse: () => playable.first,
+      );
+      Companion.I.action(card.action!);
+      await t.pump();
+      if (find.byKey(const ValueKey('lcColor0')).evaluate().isNotEmpty) {
+        await t.tap(find.byKey(const ValueKey('lcColor0')));
+      }
+      await t.pump();
+      await t.pump();
+      expect(
+        sent.last.grid!.cells.length,
+        before - 1,
+        reason: 'one card fewer in the hand below',
+      );
+    }
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Stapelfix and Domino: own cards and tiles below', (t) async {
+    await handheld(
+      t,
+      const StapelfixScreen(setup: PlaySetup.local(players: 2, bots: {1})),
+    );
+    for (var i = 0; i < 10; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    var page = sent.last;
+    expect(page.grid!.columns, 5);
+    expect(page.grid!.cells.first.sub, startsWith('Stapel'));
+    final hand = page.grid!.cells.where((c) => c.sub == 'Hand').toList();
+    expect(hand, hasLength(5));
+    Companion.I.action(hand.first.action!);
+    await t.pump();
+    await t.pump();
+    expect(sent.last.grid!.cells.where((c) => c.marked), hasLength(1));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 5));
+
+    sent.clear();
+    await handheld(
+      t,
+      const DominoScreen(setup: PlaySetup.local(players: 2, bots: {1})),
+    );
+    for (var i = 0; i < 10; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    page = sent.last;
+    expect(page.title, startsWith('Deine Steine'));
+    expect(page.grid!.cells.first.label, contains('\n'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Schach: moves and captures below', (t) async {
+    await handheld(t, const ChessScreen(setup: PlaySetup.local()));
+    await t.tap(find.byKey(const ValueKey('sqe2')));
+    await t.pump();
+    await t.tap(find.byKey(const ValueKey('sqe4')));
+    await t.pump();
+    await t.pump();
+    final page = sent.last;
+    expect(page.table!.columns, ['#', 'Weiß', 'Schwarz']);
+    expect(page.table!.rows.single.cells, ['1.', 'e4', '']);
+    expect(page.hint, contains('Weiß: –'));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('online chat lines and quick replies ride along', (t) async {
+    final said = <String>[];
+    await handheld(t, const SnakeScreen());
+    Companion.I.setChat(['Anna: Hallo'], ['Hi!'], said.add);
+    await t.pump();
+    expect(sent.last.chat, ['Anna: Hallo']);
+    expect(sent.last.replies, ['Hi!']);
+    Companion.I.action('say:Hi!');
+    expect(said, ['Hi!']);
+    Companion.I.setChat(const [], const [], null);
+    await t.pump();
+    expect(sent.last.chat, isEmpty);
     await t.pumpWidget(const SizedBox());
   });
 }

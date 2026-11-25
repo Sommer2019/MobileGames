@@ -115,7 +115,11 @@ class CompanionGrid {
     required this.cells,
     this.gap = 6,
     this.caption,
+    this.aspect = 1,
   });
+
+  /// Height of a field per width (1.45 for playing cards).
+  final double aspect;
 
   final int columns;
   final List<CompanionCell> cells;
@@ -131,6 +135,7 @@ class CompanionGrid {
     'f': [for (final c in cells) c.toJson()],
     'g': gap,
     'cp': ?caption,
+    if (aspect != 1) 'as': aspect,
   };
 
   factory CompanionGrid.fromJson(Map<String, dynamic> j) => CompanionGrid(
@@ -141,6 +146,7 @@ class CompanionGrid {
     ],
     gap: (j['g'] as num? ?? 6).toDouble(),
     caption: j['cp'] as String?,
+    aspect: (j['as'] as num? ?? 1).toDouble(),
   );
 }
 
@@ -168,7 +174,15 @@ class CompanionPage {
     this.buttonsTitle,
     this.buttons = const [],
     this.hint,
+    this.chat = const [],
+    this.replies = const [],
   });
+
+  /// The latest chat lines of an online game ("Name: text").
+  final List<String> chat;
+
+  /// Quick replies for the chat (sent as `say:<text>`).
+  final List<String> replies;
 
   /// Shown instead of (or above) the table.
   final CompanionGrid? grid;
@@ -181,17 +195,24 @@ class CompanionPage {
   final List<CompanionButton> buttons;
   final String? hint;
 
-  CompanionPage copyWith({String? title, String? status, int? statusColor}) =>
-      CompanionPage(
-        title: title ?? this.title,
-        status: status ?? this.status,
-        statusColor: statusColor ?? this.statusColor,
-        table: table,
-        grid: grid,
-        buttonsTitle: buttonsTitle,
-        buttons: buttons,
-        hint: hint,
-      );
+  CompanionPage copyWith({
+    String? title,
+    String? status,
+    int? statusColor,
+    List<String>? chat,
+    List<String>? replies,
+  }) => CompanionPage(
+    title: title ?? this.title,
+    status: status ?? this.status,
+    statusColor: statusColor ?? this.statusColor,
+    chat: chat ?? this.chat,
+    replies: replies ?? this.replies,
+    table: table,
+    grid: grid,
+    buttonsTitle: buttonsTitle,
+    buttons: buttons,
+    hint: hint,
+  );
 
   Map<String, dynamic> toJson() => {
     't': ?title,
@@ -202,6 +223,8 @@ class CompanionPage {
     'bt': ?buttonsTitle,
     if (buttons.isNotEmpty) 'b': [for (final b in buttons) b.toJson()],
     'hi': ?hint,
+    if (chat.isNotEmpty) 'ch': chat,
+    if (replies.isNotEmpty) 'rp': replies,
   };
 
   factory CompanionPage.fromJson(Map<String, dynamic> j) => CompanionPage(
@@ -220,6 +243,8 @@ class CompanionPage {
         CompanionButton.fromJson((b as Map).cast<String, dynamic>()),
     ],
     hint: j['hi'] as String?,
+    chat: [for (final l in j['ch'] as List? ?? const []) '$l'],
+    replies: [for (final r in j['rp'] as List? ?? const []) '$r'],
   );
 }
 
@@ -307,8 +332,29 @@ class Companion {
     }
   }
 
+  /// The chat of the online game being played, shown below every page.
+  List<String> _chat = const [];
+  List<String> _replies = const [];
+  void Function(String text)? _say;
+
+  /// Called by the online game frame (null [say]: no chat).
+  void setChat(
+    List<String> lines,
+    List<String> replies,
+    void Function(String text)? say,
+  ) {
+    _chat = lines;
+    _replies = say == null ? const [] : replies;
+    _say = say;
+    _schedule();
+  }
+
   /// A tap on the lower screen.
   void action(String a) {
+    if (a.startsWith('say:')) {
+      _say?.call(a.substring(4));
+      return;
+    }
     if (_slots.isEmpty) return;
     _slots.last.onAction?.call(a);
   }
@@ -349,11 +395,14 @@ class Companion {
 
   void _publish() {
     final top = _slots.isEmpty ? null : _slots.last;
-    final page = top == null
+    var page = top == null
         ? const CompanionPage()
         : top.page.status != null
         ? top.page
         : top.page.copyWith(status: top.status, statusColor: top.statusColor);
+    if (top != null && (_chat.isNotEmpty || _replies.isNotEmpty)) {
+      page = page.copyWith(chat: _chat, replies: _replies);
+    }
     final json = jsonEncode(page.toJson());
     if (json == _sent) return;
     _sent = json;
@@ -369,6 +418,9 @@ class Companion {
   void reset() {
     _slots.clear();
     _sent = null;
+    _chat = const [];
+    _replies = const [];
+    _say = null;
     hasScreen.value = false;
     enabled.value = true;
     active.value = false;

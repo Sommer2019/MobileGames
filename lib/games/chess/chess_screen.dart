@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'dart:async';
 
 import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
@@ -11,6 +13,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'chess_logic.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 /// Vector chess piece for a letter (uppercase = white).
@@ -279,32 +282,102 @@ class _ChessScreenState extends State<ChessScreen>
             tooltip: 'Aufgeben',
           ),
       ],
-      child: GameLayout(
-        children: [
-          TurnBanner(text: _status(), highlight: _canMove || over),
-          Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: _board(),
+      child: CompanionSlot(
+        page: _companionPage(),
+        child: GameLayout(
+          children: [
+            TurnBanner(text: _status(), highlight: _canMove || over),
+            Expanded(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _board(),
+                  ),
                 ),
               ),
             ),
-          ),
-          if (over)
-            GameOverActions(
-              setup: widget.setup,
-              aiWinBoard: Secrets.on(Secret.grandmaster)
-                  ? 'chess.grandmaster'
-                  : null,
-              winnerSeats: _winnerSeats(),
-              onRematch: _reset,
-              rematchLabel: 'Revanche (Farben tauschen)',
-            ),
+            if (over)
+              GameOverActions(
+                setup: widget.setup,
+                aiWinBoard: Secrets.on(Secret.grandmaster)
+                    ? 'chess.grandmaster'
+                    : null,
+                winnerSeats: _winnerSeats(),
+                onRematch: _reset,
+                rematchLabel: 'Revanche (Farben tauschen)',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _start = {'p': 8, 'n': 2, 'b': 2, 'r': 2, 'q': 1};
+  static const _symbols = {
+    'P': '♙',
+    'N': '♘',
+    'B': '♗',
+    'R': '♖',
+    'Q': '♕',
+    'p': '♟',
+    'n': '♞',
+    'b': '♝',
+    'r': '♜',
+    'q': '♛',
+  };
+  static const _values = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9};
+
+  /// Dual-screen handhelds: the moves so far and the captured pieces on
+  /// the screen below.
+  CompanionPage _companionPage() {
+    final count = <String, int>{};
+    for (var f = 0; f < 8; f++) {
+      for (var r = 0; r < 8; r++) {
+        final p = game.pieceAt(ChessGame.square(f, r));
+        if (p != null) count[p] = (count[p] ?? 0) + 1;
+      }
+    }
+    String lost(bool white) {
+      final b = StringBuffer();
+      for (final e in _start.entries) {
+        final k = white ? e.key.toUpperCase() : e.key;
+        final n = e.value - (count[k] ?? 0);
+        for (var i = 0; i < n; i++) {
+          b.write(_symbols[k]);
+        }
+      }
+      return b.isEmpty ? '–' : b.toString();
+    }
+
+    int material(bool white) => _start.keys.fold(
+      0,
+      (s, k) => s + (count[white ? k.toUpperCase() : k] ?? 0) * _values[k]!,
+    );
+    final diff = material(true) - material(false);
+    // One entry per full move, e.g. "1. e4 e5".
+    final pairs = [
+      for (final m in game.history)
+        (m ?? '').replaceFirst(RegExp(r'^\d+\.+\s*'), '').split(RegExp(r'\s+')),
+    ];
+    final first = max(0, pairs.length - 12);
+    return CompanionPage(
+      title: 'Schach – Züge',
+      table: CompanionTable(
+        columns: const ['#', 'Weiß', 'Schwarz'],
+        rows: [
+          for (var n = first; n < pairs.length; n++)
+            CompanionRow([
+              '${n + 1}.',
+              pairs[n].first,
+              pairs[n].length > 1 ? pairs[n][1] : '',
+            ], bold: n == pairs.length - 1),
         ],
       ),
+      hint:
+          'Geschlagen – Weiß: ${lost(true)}   Schwarz: ${lost(false)}'
+          '${diff == 0 ? '' : '   (${diff > 0 ? 'Weiß' : 'Schwarz'} +${diff.abs()})'}',
     );
   }
 
