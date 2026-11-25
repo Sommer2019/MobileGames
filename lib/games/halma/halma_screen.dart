@@ -12,6 +12,7 @@ import '../../ui/bot_turns.dart';
 import '../../ui/bot_speed.dart';
 import '../../ui/play_setup.dart';
 import 'halma_logic.dart';
+import '../../ui/game_layout.dart';
 
 /// Colours by arm.
 const halmaColors = [
@@ -205,7 +206,7 @@ class _HalmaScreenState extends State<HalmaScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(
             text: _status(),

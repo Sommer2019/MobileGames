@@ -9,6 +9,7 @@ import '../geo/regions.dart';
 import '../geo/source_picker.dart';
 import '../geo/street_view.dart';
 import 'geobingo_logic.dart';
+import '../../ui/game_layout.dart';
 
 class GeoBingoScreen extends StatefulWidget {
   const GeoBingoScreen({
@@ -372,7 +373,7 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
         if (p != me || setup.spectator)
           '${setup.seatName(p)} ${game.finds[p]?.length ?? 0}',
     ].join(' · ');
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: left == 0
@@ -499,7 +500,7 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
     final (owner, term) = list[_rateIndex];
     final stars = game.ratingBy(me, owner, term);
     final rated = list.where((x) => game.ratingBy(me, x.$1, x.$2) != null);
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: '„${game.terms[term]}“ von ${setup.seatName(owner)}',
@@ -568,7 +569,7 @@ class _GeoBingoScreenState extends State<GeoBingoScreen> {
       ..sort((a, b) => game.scores[b].compareTo(game.scores[a]));
     final winners = game.winners();
     final theme = Theme.of(context);
-    return Column(
+    return GameLayout(
       children: [
         TurnBanner(
           text: winners.length > 1

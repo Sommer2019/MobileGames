@@ -15,6 +15,8 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import 'darts_logic.dart';
 import 'motion_throw.dart';
+import '../../core/companion.dart';
+import '../../ui/game_layout.dart';
 
 class DartsScreen extends StatefulWidget {
   const DartsScreen({super.key, required this.setup});
@@ -377,33 +379,86 @@ class _DartsScreenState extends State<DartsScreen>
       ],
       child: g == null
           ? _setupPanel()
-          : LayoutBuilder(
-              builder: (context, box) {
-                final wide = box.maxWidth > box.maxHeight * 1.1;
-                final board = _boardArea();
-                final info = _infoPanel(g);
-                return wide
-                    ? Row(
-                        children: [
-                          Expanded(flex: 3, child: board),
-                          Expanded(flex: 2, child: info),
-                        ],
-                      )
-                    : Column(
+          : CompanionSlot(
+              page: _companionPage(g),
+              child: CompanionBuilder(
+                builder: (context, below) => LayoutBuilder(
+                  builder: (context, box) {
+                    final wide = box.maxWidth > box.maxHeight * 1.1;
+                    final board = _boardArea();
+                    // Dual-screen handhelds: the scores are on the screen
+                    // below, the board gets the whole screen on top.
+                    if (below) {
+                      return Column(
                         children: [
                           TurnBanner(
                             text: _status(),
                             highlight: _canThrow || g.isOver,
                           ),
                           Expanded(child: board),
-                          SizedBox(
-                            height: min(260, box.maxHeight * 0.38),
-                            child: info,
-                          ),
                         ],
                       );
-              },
+                    }
+                    final info = _infoPanel(g);
+                    return wide
+                        ? Row(
+                            children: [
+                              Expanded(flex: 3, child: board),
+                              Expanded(flex: 2, child: info),
+                            ],
+                          )
+                        : GameLayout(
+                            children: [
+                              TurnBanner(
+                                text: _status(),
+                                highlight: _canThrow || g.isOver,
+                              ),
+                              Expanded(child: board),
+                              SizedBox(
+                                height: min(260, box.maxHeight * 0.38),
+                                child: info,
+                              ),
+                            ],
+                          );
+                  },
+                ),
+              ),
             ),
+    );
+  }
+
+  CompanionPage _companionPage(DartsGame g) {
+    final atc = g.mode == DartsMode.aroundTheClock;
+    String rest(DartsPlayerState s) => !atc
+        ? '${s.remaining}'
+        : s.remaining >= 20
+        ? 'Bull'
+        : '${s.remaining + 1}';
+    return CompanionPage(
+      title:
+          'Darts · ${g.mode.label}${g.doubleOut && !atc ? ' · Double Out' : ''}'
+          ' · Runde ${g.round}',
+      table: CompanionTable(
+        columns: [
+          'Spieler',
+          atc ? 'Ziel' : 'Rest',
+          'Darts',
+          if (!atc) 'Schnitt',
+        ],
+        highlight: null,
+        rows: [
+          for (var p = 0; p < g.players; p++)
+            CompanionRow([
+              '${p == g.current && !g.isOver ? '▶ ' : ''}${_name(p)}',
+              rest(g.states[p]),
+              '${g.states[p].darts}',
+              if (!atc) g.states[p].average.toStringAsFixed(1),
+            ], bold: p == g.current),
+        ],
+      ),
+      hint: g.turnDarts.isEmpty
+          ? null
+          : 'Diese Aufnahme: ${g.turnDarts.map((d) => d.label).join(' · ')}',
     );
   }
 

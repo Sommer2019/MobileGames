@@ -28,6 +28,26 @@ antippen zum Würfeln (iOS: Anzahl über „Widget bearbeiten“; 📳 öffnet d
 klappt auch Schütteln). 🎮 *Spieleabend* – ungelesene Nachrichten, Freundesanfragen, wer online
 ist und die zuletzt gespielten Spiele zum direkten Starten.
 
+🕹️ **Handhelds mit Controller** (z. B. AYN Thor, Odin, Retroid) und Querformat: Auf breiten
+Bildschirmen wandern Statuszeile, Punkte und Knöpfe in eine Seitenleiste, das Brett bekommt die
+volle Höhe; App-Leisten werden auf niedrigen Bildschirmen schmaler. Steuerung:
+**Steuerkreuz/linker Stick** wechselt zwischen Knöpfen, **A** drückt, **B** geht zurück.
+Der **rechte Stick** blendet einen Zeiger ein – **A** oder **R1** tippt dort, gedrückt halten
+zieht (Karten, Queue). Snake lenkt mit dem Steuerkreuz (A startet, Start pausiert),
+das Kugellabyrinth kippt per Stick/Steuerkreuz oder Bewegungssensor; Snake und Labyrinth
+legen ihr Hochkant-Feld im Querformat quer. Auf dem unteren Thor-Bildschirm läuft die App
+ebenfalls (Hochkant-Ansicht).
+
+📟 **Zweiter Bildschirm** (Dual-Screen wie AYN Thor): Unten läuft ein eigener kleiner Teil der
+App – wie beim DS. *Würfelkönig*: Würfel oben, der Block unten (Feld antippen zum Eintragen,
+Würfeln-Knopf). *Stichprophet*: Punkteblock mit Ansagen/Stichen der Runde unten, dort auch
+Stiche ansagen und Trumpf wählen. *Sudoku*: großer Ziffernblock unten, oben wählt das
+Steuerkreuz das Feld. *Schiffe versenken*: eigene Flotte unten, oben das ganze Meer zum Schießen.
+*Schocken*: Spielertabelle mit Deckeln unten. *Darts*: Board oben, Punktetafel unten.
+*Snake, Kugellabyrinth, Solitär, Mahjong*: Punkte/Zeit und Knöpfe (Start/Pause, Neu, Tipp,
+Rückgängig) unten. Andere Spiele zeigen unten, wer dran ist, ohne Spiel eine
+Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite.
+
 ## Download
 
 Jeder Push auf `main` baut per GitHub Actions automatisch eine APK:

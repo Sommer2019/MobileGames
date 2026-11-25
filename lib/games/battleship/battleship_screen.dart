@@ -11,6 +11,8 @@ import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'battleship_logic.dart';
 import 'fleet_editor.dart';
+import '../../core/companion.dart';
+import '../../ui/game_layout.dart';
 
 enum _Phase { placing, waitingForOpponent, playing, over }
 
@@ -287,48 +289,97 @@ class _BattleshipScreenState extends State<BattleshipScreen>
         if (saveKey != null && phase != _Phase.placing)
           RestartButton(onRestart: () => _rematch(next: false)),
       ],
-      child: Column(
-        children: [
-          TurnBanner(
-            text: _status(),
-            highlight:
-                (phase == _Phase.playing && myTurn) || phase == _Phase.over,
-          ),
-          if (lastEvent != null)
-            Text(lastEvent!, style: Theme.of(context).textTheme.bodyLarge),
-          if (phase == _Phase.placing) ...[
-            Expanded(
-              child: FleetEditor(
-                fleet: fleet,
-                onChanged: (f) => setState(() => fleet = f),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: FilledButton.icon(
-                key: const ValueKey('fleetReady'),
-                onPressed: fleetComplete(fleet) ? _ready : null,
-                icon: const Icon(Icons.check),
-                label: const Text('Bereit'),
-              ),
-            ),
-          ] else ...[
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
-              child: Text('Gegnerisches Meer'),
-            ),
-            Expanded(flex: 3, child: _grid(own: false, interactive: true)),
-            const Text('Deine Flotte'),
-            Expanded(flex: 2, child: _grid(own: true, interactive: false)),
-            if (phase == _Phase.over)
-              GameOverActions(
-                setup: widget.setup,
-                winnerSeats: _winnerSeats(),
-                onRematch: _rematch,
-              ),
-          ],
+      child: CompanionSlot(
+        page: _companionPage(),
+        child: CompanionBuilder(builder: (context, below) => _body(below)),
+      ),
+    );
+  }
+
+  /// Dual-screen handhelds: the own fleet lies on the screen below, the
+  /// enemy sea gets the whole screen on top.
+  CompanionPage _companionPage() {
+    if (phase == _Phase.placing) {
+      return const CompanionPage(hint: 'Stelle oben deine Flotte auf');
+    }
+    return CompanionPage(
+      title: 'Deine Flotte',
+      grid: CompanionGrid(
+        columns: boardSize,
+        gap: 0,
+        cells: [
+          for (var y = 0; y < boardSize; y++)
+            for (var x = 0; x < boardSize; x++) _fleetCell(x, y),
         ],
       ),
+      hint:
+          '${fleet.ships.where((s) => !s.sunk).length} von '
+          '${fleet.ships.length} Schiffen schwimmen noch',
+    );
+  }
+
+  CompanionCell _fleetCell(int x, int y) {
+    final ship = fleet.shipAt(x, y);
+    final shot = fleet.shotsReceived.contains((x, y));
+    final color = ship == null
+        ? 0xFF1976D2
+        : ship.sunk
+        ? 0xFF4E342E
+        : 0xFF90A4AE;
+    return CompanionCell(
+      color: color,
+      label: !shot
+          ? ''
+          : ship != null
+          ? '🔥'
+          : '·',
+    );
+  }
+
+  Widget _body(bool below) {
+    return GameLayout(
+      children: [
+        TurnBanner(
+          text: _status(),
+          highlight:
+              (phase == _Phase.playing && myTurn) || phase == _Phase.over,
+        ),
+        if (lastEvent != null)
+          Text(lastEvent!, style: Theme.of(context).textTheme.bodyLarge),
+        if (phase == _Phase.placing) ...[
+          Expanded(
+            child: FleetEditor(
+              fleet: fleet,
+              onChanged: (f) => setState(() => fleet = f),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: FilledButton.icon(
+              key: const ValueKey('fleetReady'),
+              onPressed: fleetComplete(fleet) ? _ready : null,
+              icon: const Icon(Icons.check),
+              label: const Text('Bereit'),
+            ),
+          ),
+        ] else ...[
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text('Gegnerisches Meer'),
+          ),
+          Expanded(flex: 3, child: _grid(own: false, interactive: true)),
+          if (!below) ...[
+            const Text('Deine Flotte'),
+            Expanded(flex: 2, child: _grid(own: true, interactive: false)),
+          ],
+          if (phase == _Phase.over)
+            GameOverActions(
+              setup: widget.setup,
+              winnerSeats: _winnerSeats(),
+              onRematch: _rematch,
+            ),
+        ],
+      ],
     );
   }
 

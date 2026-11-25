@@ -10,6 +10,7 @@ import '../../core/saved_games.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
+import '../../core/companion.dart';
 import 'snake_logic.dart';
 
 class SnakeScreen extends StatefulWidget {
@@ -174,17 +175,48 @@ class _SnakeScreenState extends State<SnakeScreen>
     final d = e.position - from;
     if (d.distance < _swipeDistance) return;
     if (d.dx.abs() > d.dy.abs()) {
-      game.turn(d.dx > 0 ? Dir.right : Dir.left);
+      game.turn(_fromScreen(d.dx > 0 ? Dir.right : Dir.left));
     } else {
-      game.turn(d.dy > 0 ? Dir.down : Dir.up);
+      game.turn(_fromScreen(d.dy > 0 ? Dir.down : Dir.up));
     }
     _swipeFrom = e.position;
   }
 
   void _pointerUp(PointerEvent _) => _swipeFrom = null;
 
+  /// On wide screens (landscape, AYN Thor) the upright field lies on its
+  /// side, turned clockwise; swipes and keys still mean screen directions.
+  bool _rotated = false;
+
+  Dir _fromScreen(Dir d) => !_rotated
+      ? d
+      : switch (d) {
+          Dir.up => Dir.left,
+          Dir.down => Dir.right,
+          Dir.left => Dir.down,
+          Dir.right => Dir.up,
+        };
+
   KeyEventResult _key(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    // Gamepads and keyboards: A / Start / Enter start or continue,
+    // Start pauses.
+    final k = e.logicalKey;
+    if (!mirroring &&
+        (k == LogicalKeyboardKey.gameButtonStart ||
+            (!running &&
+                (k == LogicalKeyboardKey.gameButtonA ||
+                    k == LogicalKeyboardKey.enter ||
+                    k == LogicalKeyboardKey.space)))) {
+      if (running) {
+        _pause();
+      } else if (paused) {
+        _resume();
+      } else {
+        _start();
+      }
+      return KeyEventResult.handled;
+    }
     final d = switch (e.logicalKey) {
       LogicalKeyboardKey.arrowUp => Dir.up,
       LogicalKeyboardKey.arrowDown => Dir.down,
@@ -193,7 +225,7 @@ class _SnakeScreenState extends State<SnakeScreen>
       _ => null,
     };
     if (d == null) return KeyEventResult.ignored;
-    game.turn(d);
+    game.turn(_fromScreen(d));
     return KeyEventResult.handled;
   }
 
@@ -202,92 +234,155 @@ class _SnakeScreenState extends State<SnakeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _nokia
-          ? const Color(0xFF2B3326)
-          : const Color(0xFF1B2A1B),
-      appBar: AppBar(
-        title: const Text('Snake'),
-        actions: [
-          const LeaderboardButton(game: 'snake'),
-          if (running)
-            IconButton(
-              key: const ValueKey('snakePause'),
-              tooltip: 'Pause',
-              onPressed: _pause,
-              icon: const Icon(Icons.pause),
+    return CompanionSlot(
+      page: _companionPage(),
+      onAction: _onCompanion,
+      child: Scaffold(
+        backgroundColor: _nokia
+            ? const Color(0xFF2B3326)
+            : const Color(0xFF1B2A1B),
+        appBar: AppBar(
+          title: const Text('Snake'),
+          actions: [
+            const LeaderboardButton(game: 'snake'),
+            if (running)
+              IconButton(
+                key: const ValueKey('snakePause'),
+                tooltip: 'Pause',
+                onPressed: _pause,
+                icon: const Icon(Icons.pause),
+              ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text('Punkte: ${game.score}   Rekord: $best'),
+              ),
             ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text('Punkte: ${game.score}   Rekord: $best'),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Focus(
-          focusNode: _focus,
-          autofocus: true,
-          onKeyEvent: _key,
-          child: Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: _pointerDown,
-            onPointerMove: _pointerMove,
-            onPointerUp: _pointerUp,
-            onPointerCancel: _pointerUp,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: game.width / game.height,
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: _nokia ? _SnakePainter.lcd : null,
-                          border: Border.all(
-                            color: _nokia
-                                ? _SnakePainter.pixel
-                                : wrap
-                                ? Colors.lightGreen.shade800
-                                : Colors.lightGreen,
-                            width: 3,
-                          ),
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: CustomPaint(
-                                painter: _SnakePainter(game, nokia: _nokia),
-                              ),
-                            ),
-                            if (!running && !mirroring)
-                              Positioned.fill(
-                                child: ColoredBox(
-                                  color: Colors.black54,
-                                  child: Center(child: _menu()),
+          ],
+        ),
+        body: SafeArea(
+          child: Focus(
+            focusNode: _focus,
+            autofocus: true,
+            onKeyEvent: _key,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: _pointerDown,
+              onPointerMove: _pointerMove,
+              onPointerUp: _pointerUp,
+              onPointerCancel: _pointerUp,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        _rotated =
+                            c.maxWidth > c.maxHeight * 1.15 && !mirroring;
+                        return Center(
+                          child: AspectRatio(
+                            aspectRatio: _rotated
+                                ? game.height / game.width
+                                : game.width / game.height,
+                            child: Container(
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: _nokia ? _SnakePainter.lcd : null,
+                                border: Border.all(
+                                  color: _nokia
+                                      ? _SnakePainter.pixel
+                                      : wrap
+                                      ? Colors.lightGreen.shade800
+                                      : Colors.lightGreen,
+                                  width: 3,
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: RotatedBox(
+                                      quarterTurns: _rotated ? 1 : 0,
+                                      child: CustomPaint(
+                                        painter: _SnakePainter(
+                                          game,
+                                          nokia: _nokia,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (!running && !mirroring)
+                                    Positioned.fill(
+                                      child: ColoredBox(
+                                        color: Colors.black54,
+                                        child: Center(child: _menu()),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text(
-                    'Wischen zum Lenken',
-                    style: TextStyle(color: Colors.white54),
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Wischen oder Steuerkreuz zum Lenken',
+                      style: TextStyle(color: Colors.white54),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// Dual-screen handhelds: points and buttons on the screen below.
+  CompanionPage _companionPage() => CompanionPage(
+    title: 'Snake',
+    table: CompanionTable(
+      columns: const ['', ''],
+      rows: [
+        CompanionRow(['Punkte', '${game.score}'], bold: true),
+        CompanionRow(['Rekord', '$best']),
+        CompanionRow(['Länge', '${game.body.length}']),
+        CompanionRow(['Wände', wrap ? 'durchlässig' : 'tödlich']),
+      ],
+    ),
+    buttons: mirroring
+        ? const []
+        : [
+            if (running)
+              const CompanionButton('pause', '⏸ Pause')
+            else if (paused) ...[
+              const CompanionButton('resume', '▶ Weiter'),
+              const CompanionButton('start', '↻ Neu starten'),
+            ] else
+              const CompanionButton('start', '▶ Start'),
+            if (!running)
+              CompanionButton(
+                'wrap',
+                wrap ? 'Durch Wände: an' : 'Durch Wände: aus',
+              ),
+          ],
+    hint: 'Steuerkreuz lenkt · A startet · Start pausiert',
+  );
+
+  void _onCompanion(String a) {
+    if (mirroring) return;
+    switch (a) {
+      case 'pause' when running:
+        _pause();
+      case 'resume' when paused:
+        _resume();
+      case 'start' when !running:
+        _start();
+      case 'wrap' when !running:
+        setState(() => wrap = !wrap);
+    }
   }
 
   Widget _menu() => Card(

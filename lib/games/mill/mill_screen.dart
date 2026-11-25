@@ -9,6 +9,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'mill_logic.dart';
+import '../../ui/game_layout.dart';
 
 /// Board coordinates (0..6 grid) of the 24 points.
 const List<(int, int)> _corners = [
@@ -229,7 +230,7 @@ class _MillScreenState extends State<MillScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(text: _status(), highlight: _canAct || game.isOver),
           Wrap(

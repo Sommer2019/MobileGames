@@ -14,6 +14,7 @@ import '../geo/street_view.dart';
 import 'geoguess_logic.dart';
 import 'my_places.dart';
 import 'my_places_screen.dart';
+import '../../ui/game_layout.dart';
 
 class GeoGuessScreen extends StatefulWidget {
   const GeoGuessScreen({
@@ -499,7 +500,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
     final name = setup.seatName(winners.first);
     return ColoredBox(
       color: theme.colorScheme.surface,
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(
             text: players == 1
@@ -567,7 +568,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
     return OnlineGameFrame(
       setup: setup,
       title: 'Wo bin ich?',
-      child: Column(
+      child: GameLayout(
         children: [
           if (playing)
             TurnBanner(

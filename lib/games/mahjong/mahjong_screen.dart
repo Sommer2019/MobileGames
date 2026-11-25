@@ -10,6 +10,7 @@ import '../../core/mirror.dart';
 import '../../core/saved_games.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
+import '../../core/companion.dart';
 import 'mahjong_logic.dart';
 
 class MahjongScreen extends StatefulWidget {
@@ -216,75 +217,119 @@ class _MahjongScreenState extends State<MahjongScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mahjong'),
-        actions: [
-          PopupMenuButton<MahjongShape>(
-            key: const ValueKey('mahjongShape'),
-            tooltip: 'Form',
-            icon: const Icon(Icons.view_quilt),
-            onSelected: _chooseShape,
-            itemBuilder: (_) => [
-              for (final s in MahjongShape.values)
-                CheckedPopupMenuItem(
-                  key: ValueKey('shape-${s.name}'),
-                  value: s,
-                  checked: s == _shape,
-                  child: Text(s.label),
-                ),
-            ],
-          ),
-          LeaderboardButton(game: 'mahjong', board: _shape?.board),
-          IconButton(
-            tooltip: 'Rückgängig',
-            icon: const Icon(Icons.undo),
-            onPressed: () => setState(() {
-              game?.undo();
-              selected = null;
-            }),
-          ),
-          IconButton(
-            tooltip: 'Tipp',
-            icon: const Icon(Icons.lightbulb_outline),
-            onPressed: () => setState(() => hint = game?.hint()),
-          ),
-          IconButton(
-            tooltip: 'Neues Spiel',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() => _newGame(_shape!)),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            if (game == null) {
-              _newGame(
-                _savedShape ??
-                    (c.maxHeight >= c.maxWidth
-                        ? MahjongShape.pyramid
-                        : MahjongShape.wide),
-              );
-            }
-            final g = game!;
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    '${_shape!.label}   •   Steine: ${g.remaining}   •   '
-                    'Zeit: ${_formatTime()}',
-                    style: Theme.of(context).textTheme.titleMedium,
+    return CompanionSlot(
+      page: _companionPage(),
+      onAction: _onCompanion,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Mahjong'),
+          actions: [
+            PopupMenuButton<MahjongShape>(
+              key: const ValueKey('mahjongShape'),
+              tooltip: 'Form',
+              icon: const Icon(Icons.view_quilt),
+              onSelected: _chooseShape,
+              itemBuilder: (_) => [
+                for (final s in MahjongShape.values)
+                  CheckedPopupMenuItem(
+                    key: ValueKey('shape-${s.name}'),
+                    value: s,
+                    checked: s == _shape,
+                    child: Text(s.label),
                   ),
-                ),
-                Expanded(child: _board(g)),
               ],
-            );
-          },
+            ),
+            LeaderboardButton(game: 'mahjong', board: _shape?.board),
+            IconButton(
+              tooltip: 'Rückgängig',
+              icon: const Icon(Icons.undo),
+              onPressed: () => setState(() {
+                game?.undo();
+                selected = null;
+              }),
+            ),
+            IconButton(
+              tooltip: 'Tipp',
+              icon: const Icon(Icons.lightbulb_outline),
+              onPressed: () => setState(() => hint = game?.hint()),
+            ),
+            IconButton(
+              tooltip: 'Neues Spiel',
+              icon: const Icon(Icons.refresh),
+              onPressed: () => setState(() => _newGame(_shape!)),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, c) {
+              if (game == null) {
+                _newGame(
+                  _savedShape ??
+                      (c.maxHeight >= c.maxWidth
+                          ? MahjongShape.pyramid
+                          : MahjongShape.wide),
+                );
+              }
+              final g = game!;
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      '${_shape!.label}   •   Steine: ${g.remaining}   •   '
+                      'Zeit: ${_formatTime()}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  Expanded(child: _board(g)),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
+  }
+
+  /// Dual-screen handhelds: counters and buttons on the screen below.
+  CompanionPage _companionPage() {
+    final g = game;
+    return CompanionPage(
+      title: 'Mahjong${_shape == null ? '' : ' · ${_shape!.label}'}',
+      table: g == null
+          ? null
+          : CompanionTable(
+              columns: const ['', ''],
+              rows: [
+                CompanionRow(['Steine', '${g.remaining}'], bold: true),
+                CompanionRow(['Zeit', _formatTime()]),
+              ],
+            ),
+      buttons: g == null
+          ? const []
+          : const [
+              CompanionButton('hint', '💡 Tipp'),
+              CompanionButton('undo', '↶ Rückgängig'),
+              CompanionButton('new', '↻ Neues Spiel'),
+            ],
+    );
+  }
+
+  void _onCompanion(String a) {
+    final g = game;
+    if (g == null) return;
+    switch (a) {
+      case 'hint':
+        setState(() => hint = g.hint());
+      case 'undo':
+        setState(() {
+          g.undo();
+          selected = null;
+        });
+      case 'new':
+        setState(() => _newGame(_shape!));
+    }
   }
 
   Widget _board(MahjongGame g) {

@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/leaderboard.dart';
 import '../../core/mirror.dart';
 import '../../core/sound.dart';
 import '../../ui/leaderboard_screen.dart';
+import '../../core/companion.dart';
 import 'sudoku_logic.dart';
 
 /// Endless sudoku: per level the puzzles are numbered, after one comes the
@@ -257,47 +259,146 @@ class _SudokuScreenState extends State<SudokuScreen>
       ),
       body: g == null
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: SegmentedButton<SudokuLevel>(
-                          segments: [
-                            for (final l in SudokuLevel.values)
-                              ButtonSegment(
-                                value: l,
-                                label: Text(
-                                  l.label,
-                                  key: ValueKey('sudokuLevel-${l.name}'),
+          : CompanionSlot(
+              page: _companionPage(g),
+              onAction: _onCompanion,
+              child: Focus(
+                autofocus: true,
+                onKeyEvent: _onKey,
+                child: CompanionBuilder(
+                  builder: (context, below) => SafeArea(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: SegmentedButton<SudokuLevel>(
+                                segments: [
+                                  for (final l in SudokuLevel.values)
+                                    ButtonSegment(
+                                      value: l,
+                                      label: Text(
+                                        l.label,
+                                        key: ValueKey('sudokuLevel-${l.name}'),
+                                      ),
+                                    ),
+                                ],
+                                selected: {level},
+                                onSelectionChanged: mirroring
+                                    ? null
+                                    : (s) => _switchLevel(s.first),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
+                                    child: _grid(g),
+                                  ),
                                 ),
                               ),
+                            ),
+                            // Dual-screen handhelds: tools and digits below.
+                            if (!below) ...[_tools(), _pad(g)],
+                            if (below) const SizedBox(height: 8),
                           ],
-                          selected: {level},
-                          onSelectionChanged: mirroring
-                              ? null
-                              : (s) => _switchLevel(s.first),
                         ),
                       ),
-                      Expanded(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: AspectRatio(aspectRatio: 1, child: _grid(g)),
-                          ),
-                        ),
-                      ),
-                      _tools(),
-                      _pad(g),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
     );
+  }
+
+  /// Gamepad and keyboard: arrows move the selection, digits enter,
+  /// Backspace/Delete/X erase, Y toggles notes.
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final k = e.logicalKey;
+    final step = switch (k) {
+      LogicalKeyboardKey.arrowUp => -9,
+      LogicalKeyboardKey.arrowDown => 9,
+      LogicalKeyboardKey.arrowLeft => -1,
+      LogicalKeyboardKey.arrowRight => 1,
+      _ => null,
+    };
+    if (step != null) {
+      if (mirroring) return KeyEventResult.handled;
+      final i = selected ?? 40;
+      var r = i ~/ 9, c = i % 9;
+      if (step.abs() == 9) {
+        r = (r + step.sign) % 9;
+      } else {
+        c = (c + step) % 9;
+      }
+      setState(() => selected = r * 9 + c);
+      return KeyEventResult.handled;
+    }
+    final digit = switch (k.keyLabel) {
+      final l when l.length == 1 && '123456789'.contains(l) => int.parse(l),
+      _ => null,
+    };
+    if (digit != null) {
+      _enter(digit);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.backspace ||
+        k == LogicalKeyboardKey.delete ||
+        k == LogicalKeyboardKey.gameButtonX) {
+      _enter(0);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.gameButtonY) {
+      if (!mirroring) setState(() => notesMode = !notesMode);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  CompanionPage _companionPage(SudokuGame g) => CompanionPage(
+    title: 'Sudoku Nr. $number · ${level.label} · ⏱ ${formatClock(seconds)}',
+    grid: CompanionGrid(
+      columns: 3,
+      caption: notesMode ? '✏️ Notizen' : null,
+      cells: [
+        for (var v = 1; v <= 9; v++)
+          CompanionCell(
+            label: '$v',
+            sub: '${g.missing(v)}',
+            action: g.missing(v) == 0 && !notesMode ? null : 'd:$v',
+            marked: selected != null && g.cells[selected!] == v,
+          ),
+      ],
+    ),
+    buttons: [
+      const CompanionButton('undo', '↶ Zurück'),
+      const CompanionButton('erase', '⌫ Löschen'),
+      CompanionButton(
+        'notes',
+        notesMode ? '✏️ Notizen: an' : '✏️ Notizen: aus',
+      ),
+    ],
+    hint: _solved
+        ? 'Gelöst! 🎉'
+        : 'Oben ein Feld wählen (auch mit dem Steuerkreuz), hier die Ziffer',
+  );
+
+  void _onCompanion(String a) {
+    if (mirroring) return;
+    if (a.startsWith('d:')) _enter(int.tryParse(a.substring(2)) ?? 0);
+    if (a == 'erase') _enter(0);
+    if (a == 'undo') _undo();
+    if (a == 'notes') setState(() => notesMode = !notesMode);
   }
 
   Widget _grid(SudokuGame g) {

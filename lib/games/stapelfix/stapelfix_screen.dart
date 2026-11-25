@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'stapelfix_logic.dart';
+import '../../ui/game_layout.dart';
 
 class StapelfixScreen extends StatefulWidget {
   const StapelfixScreen({super.key, required this.setup});
@@ -219,35 +220,54 @@ class _StapelfixScreenState extends State<StapelfixScreen>
       child: Stack(
         children: [
           if (game.dealt)
-            Column(
+            GameLayout(
               children: [
                 TurnBanner(text: _status(), highlight: _myTurn || game.isOver),
                 _opponents(viewer),
-                const SizedBox(height: 8),
-                Text(
-                  'Ziehstapel: ${game.pile.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                // Build piles.
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < 4; i++)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: GestureDetector(
-                            key: ValueKey('sfBuild$i'),
-                            onTap: () => _tapBuild(i),
-                            child: _buildPile(i),
+                Expanded(
+                  // Small screens (AYN Thor's lower screen, landscape
+                  // phones): the piles and the own cards scroll.
+                  child: LayoutBuilder(
+                    builder: (context, c) => SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: c.maxHeight),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              Text(
+                                'Ziehstapel: ${game.pile.length}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              // Build piles.
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    for (var i = 0; i < 4; i++)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        child: GestureDetector(
+                                          key: ValueKey('sfBuild$i'),
+                                          onTap: () => _tapBuild(i),
+                                          child: _buildPile(i),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              if (viewer != null) _ownArea(viewer),
+                            ],
                           ),
                         ),
-                    ],
+                      ),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                if (viewer != null) _ownArea(viewer),
                 if (game.isOver)
                   GameOverActions(
                     setup: setup,

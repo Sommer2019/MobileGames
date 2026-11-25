@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'domino_logic.dart';
+import '../../ui/game_layout.dart';
 
 const dominoColors = [
   Color(0xFFE53935),
@@ -246,7 +247,7 @@ class _DominoScreenState extends State<DominoScreen>
       actions: [if (saveKey != null) RestartButton(onRestart: _restart)],
       child: Stack(
         children: [
-          Column(
+          GameLayout(
             children: [
               TurnBanner(
                 text: _status(),

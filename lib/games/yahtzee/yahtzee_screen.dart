@@ -16,6 +16,8 @@ import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'kniffel_proof.dart';
 import 'yahtzee_logic.dart';
+import '../../core/companion.dart';
+import '../../ui/game_layout.dart';
 
 class YahtzeeScreen extends StatefulWidget {
   const YahtzeeScreen({super.key, required this.setup});
@@ -304,50 +306,136 @@ class _YahtzeeScreenState extends State<YahtzeeScreen>
             onRestart: _aiRunning ? null : () => _rematch(next: false),
           ),
       ],
-      child: Column(
-        children: [
-          TurnBanner(text: _status(), highlight: myTurn || game.isOver),
-          _diceRow(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const ValueKey('rollButton'),
-                    onPressed: myTurn && game.canRoll ? _roll : null,
-                    icon: const Icon(Icons.casino),
-                    label: Text(game.hasRolled ? 'Nochmal würfeln' : 'Würfeln'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (game.isOver)
-            GameOverActions(
-              setup: widget.setup,
-              aiWinBoard: Secrets.on(Secret.luckyComputer)
-                  ? 'kniffel.lucky'
-                  : null,
-              winnerSeats: [
-                for (final i in game.winners()) (i + round) % players,
-              ],
-              onRematch: _rematch,
-            ),
-          if (myTurn && game.canRoll)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '📳 oder Handy schütteln',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          const SizedBox(height: 8),
-          Expanded(child: _sheet()),
-        ],
+      child: CompanionSlot(
+        page: _companionPage(),
+        onAction: _onCompanion,
+        child: CompanionBuilder(
+          builder: (context, below) => below ? _diceOnly() : _withSheet(),
+        ),
       ),
     );
   }
+
+  /// Dual-screen handhelds: dice on top, the score sheet on the screen
+  /// below (like a paper block next to the dice cup).
+  Widget _diceOnly() => Column(
+    children: [
+      TurnBanner(text: _status(), highlight: myTurn || game.isOver),
+      Expanded(
+        child: Center(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [..._controls(), const SizedBox(height: 8)],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _withSheet() => GameLayout(
+    children: [
+      TurnBanner(text: _status(), highlight: myTurn || game.isOver),
+      ..._controls(),
+      const SizedBox(height: 8),
+      Expanded(child: _sheet()),
+    ],
+  );
+
+  void _onCompanion(String a) {
+    if (a == 'roll' && myTurn && game.canRoll) _roll();
+    if (a.startsWith('score:')) {
+      final c = KniffelCategory.values.asNameMap()[a.substring(6)];
+      if (c != null && myTurn && game.canScore(c)) _score(c);
+    }
+  }
+
+  CompanionPage _companionPage() {
+    final current = game.currentPlayer;
+    final selectable = myTurn && game.hasRolled;
+    CompanionRow cat(KniffelCategory c) => CompanionRow(
+      [
+        c.label,
+        for (var p = 0; p < players; p++)
+          switch (game.sheets[p].entries[c]) {
+            final v? => '$v',
+            null when p == current && selectable && game.canScore(c) =>
+              '${game.sheets[p].scoreOf(c, game.dice)}'
+                  '${game.sheets[p].earnsKniffelBonus(game.dice) ? ' +100' : ''}',
+            null => '',
+          },
+      ],
+      actions: {
+        if (selectable && game.canScore(c)) current + 1: 'score:${c.name}',
+      },
+    );
+    CompanionRow sum(String label, int Function(int p) v) => CompanionRow([
+      label,
+      for (var p = 0; p < players; p++) '${v(p)}',
+    ], bold: true);
+    return CompanionPage(
+      title: 'Würfelkönig – Block',
+      table: CompanionTable(
+        columns: ['', for (var p = 0; p < players; p++) playerName(p)],
+        highlight: game.isOver ? null : current + 1,
+        rows: [
+          for (final c in KniffelCategory.values.where((c) => c.isUpper))
+            cat(c),
+          sum('Bonus (ab 63)', (p) => game.sheets[p].bonus),
+          for (final c in KniffelCategory.values.where((c) => !c.isUpper))
+            cat(c),
+          sum('Kniffel-Bonus', (p) => game.sheets[p].kniffelBonus),
+          sum('Gesamt', (p) => game.sheets[p].total),
+        ],
+      ),
+      buttons: [
+        if (myTurn && game.canRoll)
+          CompanionButton(
+            'roll',
+            game.hasRolled ? '🎲 Nochmal würfeln' : '🎲 Würfeln',
+          ),
+      ],
+      hint: selectable ? 'Tippe ein farbiges Feld zum Eintragen' : null,
+    );
+  }
+
+  List<Widget> _controls() => [
+    _diceRow(),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              key: const ValueKey('rollButton'),
+              onPressed: myTurn && game.canRoll ? _roll : null,
+              icon: const Icon(Icons.casino),
+              label: Text(game.hasRolled ? 'Nochmal würfeln' : 'Würfeln'),
+            ),
+          ),
+        ],
+      ),
+    ),
+    if (game.isOver)
+      GameOverActions(
+        setup: widget.setup,
+        aiWinBoard: Secrets.on(Secret.luckyComputer) ? 'kniffel.lucky' : null,
+        winnerSeats: [for (final i in game.winners()) (i + round) % players],
+        onRematch: _rematch,
+      ),
+    if (myTurn && game.canRoll)
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          '📳 oder Handy schütteln',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+  ];
 
   Widget _diceRow() {
     return Padding(

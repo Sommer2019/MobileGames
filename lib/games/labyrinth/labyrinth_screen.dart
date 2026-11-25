@@ -8,12 +8,15 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/gamepad.dart';
 import '../../core/leaderboard.dart';
 import '../../core/mirror.dart';
+import '../../core/platform_caps.dart';
 import '../../core/secrets.dart';
 import '../../core/sound.dart';
 import '../../core/sphere.dart';
 import '../../ui/leaderboard_screen.dart';
+import '../../core/companion.dart';
 import 'labyrinth_logic.dart';
 
 /// Level numbers with a value under [prefix] (best time or a flag).
@@ -205,6 +208,15 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   Duration _last = Duration.zero;
   double tiltX = 0, tiltY = 0;
 
+  /// Tilt from a gamepad: left stick (analog) or D-pad, screen directions.
+  Offset _stick = Offset.zero;
+  final Set<LogicalKeyboardKey> _arrows = {};
+  StreamSubscription<StickState>? _pad;
+
+  /// The upright board lies sideways on wide screens (handhelds such as the
+  /// AYN Thor are landscape), so it is as big as possible.
+  bool _rotated = false;
+
   /// Latest sensor reading and the holding position that counts as level
   /// (saved, so a comfortable angle can be the neutral one).
   double _rawX = 0, _rawY = 0;
@@ -246,10 +258,21 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
   @override
   void initState() {
     super.initState();
+    // The tilt sensor follows the device's natural orientation: portrait on
+    // phones, landscape on handhelds – rotating the screen would mix up the
+    // directions.
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    naturalLandscape().then((landscape) {
+      if (landscape && mounted) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+        ]);
+      }
+    });
     loadCalibration();
     _ticker = createTicker(_tick)..start();
     if (mirroring) return;
+    _pad = Gamepad.I.sticks.listen((s) => _stick = s.left);
     try {
       _accel =
           accelerometerEventStream(
@@ -273,6 +296,7 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _ticker.dispose();
     _accel?.cancel();
+    _pad?.cancel();
     super.dispose();
   }
 
@@ -283,7 +307,10 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
     _last = now;
     if (dt <= 0) return;
     final before = game.state;
-    game.step(min(dt, 0.05), tiltX * _mirror, tiltY * _mirror);
+    final t = _screenTilt;
+    // Screen directions to board directions (board turned clockwise).
+    final (bx, by) = _rotated ? (t.dy, -t.dx) : (t.dx, t.dy);
+    game.step(min(dt, 0.05), bx * _mirror, by * _mirror);
     final hit = game.takeImpact();
     if (hit > 0.08) {
       Sound.play(
@@ -307,6 +334,30 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
       }
     }
     setState(() {});
+  }
+
+  /// The tilt in screen directions: a gamepad in use wins over the sensor.
+  Offset get _screenTilt {
+    if (_stick != Offset.zero) return _stick;
+    if (_arrows.isNotEmpty) {
+      double has(LogicalKeyboardKey k) => _arrows.contains(k) ? 0.7 : 0;
+      return Offset(
+        has(LogicalKeyboardKey.arrowRight) - has(LogicalKeyboardKey.arrowLeft),
+        has(LogicalKeyboardKey.arrowDown) - has(LogicalKeyboardKey.arrowUp),
+      );
+    }
+    return Offset(tiltX, tiltY);
+  }
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    final k = e.logicalKey;
+    if (!PadKeys.dpad.contains(k)) return KeyEventResult.ignored;
+    if (e is KeyUpEvent) {
+      _arrows.remove(k);
+    } else {
+      _arrows.add(k);
+    }
+    return KeyEventResult.handled;
   }
 
   Future<void> _won() async {
@@ -375,95 +426,147 @@ class _LabyrinthScreenState extends State<LabyrinthScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF3E2723),
-      appBar: AppBar(
-        title: Text('Level ${levelIndex + 1}: ${game.level.name}'),
-        actions: [
-          IconButton(
-            key: const ValueKey('restart'),
-            tooltip: 'Level neu starten',
-            icon: const Icon(Icons.restart_alt),
-            onPressed: () => setState(() {
-              game.reset();
-              falls = 0;
-            }),
-          ),
-          PopupMenuButton<bool>(
-            key: const ValueKey('calibrate'),
-            tooltip: 'Kalibrieren',
-            icon: const Icon(Icons.screen_rotation_alt),
-            onSelected: (reset) => _calibrate(reset: reset),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: false,
-                child: Text('Aktuelle Haltung als waagerecht'),
-              ),
-              PopupMenuItem(
-                value: true,
-                child: Text('Kalibrierung zurücksetzen'),
-              ),
-            ],
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text('${game.elapsed.toStringAsFixed(1)} s'),
+    return CompanionSlot(
+      page: _companionPage(),
+      onAction: _onCompanion,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF3E2723),
+        appBar: AppBar(
+          title: Text('Level ${levelIndex + 1}: ${game.level.name}'),
+          actions: [
+            IconButton(
+              key: const ValueKey('restart'),
+              tooltip: 'Level neu starten',
+              icon: const Icon(Icons.restart_alt),
+              onPressed: () => setState(() {
+                game.reset();
+                falls = 0;
+              }),
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: boardWidth / boardHeight,
-                  child: GestureDetector(
-                    // Fallback for devices without accelerometer: drag to tilt.
-                    onPanStart: (d) => _dragStart = d.localPosition,
-                    onPanUpdate: (d) {
-                      if (_sensorSeen && !kDebugMode) return;
-                      final s = _dragStart;
-                      if (s == null) return;
-                      tiltX = ((d.localPosition.dx - s.dx) / 120).clamp(
-                        -1.0,
-                        1.0,
-                      );
-                      tiltY = ((d.localPosition.dy - s.dy) / 120).clamp(
-                        -1.0,
-                        1.0,
+            PopupMenuButton<bool>(
+              key: const ValueKey('calibrate'),
+              tooltip: 'Kalibrieren',
+              icon: const Icon(Icons.screen_rotation_alt),
+              onSelected: (reset) => _calibrate(reset: reset),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: false,
+                  child: Text('Aktuelle Haltung als waagerecht'),
+                ),
+                PopupMenuItem(
+                  value: true,
+                  child: Text('Kalibrierung zurücksetzen'),
+                ),
+              ],
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text('${game.elapsed.toStringAsFixed(1)} s'),
+              ),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Focus(
+            autofocus: true,
+            onKeyEvent: _onKey,
+            child: Column(
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      _rotated = c.maxWidth > c.maxHeight * 1.15;
+                      return Center(
+                        child: AspectRatio(
+                          aspectRatio: _rotated
+                              ? boardHeight / boardWidth
+                              : boardWidth / boardHeight,
+                          child: GestureDetector(
+                            // Fallback for devices without accelerometer: drag to tilt.
+                            onPanStart: (d) => _dragStart = d.localPosition,
+                            onPanUpdate: (d) {
+                              if (_sensorSeen && !kDebugMode) return;
+                              final s = _dragStart;
+                              if (s == null) return;
+                              tiltX = ((d.localPosition.dx - s.dx) / 120).clamp(
+                                -1.0,
+                                1.0,
+                              );
+                              tiltY = ((d.localPosition.dy - s.dy) / 120).clamp(
+                                -1.0,
+                                1.0,
+                              );
+                            },
+                            onPanEnd: (_) {
+                              if (_sensorSeen && !kDebugMode) return;
+                              tiltX = 0;
+                              tiltY = 0;
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: RotatedBox(
+                                quarterTurns: _rotated ? 1 : 0,
+                                child: CustomPaint(
+                                  painter: _BoardPainter(game),
+                                  size: Size.infinite,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       );
                     },
-                    onPanEnd: (_) {
-                      if (_sensorSeen && !kDebugMode) return;
-                      tiltX = 0;
-                      tiltY = 0;
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: CustomPaint(
-                        painter: _BoardPainter(game),
-                        size: Size.infinite,
-                      ),
-                    ),
                   ),
                 ),
-              ),
+                if (!_sensorSeen && !Gamepad.I.seen)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Kein Bewegungssensor gefunden – ziehe mit dem Finger oder '
+                      'nimm Stick bzw. Steuerkreuz zum Kippen.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+              ],
             ),
-            if (!_sensorSeen)
-              const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  'Kein Bewegungssensor gefunden – ziehe mit dem Finger zum Kippen.',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  /// Dual-screen handhelds: time and buttons on the screen below.
+  CompanionPage _companionPage() => CompanionPage(
+    title: 'Level ${levelIndex + 1}: ${game.level.name}',
+    table: CompanionTable(
+      columns: const ['', ''],
+      rows: [
+        CompanionRow([
+          'Zeit',
+          '${game.elapsed.toStringAsFixed(1)} s',
+        ], bold: true),
+        CompanionRow(['Abstürze', '$falls']),
+      ],
+    ),
+    buttons: mirroring
+        ? const []
+        : const [
+            CompanionButton('restart', '↻ Neu starten'),
+            CompanionButton('calibrate', '📐 Haltung = waagerecht'),
+          ],
+    hint: 'Neigen, linker Stick oder Steuerkreuz kippt das Brett',
+  );
+
+  void _onCompanion(String a) {
+    if (mirroring) return;
+    if (a == 'restart') {
+      setState(() {
+        game.reset();
+        falls = 0;
+      });
+    }
+    if (a == 'calibrate') _calibrate();
   }
 }
 

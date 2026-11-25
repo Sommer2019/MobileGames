@@ -10,6 +10,7 @@ import '../../core/sound.dart';
 import '../../ui/play_setup.dart';
 import '../../ui/bot_speed.dart';
 import 'checkers_logic.dart';
+import '../../ui/game_layout.dart';
 
 class CheckersScreen extends StatefulWidget {
   const CheckersScreen({super.key, required this.setup});
@@ -218,7 +219,7 @@ class _CheckersScreenState extends State<CheckersScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(text: _status(), highlight: _canMove || game.isOver),
           Expanded(

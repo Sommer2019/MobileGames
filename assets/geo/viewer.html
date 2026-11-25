@@ -561,6 +561,18 @@ async function libreMap(onLoad) {
   }
 }
 
+/// Line width growing with the zoom: thin but visible far out, easy to hit
+/// close up.
+const LINE_WIDTH = ['interpolate', ['linear'], ['zoom'], 2, 1, 6, 1.5, 10, 2, 14, 3, 17, 5];
+
+/// A dark halo under the coloured lines, so they stand out on any map.
+function casing(map, id, source, layer, minzoom) {
+  map.addLayer({ id: id + '-case', type: 'line', source, 'source-layer': layer, minzoom,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#000', 'line-opacity': 0.35,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 2, 2.5, 6, 3, 10, 3.5, 14, 5, 17, 7] } });
+}
+
 function addCoverage(map) {
   if (cfg.sources.includes('mapillary')) {
     map.addSource('mly', {
@@ -568,22 +580,40 @@ function addCoverage(map) {
       tiles: ['https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token='
         + encodeURIComponent(cfg.keys.mapillary)],
     });
+    // Far out Mapillary has no lines, only sample points ("overview",
+    // zoom 0–5): shown as small dots so the covered areas stay visible.
+    map.addLayer({ id: 'mly-overview', type: 'circle', source: 'mly', 'source-layer': 'overview',
+      maxzoom: 6, paint: { 'circle-color': COLORS.mapillary, 'circle-opacity': 0.7,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 1.2, 5, 2.5] } });
+    casing(map, 'mly-seq', 'mly', 'sequence', 6);
     map.addLayer({ id: 'mly-seq', type: 'line', source: 'mly', 'source-layer': 'sequence',
-      paint: { 'line-color': COLORS.mapillary, 'line-width': 2, 'line-opacity': 0.8 } });
+      minzoom: 6, layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': COLORS.mapillary, 'line-width': LINE_WIDTH, 'line-opacity': 0.9 } });
     map.addLayer({ id: 'mly-img', type: 'circle', source: 'mly', 'source-layer': 'image',
       minzoom: 14, paint: { 'circle-color': COLORS.mapillary, 'circle-radius': 3 } });
   }
   if (cfg.sources.includes('panoramax')) {
     map.addSource('pnx', { type: 'vector', maxzoom: 15, tiles: [PNX + '/map/{z}/{x}/{y}.mvt'] });
+    // Far out: squares, the more pictures the stronger.
     map.addLayer({ id: 'pnx-grid', type: 'fill', source: 'pnx', 'source-layer': 'grid',
-      paint: { 'fill-color': COLORS.panoramax, 'fill-opacity': 0.3 } });
+      paint: { 'fill-color': COLORS.panoramax, 'fill-outline-color': COLORS.panoramax,
+        'fill-opacity': ['interpolate', ['linear'],
+          ['to-number', ['coalesce', ['get', 'coef'], 0.5], 0.5], 0, 0.2, 1, 0.65] } });
+    casing(map, 'pnx-seq', 'pnx', 'sequences', 0);
     map.addLayer({ id: 'pnx-seq', type: 'line', source: 'pnx', 'source-layer': 'sequences',
-      paint: { 'line-color': COLORS.panoramax, 'line-width': 2, 'line-opacity': 0.8 } });
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': COLORS.panoramax, 'line-width': LINE_WIDTH, 'line-opacity': 0.9 } });
     map.addLayer({ id: 'pnx-pic', type: 'circle', source: 'pnx', 'source-layer': 'pictures',
       minzoom: 15, paint: { 'circle-color': COLORS.panoramax, 'circle-radius': 3 } });
   }
   if (cfg.sources.includes('kartaview')) {
-    // Picture tiles of the drives; slow when zoomed far out.
+    // Picture tiles of the drives. Far out (zoom 8–11) coarser tiles are
+    // stretched (512 px: one zoom level less), so the lines show up without
+    // waiting for many slow tiles; close up the sharp ones.
+    map.addSource('kv-far', { type: 'raster', tileSize: 512, minzoom: 7, maxzoom: 10,
+      tiles: [KV + '/sequence/tiles/{x}/{y}/{z}.png'] });
+    map.addLayer({ id: 'kv-far', type: 'raster', source: 'kv-far', minzoom: 8, maxzoom: 11,
+      paint: { 'raster-opacity': 0.85, 'raster-resampling': 'linear' } });
     map.addSource('kv', { type: 'raster', tileSize: 256, minzoom: 11, maxzoom: 18,
       tiles: [KV + '/sequence/tiles/{x}/{y}/{z}.png'] });
     map.addLayer({ id: 'kv', type: 'raster', source: 'kv', minzoom: 11 });
@@ -592,7 +622,7 @@ function addCoverage(map) {
 
 function sourceLegend() {
   const names = { mapillary: 'Grün: Mapillary', panoramax: 'Orange: Panoramax',
-    kartaview: 'Lila: KartaView (nah ran)' };
+    kartaview: 'Lila: KartaView (ab Stadtebene)' };
   return cfg.sources.map(s => names[s]).filter(Boolean).join(' · ');
 }
 

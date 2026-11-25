@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'companion/companion_app.dart';
 import 'core/background.dart';
+import 'core/companion.dart';
 import 'core/chat.dart';
 import 'core/motion_permission.dart';
 import 'core/home_widgets.dart';
@@ -18,9 +20,19 @@ import 'core/services.dart';
 import 'core/sound.dart';
 import 'games/registry.dart';
 import 'ui/friends_screen.dart';
+import 'ui/game_layout.dart';
+import 'ui/gamepad_cursor.dart';
 import 'ui/home_screen.dart';
 import 'ui/watchers_overlay.dart';
 import 'ui/lobby_screen.dart';
+
+/// The lower screen of dual-screen handhelds (AYN Thor): started by
+/// MainActivity in an engine of its own.
+@pragma('vm:entry-point')
+void companionMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const CompanionApp());
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +63,7 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
   @override
   void initState() {
     super.initState();
+    Companion.I.init();
     if (Services.isReady) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Notifications.I.init();
@@ -259,10 +272,15 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      builder: (context, child) => Listener(
-        // Web (iOS Safari): motion sensors need a permission asked on a tap.
-        onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
-        child: SystemBarInsets(child: WatchersOverlay(child: child!)),
+      builder: (context, child) => GamepadCursor(
+        onBack: () => _navigator.currentState?.maybePop(),
+        child: Listener(
+          // Web (iOS Safari): motion sensors need a permission asked on a tap.
+          onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
+          child: SystemBarInsets(
+            child: CompactTheme(child: WatchersOverlay(child: child!)),
+          ),
+        ),
       ),
       home: const HomeScreen(),
     );
@@ -299,6 +317,26 @@ class SystemBarInsets extends StatelessWidget {
           child: child,
         ),
       ),
+    );
+  }
+}
+
+/// Landscape phones and handhelds (AYN Thor, 16:9): little height, so app
+/// bars are lower and everything a bit denser.
+class CompactTheme extends StatelessWidget {
+  const CompactTheme({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isShortScreen(context)) return child;
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(toolbarHeight: 44),
+        visualDensity: VisualDensity.compact,
+      ),
+      child: child,
     );
   }
 }

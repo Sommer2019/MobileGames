@@ -11,6 +11,7 @@ import '../../core/sound.dart';
 import '../../ui/bot_turns.dart';
 import '../../ui/play_setup.dart';
 import 'boxes_logic.dart';
+import '../../ui/game_layout.dart';
 
 const boxColors = [
   Color(0xFFE53935),
@@ -150,7 +151,7 @@ class _BoxesScreenState extends State<BoxesScreen>
         if (saveKey != null)
           RestartButton(onRestart: () => _reset(send: false, swap: false)),
       ],
-      child: Column(
+      child: GameLayout(
         children: [
           TurnBanner(
             text: _status(),
