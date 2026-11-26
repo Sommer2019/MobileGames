@@ -21,7 +21,8 @@ Würfelkönig allein, Darts allein, Billard allein): eigene Top 10, Freunde und 
 Solitär zählt Punkte nach den klassischen Windows-Regeln inkl. Zeitbonus.
 🔊 **Sounds** (Kugelklacken, Würfel, Karten, Spielsteine, Sieg …) – selbst erzeugt mit
 `tool/make_sounds.py`, abschaltbar oben auf der Startseite.
-🎮 Und irgendwo steckt ein Geheimnis für Kenner alter Konsolen …
+🎮 Und irgendwo steckt ein Geheimnis für Kenner alter Konsolen … (auf Handhelds mit Controller
+sogar ganz original.)
 
 **Widgets** (Android und iOS 17+): 🎲 *Würfel* – 1–6 Würfel direkt auf dem Startbildschirm,
 antippen zum Würfeln (iOS: Anzahl über „Widget bearbeiten“; 📳 öffnet den Würfelbecher, dort
@@ -48,7 +49,9 @@ Steuerkreuz das Feld. *Schiffe versenken*: eigene Flotte unten, oben das ganze M
 *Snake, Kugellabyrinth, Solitär, Mahjong*: Punkte/Zeit und Knöpfe (Start/Pause, Neu, Tipp,
 Rückgängig) unten. *Letzte Karte, Stapelfix, Domino*: die eigene Hand unten (spielbare Karten
 hell, antippen zum Ablegen; Ziehen/Passen), der Tisch oben. *Schach*: Zugliste und geschlagene
-Figuren unten. *Online-Spiele*: der Chat mit Schnellantworten unten. Andere Spiele zeigen unten,
+Figuren unten. *Online-Spiele*: der Chat mit Schnellantworten unten. *Wo bin ich?*: oben nur das Straßenbild, unten
+die Weltkarte zum Tippen (Pin setzen, „Tipp abgeben“), nach der Runde dort Lösung, alle Tipps und
+Punkte (Karte: © OpenStreetMap, © CARTO). Andere Spiele zeigen unten,
 wer dran ist, ohne Spiel eine Controller-Übersicht. Abschaltbar über das Symbol oben auf der Startseite. Wird die App
 versehentlich auf dem unteren Bildschirm gestartet, bietet sie den Wechsel nach oben an
 (auch später über ⤒ auf der Startseite).

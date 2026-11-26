@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/companion.dart';
+import 'companion_map.dart';
 
 /// The app on the lower screen of dual-screen handhelds (AYN Thor). It runs
 /// in its own engine without plugins and only shows what the game on the
@@ -106,6 +107,7 @@ class _CompanionAppState extends State<CompanionApp> {
       p.status == null &&
       p.table == null &&
       p.grid == null &&
+      p.map == null &&
       p.buttons.isEmpty;
 }
 
@@ -158,6 +160,14 @@ class CompanionPageView extends StatelessWidget {
                 ),
               ),
             ),
+          if (page.map case final map?)
+            Expanded(
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: CompanionMapView(map: map, onAction: onAction),
+              ),
+            ),
           if (page.grid case final grid?)
             Expanded(
               flex: table == null ? 1 : 2,
@@ -168,7 +178,7 @@ class CompanionPageView extends StatelessWidget {
               flex: 3,
               child: _SheetView(table: table, onAction: onAction),
             )
-          else if (page.grid == null)
+          else if (page.grid == null && page.map == null)
             const Spacer(),
           if (page.buttons.isNotEmpty) ...[
             if (page.buttonsTitle != null)

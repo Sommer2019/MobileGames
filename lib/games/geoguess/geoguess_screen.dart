@@ -14,6 +14,7 @@ import '../geo/street_view.dart';
 import 'geoguess_logic.dart';
 import 'my_places.dart';
 import 'my_places_screen.dart';
+import '../../core/companion.dart';
 import '../../ui/game_layout.dart';
 
 class GeoGuessScreen extends StatefulWidget {
@@ -377,7 +378,7 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
 
   // ------------------------------------------------------- round, reveal
 
-  Widget _roundBar() {
+  Widget _roundBar([bool below = false]) {
     final left = game.timeLeft(_now());
     final guessed = [
       for (var p = 0; p < players; p++)
@@ -399,9 +400,16 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
               Expanded(
                 child: FilledButton.icon(
                   key: const ValueKey('ggGuess'),
-                  onPressed: canAct && !mine ? _guess : null,
+                  // Dual-screen handhelds: guessed on the map below.
+                  onPressed: canAct && !mine && !below ? _guess : null,
                   icon: const Icon(Icons.place),
-                  label: Text(mine ? 'Getippt – warte …' : 'Tipp abgeben'),
+                  label: Text(
+                    mine
+                        ? 'Getippt – warte …'
+                        : below
+                        ? 'Unten auf der Karte tippen'
+                        : 'Tipp abgeben',
+                  ),
                 ),
               ),
               // The picture does not load or shows nothing: another one.
@@ -568,43 +576,142 @@ class _GeoGuessScreenState extends State<GeoGuessScreen> with GameMirror {
     return OnlineGameFrame(
       setup: setup,
       title: 'Wo bin ich?',
-      child: GameLayout(
-        children: [
-          if (playing)
-            TurnBanner(
-              text:
-                  'Runde ${game.round + 1}/${game.rounds} · '
-                  '${game.total(me)} Punkte',
-              highlight: game.phase == GuessPhase.round && !game.hasGuessed(me),
+      child: CompanionSlot(
+        page: _companionPage() ?? const CompanionPage(),
+        onAction: _onCompanion,
+        child: GameLayout(
+          children: [
+            if (playing)
+              TurnBanner(
+                text:
+                    'Runde ${game.round + 1}/${game.rounds} · '
+                    '${game.total(me)} Punkte',
+                highlight:
+                    game.phase == GuessPhase.round && !game.hasGuessed(me),
+              ),
+            Expanded(
+              // Keeps the page when banner and bars come and go.
+              key: const ValueKey('ggStage'),
+              child: Stack(
+                children: [
+                  // Always there, so the host can look for the next place.
+                  Positioned.fill(
+                    child:
+                        widget.viewBuilder?.call() ??
+                        StreetView(
+                          controller: _view,
+                          sources: game.sources,
+                          mode: StreetViewMode.guess,
+                          // Setup and results lie on top of it.
+                          interactive: playing,
+                        ),
+                  ),
+                  if (game.phase == GuessPhase.setup)
+                    Positioned.fill(child: _setup()),
+                  if (game.phase == GuessPhase.results)
+                    Positioned.fill(child: _results()),
+                ],
+              ),
             ),
-          Expanded(
-            // Keeps the page when banner and bars come and go.
-            key: const ValueKey('ggStage'),
-            child: Stack(
-              children: [
-                // Always there, so the host can look for the next place.
-                Positioned.fill(
-                  child:
-                      widget.viewBuilder?.call() ??
-                      StreetView(
-                        controller: _view,
-                        sources: game.sources,
-                        mode: StreetViewMode.guess,
-                        // Setup and results lie on top of it.
-                        interactive: playing,
-                      ),
-                ),
-                if (game.phase == GuessPhase.setup)
-                  Positioned.fill(child: _setup()),
-                if (game.phase == GuessPhase.results)
-                  Positioned.fill(child: _results()),
-              ],
-            ),
-          ),
-          if (game.phase == GuessPhase.round) _roundBar(),
-          if (game.phase == GuessPhase.reveal) _revealBar(),
-        ],
+            if (game.phase == GuessPhase.round)
+              CompanionBuilder(builder: (context, below) => _roundBar(below)),
+            if (game.phase == GuessPhase.reveal) _revealBar(),
+          ],
+        ),
       ),
     );
   }
+
+  /// Dual-screen handhelds: the picture fills the screen on top, the map
+  /// to guess on is the screen below (tap, then "Tipp abgeben"); after the
+  /// round it shows where the picture was and everybody's guesses.
+  CompanionPage? _companionPage() {
+    final r = game.round;
+    switch (game.phase) {
+      case GuessPhase.round:
+        final mine = game.hasGuessed(me);
+        final left = game.timeLeft(_now());
+        return CompanionPage(
+          title: 'Wo bin ich? · Runde ${r + 1}/${game.rounds}',
+          map: CompanionMap(
+            id: 'r$r',
+            pickAction: canAct && !mine ? 'guess' : null,
+          ),
+          hint: [
+            if (mine) 'Getippt – warte auf die anderen …',
+            if (left != null) '⏱ ${_clock(left)}',
+          ].join('   ').ifEmpty(null),
+        );
+      case GuessPhase.reveal:
+        final v = game.views[r];
+        final order = [for (var p = 0; p < players; p++) p]
+          ..sort(
+            (a, b) => game.roundPoints(r, b).compareTo(game.roundPoints(r, a)),
+          );
+        final country = countryByCode[v.country]?.name;
+        return CompanionPage(
+          title: country == null ? 'Hier war es' : '📍 $country',
+          map: CompanionMap(
+            id: 'r$r-result',
+            lineTo: 0,
+            pins: [
+              CompanionPin(v.lat, v.lng, 'Hier', color: 0xFF2E7D32),
+              for (final MapEntry(:key, :value)
+                  in (game.guesses[r] ?? {}).entries)
+                CompanionPin(
+                  value.$1,
+                  value.$2,
+                  setup.seatName(key),
+                  color: key == me ? 0xFF1E88E5 : 0xFFE53935,
+                ),
+            ],
+          ),
+          table: CompanionTable(
+            columns: const ['', 'Entfernung', 'Punkte'],
+            rows: [
+              for (final p in order)
+                CompanionRow([
+                  setup.seatName(p),
+                  _dist(r, p),
+                  '+${game.roundPoints(r, p)}',
+                ], bold: p == me),
+            ],
+          ),
+        );
+      case GuessPhase.results:
+        final order = [for (var p = 0; p < players; p++) p]
+          ..sort((a, b) => game.total(b).compareTo(game.total(a)));
+        return CompanionPage(
+          title: 'Wo bin ich? – Ergebnis',
+          table: CompanionTable(
+            columns: const ['', 'Punkte'],
+            rows: [
+              for (final p in order)
+                CompanionRow([
+                  setup.seatName(p),
+                  '${game.total(p)}',
+                ], bold: p == me),
+            ],
+          ),
+        );
+      default:
+        return null;
+    }
+  }
+
+  void _onCompanion(String a) {
+    if (!a.startsWith('guess:')) return;
+    if (!canAct || game.phase != GuessPhase.round || game.hasGuessed(me)) {
+      return;
+    }
+    final parts = a.substring(6).split(',');
+    final lat = double.tryParse(parts.first);
+    final lng = parts.length > 1 ? double.tryParse(parts[1]) : null;
+    if (lat == null || lng == null) return;
+    _act(['guess', game.round, lat, lng]);
+  }
+}
+
+extension on String {
+  String? ifEmpty(String? other) => isEmpty ? other : this;
 }
