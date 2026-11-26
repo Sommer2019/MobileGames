@@ -62,13 +62,15 @@ class _GamepadCursorState extends State<GamepadCursor>
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_onKey);
+    // Early: before the focused widget, so a handled key (B, A on the
+    // pointer) does not also press the focused button.
+    FocusManager.instance.addEarlyKeyEventHandler(_onKey);
     _sub = (widget.sticks ?? Gamepad.I.sticks).listen(_onSticks);
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
+    FocusManager.instance.removeEarlyKeyEventHandler(_onKey);
     _sub?.cancel();
     _hide?.cancel();
     _ticker.dispose();
@@ -172,7 +174,10 @@ class _GamepadCursorState extends State<GamepadCursor>
     return node.focusInDirection(dir);
   }
 
-  bool _onKey(KeyEvent e) {
+  KeyEventResult _onKey(KeyEvent e) =>
+      _handles(e) ? KeyEventResult.handled : KeyEventResult.ignored;
+
+  bool _handles(KeyEvent e) {
     final k = e.logicalKey;
     if (_leaveTextField(e)) return true;
     if (PadKeys.b.contains(k)) {
