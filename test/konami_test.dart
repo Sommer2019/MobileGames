@@ -138,6 +138,48 @@ void main() {
     expect(unlocked, 1);
   });
 
+  testWidgets('on a gamepad: the original ↑↑↓↓←→←→ B A Start, A opens '
+      'nothing', (tester) async {
+    var unlocked = 0, opened = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KonamiDetector(
+          batteryStates: const Stream.empty(),
+          onUnlocked: () => unlocked++,
+          child: Scaffold(
+            body: Column(
+              children: [
+                for (var i = 0; i < 3; i++)
+                  TextButton(
+                    onPressed: () => opened++,
+                    child: Text('Spiel $i'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    const k = LogicalKeyboardKey.arrowUp, d = LogicalKeyboardKey.arrowDown;
+    const l = LogicalKeyboardKey.arrowLeft, r = LogicalKeyboardKey.arrowRight;
+    // The D-pad moves the focus onto the buttons on the way.
+    for (final key in [k, k, d, d, l, r, l, r]) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+    }
+    expect(FocusManager.instance.primaryFocus?.context?.widget, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.gameButtonB);
+    await tester.sendKeyEvent(LogicalKeyboardKey.gameButtonA);
+    await tester.pump();
+    expect(opened, 0, reason: 'A belongs to the code');
+    await tester.sendKeyEvent(LogicalKeyboardKey.gameButtonStart);
+    expect(unlocked, 1);
+    // Outside the code A presses the focused button as usual.
+    await tester.sendKeyEvent(LogicalKeyboardKey.gameButtonA);
+    await tester.pump();
+    expect(opened, 1);
+  });
+
   testWidgets('easy mode unlocks all levels in the list', (tester) async {
     SharedPreferences.setMockInitialValues({'labyrinth.cheat': true});
     Secrets.I.reset();

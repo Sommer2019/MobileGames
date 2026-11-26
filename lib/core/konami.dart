@@ -37,7 +37,8 @@ bool isKonamiText(String text) {
   return s == 'uuddlrlrba' || s == 'uuddlrlr';
 }
 
-/// The secret: swipe ↑ ↑ ↓ ↓ ← → ← →, volume up, volume down, plug in.
+/// The secret: swipe ↑ ↑ ↓ ↓ ← → ← →, volume up, volume down, plug in –
+/// or the original with a gamepad: ↑ ↑ ↓ ↓ ← → ← → B A Start.
 /// With [steps] = [arenaSequence] it is the second code (Bot-Arena).
 class KonamiCode {
   KonamiCode({
@@ -209,7 +210,7 @@ class _KonamiDetectorState extends State<KonamiDetector> {
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_onKey);
+    FocusManager.instance.addEarlyKeyEventHandler(_onKey);
     // Volume keys and charger are not visible in the browser or on a
     // computer.
     if ((kIsWeb || isDesktop) && widget.batteryStates == null) return;
@@ -239,13 +240,18 @@ class _KonamiDetectorState extends State<KonamiDetector> {
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
+    FocusManager.instance.removeEarlyKeyEventHandler(_onKey);
     _volume?.cancel();
     _battery?.cancel();
     super.dispose();
   }
 
-  bool _onKey(KeyEvent e) {
+  /// Runs before the focused widget: the buttons that finish the code are
+  /// kept from it (see [_handles]).
+  KeyEventResult _onKey(KeyEvent e) =>
+      _handles(e) ? KeyEventResult.handled : KeyEventResult.ignored;
+
+  bool _handles(KeyEvent e) {
     if (e is! KeyDownEvent) return false;
     final k = e.logicalKey;
     if (k == LogicalKeyboardKey.audioVolumeUp) {
@@ -253,12 +259,24 @@ class _KonamiDetectorState extends State<KonamiDetector> {
     } else if (k == LogicalKeyboardKey.audioVolumeDown) {
       _volumeInput(KonamiInput.volumeDown);
     } else if (keyboardInputs[k] case final input?) {
-      // On a computer: the classic code ↑↑↓↓←→←→ B A Enter.
+      // On a computer: the classic code ↑↑↓↓←→←→ B A Enter; on a gamepad
+      // or handheld the original ↑↑↓↓←→←→ B A Start.
+      final finale =
+          _expectsFinale(_code, input) || _expectsFinale(_arena, input);
       _input(input);
+      // B, A and Start right after the arrows belong to the code: A must
+      // not also open the game the D-pad happened to stop on.
+      return finale;
     }
     // Never swallow the key: the volume should still change.
     return false;
   }
+
+  /// [input] is the next step of [code] and one of its last three (the
+  /// buttons after the arrows).
+  static bool _expectsFinale(KonamiCode code, KonamiInput input) =>
+      code.progress >= code.steps.length - 3 &&
+      code.steps[code.progress] == input;
 
   /// A button press may arrive both as key and as volume change.
   void _volumeInput(KonamiInput input) {

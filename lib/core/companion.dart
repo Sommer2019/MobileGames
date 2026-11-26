@@ -150,6 +150,71 @@ class CompanionGrid {
   );
 }
 
+/// A marker on a [CompanionMap].
+class CompanionPin {
+  const CompanionPin(this.lat, this.lng, this.label, {this.color});
+  final double lat;
+  final double lng;
+  final String label;
+  final int? color;
+
+  Map<String, dynamic> toJson() => {
+    'y': lat,
+    'x': lng,
+    'l': label,
+    'c': ?color,
+  };
+
+  factory CompanionPin.fromJson(Map<String, dynamic> j) => CompanionPin(
+    (j['y'] as num).toDouble(),
+    (j['x'] as num).toDouble(),
+    '${j['l']}',
+    color: j['c'] as int?,
+  );
+}
+
+/// A world map on the lower screen (street-picture games): tap to place a
+/// pin and send it with [pickAction], or show where everything was.
+class CompanionMap {
+  const CompanionMap({
+    required this.id,
+    this.pickAction,
+    this.pickLabel = 'Tipp abgeben',
+    this.pins = const [],
+    this.lineTo,
+  });
+
+  /// A new id starts a fresh map (own pin gone, view reset).
+  final String id;
+
+  /// Set: tapping places a pin, the button sends `<pickAction>:lat,lng`.
+  final String? pickAction;
+  final String pickLabel;
+  final List<CompanionPin> pins;
+
+  /// Index of the pin all others are joined to (the right answer).
+  final int? lineTo;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'pa': ?pickAction,
+    'pl': pickLabel,
+    if (pins.isNotEmpty) 'p': [for (final p in pins) p.toJson()],
+    'lt': ?lineTo,
+  };
+
+  factory CompanionMap.fromJson(Map<String, dynamic> j) => CompanionMap(
+    id: '${j['id']}',
+    pickAction: j['pa'] as String?,
+    pickLabel: j['pl'] as String? ?? 'Tipp abgeben',
+    pins: [
+      for (final p in j['p'] as List? ?? const [])
+        CompanionPin.fromJson((p as Map).cast<String, dynamic>()),
+    ],
+    lineTo: j['lt'] as int?,
+  );
+}
+
 /// A button on the lower screen.
 class CompanionButton {
   const CompanionButton(this.action, this.label, {this.color});
@@ -176,7 +241,11 @@ class CompanionPage {
     this.hint,
     this.chat = const [],
     this.replies = const [],
+    this.map,
   });
+
+  /// A world map filling the page (above table and buttons).
+  final CompanionMap? map;
 
   /// The latest chat lines of an online game ("Name: text").
   final List<String> chat;
@@ -207,6 +276,7 @@ class CompanionPage {
     statusColor: statusColor ?? this.statusColor,
     chat: chat ?? this.chat,
     replies: replies ?? this.replies,
+    map: map,
     table: table,
     grid: grid,
     buttonsTitle: buttonsTitle,
@@ -224,6 +294,7 @@ class CompanionPage {
     if (buttons.isNotEmpty) 'b': [for (final b in buttons) b.toJson()],
     'hi': ?hint,
     if (chat.isNotEmpty) 'ch': chat,
+    'mp': ?map?.toJson(),
     if (replies.isNotEmpty) 'rp': replies,
   };
 
@@ -244,6 +315,9 @@ class CompanionPage {
     ],
     hint: j['hi'] as String?,
     chat: [for (final l in j['ch'] as List? ?? const []) '$l'],
+    map: j['mp'] == null
+        ? null
+        : CompanionMap.fromJson((j['mp'] as Map).cast<String, dynamic>()),
     replies: [for (final r in j['rp'] as List? ?? const []) '$r'],
   );
 }

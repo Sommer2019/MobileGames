@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_games/core/gamepad.dart';
 import 'package:mobile_games/games/snake/snake_screen.dart';
+import 'package:mobile_games/ui/focus_highlight.dart';
 import 'package:mobile_games/ui/game_layout.dart';
 import 'package:mobile_games/ui/gamepad_cursor.dart';
 
@@ -147,5 +148,87 @@ void main() {
     expect(find.byKey(const ValueKey('snakePause')), findsOneWidget);
     await t.sendKeyEvent(LogicalKeyboardKey.gameButtonStart);
     await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a clear frame follows the D-pad focus, a touch hides it', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(854, 480);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    var tapped = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        builder: (c, child) => FocusHighlight(child: child!),
+        home: Scaffold(
+          body: Column(
+            children: [
+              TextButton(onPressed: () {}, child: const Text('Eins')),
+              TextButton(
+                key: const ValueKey('zwei'),
+                onPressed: () => tapped++,
+                child: const Text('Zwei'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final frame = find.byKey(const ValueKey('focusHighlight'));
+    expect(frame, findsNothing);
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 200));
+    expect(frame, findsOneWidget);
+    final first = t.getRect(frame);
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 200));
+    final second = t.getRect(frame);
+    expect(second.top, greaterThan(first.top));
+    expect(
+      second
+          .inflate(1)
+          .contains(t.getCenter(find.byKey(const ValueKey('zwei')))),
+      isTrue,
+    );
+    await t.tap(find.text('Eins'));
+    await t.pump();
+    expect(frame, findsNothing);
+    expect(tapped, 0);
+  });
+
+  testWidgets('the D-pad does not get stuck in a search field', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        builder: (c, child) => GamepadCursor(
+          sticks: const Stream.empty(),
+          onBack: () {},
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const TextField(key: ValueKey('search')),
+              TextButton(
+                key: const ValueKey('below'),
+                onPressed: () {},
+                child: const Text('Darunter'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.tap(find.byKey(const ValueKey('search')));
+    await t.pump();
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await t.pump();
+    final focused = FocusManager.instance.primaryFocus!.context!;
+    expect(
+      focused.findAncestorWidgetOfExactType<TextButton>()?.key ??
+          (focused.widget is TextButton ? focused.widget.key : null),
+      const ValueKey('below'),
+    );
   });
 }

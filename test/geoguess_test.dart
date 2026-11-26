@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:mobile_games/companion/companion_app.dart';
+import 'package:mobile_games/core/companion.dart';
 import 'package:mobile_games/core/leaderboard.dart';
 import 'package:mobile_games/games/geo/street_view.dart';
 import 'package:mobile_games/games/geoguess/geoguess_logic.dart';
@@ -304,5 +310,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('von 5000 Punkten'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dual screen: the map to guess on is the lower screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1708, 960);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final sent = <CompanionPage>[];
+    Companion.I.reset();
+    Companion.I.sendOverride = (j) async =>
+        sent.add(CompanionPage.fromJson(jsonDecode(j) as Map<String, dynamic>));
+    Companion.I.hasScreen.value = true;
+    Companion.I.active.value = true;
+    addTearDown(Companion.I.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GeoGuessScreen(
+          setup: const PlaySetup.local(players: 1),
+          sources: const [GeoSource.panoramax],
+          controller: FakePage(),
+          viewBuilder: () => const ColoredBox(color: Colors.grey),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('ggStart')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('ggStart')));
+    await tester.pumpAndSettle();
+    var page = sent.last;
+    expect(page.map!.pickAction, 'guess');
+    expect(page.title, contains('Runde 1/'));
+    // The button on top points below.
+    expect(find.text('Unten auf der Karte tippen'), findsOneWidget);
+
+    // A guess from below counts like one from the map on top.
+    Companion.I.action('guess:48.137,11.575');
+    await tester.pumpAndSettle();
+    final result = sent.last;
+    expect(result.map!.pins.first.label, 'Hier');
+    expect(result.map!.pins, hasLength(2));
+    expect(result.map!.lineTo, 0);
+    expect(result.table!.rows.single.cells.last, startsWith('+'));
+
+    // The lower screen: tap the map, then send the guess.
+    final actions = <String>[];
+    final pages = StreamController<CompanionPage>();
+    await tester.pumpWidget(
+      CompanionApp(pages: pages.stream, onAction: actions.add),
+    );
+    pages.add(page);
+    await tester.pump();
+    await tester.pump();
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('companionMap'))),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const ValueKey('companionMapPick')));
+    expect(actions.single, startsWith('guess:'));
+    final parts = actions.single.substring(6).split(',');
+    expect(double.parse(parts[0]).abs(), lessThan(85));
+    expect(double.parse(parts[1]).abs(), lessThanOrEqualTo(180));
   });
 }
