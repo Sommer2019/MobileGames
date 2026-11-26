@@ -155,8 +155,26 @@ class _GamepadCursorState extends State<GamepadCursor>
     );
   }
 
+  /// Up/down in a one-line text field (e.g. the game search) would only
+  /// move the caret to its start or end: the D-pad would be stuck there.
+  /// They move the focus on instead.
+  bool _leaveTextField(KeyEvent e) {
+    if (e is KeyUpEvent) return false;
+    final dir = switch (e.logicalKey) {
+      LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+      LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+      _ => null,
+    };
+    final node = FocusManager.instance.primaryFocus;
+    if (dir == null || node == null) return false;
+    final field = node.context?.findAncestorWidgetOfExactType<EditableText>();
+    if (field == null || field.maxLines != 1) return false;
+    return node.focusInDirection(dir);
+  }
+
   bool _onKey(KeyEvent e) {
     final k = e.logicalKey;
+    if (_leaveTextField(e)) return true;
     if (PadKeys.b.contains(k)) {
       if (e is KeyDownEvent) widget.onBack();
       return true;

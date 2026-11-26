@@ -31,7 +31,8 @@ ist und die zuletzt gespielten Spiele zum direkten Starten.
 🕹️ **Handhelds mit Controller** (z. B. AYN Thor, Odin, Retroid) und Querformat: Auf breiten
 Bildschirmen wandern Statuszeile, Punkte und Knöpfe in eine Seitenleiste, das Brett bekommt die
 volle Höhe; App-Leisten werden auf niedrigen Bildschirmen schmaler. Steuerung:
-**Steuerkreuz/linker Stick** wechselt zwischen Knöpfen, **A** drückt, **B** geht zurück.
+**Steuerkreuz/linker Stick** wechselt zwischen Knöpfen (ein gelber, leuchtender Rahmen zeigt,
+wo man ist; aus dem Suchfeld geht es mit hoch/runter wieder heraus), **A** drückt, **B** geht zurück.
 Der **rechte Stick** blendet einen Zeiger ein – **A** oder **R1** tippt dort, gedrückt halten
 zieht (Karten, Queue). Snake lenkt mit dem Steuerkreuz (A startet, Start pausiert),
 das Kugellabyrinth kippt per Stick/Steuerkreuz oder Bewegungssensor; Snake und Labyrinth

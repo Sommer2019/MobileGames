@@ -19,6 +19,7 @@ import 'core/secrets.dart';
 import 'core/services.dart';
 import 'core/sound.dart';
 import 'games/registry.dart';
+import 'ui/focus_highlight.dart';
 import 'ui/friends_screen.dart';
 import 'ui/game_layout.dart';
 import 'ui/gamepad_cursor.dart';
@@ -322,11 +323,13 @@ class _MobileGamesAppState extends State<MobileGamesApp> {
       ),
       builder: (context, child) => GamepadCursor(
         onBack: () => _navigator.currentState?.maybePop(),
-        child: Listener(
-          // Web (iOS Safari): motion sensors need a permission asked on a tap.
-          onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
-          child: SystemBarInsets(
-            child: CompactTheme(child: WatchersOverlay(child: child!)),
+        child: FocusHighlight(
+          child: Listener(
+            // Web (iOS Safari): motion sensors need a permission asked on a tap.
+            onPointerUp: kIsWeb ? (_) => requestMotionPermission() : null,
+            child: SystemBarInsets(
+              child: CompactTheme(child: WatchersOverlay(child: child!)),
+            ),
           ),
         ),
       ),
